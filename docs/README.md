@@ -39,16 +39,16 @@ A arquitetura será um monólito modular. IA não faz parte do MVP; uma porta de
 
 ## Equipe
 
-| Integrante | Função principal |
-|---|---|
-| Ricardo Severiano de Souza Filho | Coordenação e integração do projeto |
-| Júlia Oliveira Veríssimo | Produto e requisitos |
-| Diogo Silas Woolley do Carmo | UX/UI e Figma |
-| Thomaz Barros Costa | Frontend |
-| Bruno Sotomayor Martin | Backend e API |
-| Pedro Iranildo dos Santos Monteiro | Banco de dados e indicadores |
-| Luiz Henrique Rocha Silva | Qualidade e DevOps |
-| Eliziane Mota de Souza | Documentação e validação |
+| Integrante | Função principal | LinkedIn | GitHub |
+|---|---|---|---|
+| Ricardo Severiano de Souza Filho | Coordenação e integração do projeto | [Perfil](https://www.linkedin.com/in/ricardofilhodev/) | [@byteric](https://github.com/byteric) |
+| Júlia Oliveira Veríssimo | Produto e requisitos | — | — |
+| Diogo Silas Woolley do Carmo | UX/UI e Figma | [Perfil](https://linkedin.com/in/Diowoolley) | [@ildevdio](https://github.com/ildevdio) |
+| Thomaz Barros Costa | Frontend | — | — |
+| Bruno Sotomayor Martin | Backend e API | [Perfil](https://www.linkedin.com/in/bruno-sottomayor-martin) | [@brunosm26](https://github.com/brunosm26) |
+| Pedro Iranildo dos Santos Monteiro | Banco de dados e indicadores | [Perfil](https://www.linkedin.com/in/pedro-ism/) | [@devpedrois](https://github.com/devpedrois) |
+| Luiz Henrique Rocha Silva | Qualidade e DevOps | [Perfil](https://www.linkedin.com/in/luiz-henrique-rocha-silva-dev/) | [@Luizrocha0](https://github.com/Luizrocha0) |
+| Eliziane Mota de Souza | Documentação e validação | [Perfil](https://www.linkedin.com/in/eliziane-mota) | [@elizianemota](https://github.com/elizianemota) |
 
 ## Documentação
 
