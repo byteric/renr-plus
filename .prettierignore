@@ -1,0 +1,9 @@
+node_modules
+dist
+coverage
+pnpm-lock.yaml
+apps/api/src/generated
+playwright-report
+test-results
+docs/PRD.md
+docs/README.md

@@ -1,0 +1,20 @@
+packages:
+  - apps/*
+  - packages/*
+
+minimumReleaseAge: 1440
+
+# Scoped fixes for transitive Prisma CLI advisories; keep Prisma packages aligned.
+overrides:
+  '@prisma/config>deepmerge-ts': 8.0.0
+  'prisma>mysql2': 3.23.1
+
+allowBuilds:
+  '@parcel/watcher': true
+  '@prisma/engines': true
+  '@scarf/scarf': false
+  esbuild: true
+  prisma: true
+  unrs-resolver: true
+
+verifyDepsBeforeRun: error

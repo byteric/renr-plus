@@ -1,0 +1,49 @@
+{
+  "name": "renr-plus",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.25.0",
+  "engines": {
+    "node": ">=24.9.0 <25",
+    "pnpm": ">=11 <12"
+  },
+  "scripts": {
+    "setup:local": "node scripts/setup.mjs",
+    "dev": "pnpm --filter @renr/contracts build && concurrently --kill-others-on-fail --names contracts,api,web \"pnpm --filter @renr/contracts dev\" \"pnpm --filter @renr/api dev\" \"pnpm --filter @renr/web dev\"",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm --filter @renr/contracts build && pnpm -r typecheck",
+    "lint": "eslint . --max-warnings 0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "pnpm -r test",
+    "test:e2e": "playwright test",
+    "test:integration": "node scripts/run-db-tests.mjs",
+    "test:migrations": "node scripts/verify-migrations.mjs",
+    "check": "pnpm prisma:generate && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "prisma:generate": "pnpm --filter @renr/api prisma:generate",
+    "prisma:validate": "pnpm --filter @renr/api prisma:validate",
+    "db:migrate": "pnpm --filter @renr/api prisma:migrate",
+    "db:deploy": "pnpm --filter @renr/api prisma:deploy",
+    "db:seed": "node scripts/seed-demo.mjs",
+    "db:studio": "pnpm --filter @renr/api prisma:studio",
+    "infra:up": "node scripts/docker.mjs up",
+    "infra:down": "node scripts/docker.mjs down",
+    "infra:status": "node scripts/docker.mjs status",
+    "infra:verify": "node scripts/docker.mjs verify-storage",
+    "infra:logs": "node scripts/docker.mjs logs"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.63.0",
+    "@types/node": "^24.0.0",
+    "concurrently": "10.0.5",
+    "dotenv": "18.0.5",
+    "eslint": "10.11.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "eslint-plugin-react-refresh": "0.5.7",
+    "pnpm": "11.25.0",
+    "prettier": "3.9.9",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.71.0"
+  }
+}
