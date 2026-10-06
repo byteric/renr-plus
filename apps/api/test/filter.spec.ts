@@ -1,9 +1,45 @@
 import { type ArgumentsHost, BadRequestException, Logger } from '@nestjs/common';
 import { apiErrorSchema } from '@renr/contracts';
 import { ApiExceptionFilter } from '../src/http/api-exception.filter';
+import { Prisma } from '../src/generated/prisma/client';
 
 describe('ApiExceptionFilter', () => {
   it.each([
+    ...['P1001', 'P1002', 'P1008', 'P1017', 'P2024'].map((errorCode) => ({
+      exception: new Prisma.PrismaClientKnownRequestError('private database diagnostic', {
+        code: errorCode,
+        clientVersion: '7.10.0',
+        meta: { diagnostic: 'private connection details' },
+      }),
+      statusCode: 503,
+      code: 'SERVICE_UNAVAILABLE',
+    })),
+    {
+      exception: new Prisma.PrismaClientInitializationError(
+        'private initialization diagnostic',
+        '7.10.0',
+        'P1001',
+      ),
+      statusCode: 503,
+      code: 'SERVICE_UNAVAILABLE',
+    },
+    {
+      exception: new Prisma.PrismaClientKnownRequestError('private constraint diagnostic', {
+        code: 'P2002',
+        clientVersion: '7.10.0',
+      }),
+      statusCode: 500,
+      code: 'INTERNAL_SERVER_ERROR',
+    },
+    {
+      exception: new Prisma.PrismaClientInitializationError(
+        'private invalid credentials',
+        '7.10.0',
+        'P1000',
+      ),
+      statusCode: 500,
+      code: 'INTERNAL_SERVER_ERROR',
+    },
     {
       exception: new Error('private stack and secret'),
       statusCode: 500,

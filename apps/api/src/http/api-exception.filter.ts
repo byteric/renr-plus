@@ -10,6 +10,16 @@ import type { ApiError } from '@renr/contracts';
 import { randomUUID } from 'node:crypto';
 import type { Response } from 'express';
 import { z } from 'zod';
+import { Prisma } from '../generated/prisma/client';
+
+const unavailableDatabaseCodes = new Set(['P1001', 'P1002', 'P1008', 'P1017', 'P2024']);
+function isDatabaseUnavailable(exception: unknown): boolean {
+  if (exception instanceof Prisma.PrismaClientKnownRequestError)
+    return unavailableDatabaseCodes.has(exception.code);
+  if (exception instanceof Prisma.PrismaClientInitializationError)
+    return unavailableDatabaseCodes.has(exception.errorCode ?? '');
+  return false;
+}
 
 const publicErrors: Record<number, { code: string; message: string }> = {
   400: { code: 'BAD_REQUEST', message: 'Invalid request' },
@@ -31,7 +41,11 @@ export class ApiExceptionFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost): void {
     const response = host.switchToHttp().getResponse<Response>();
     const statusCode =
-      exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
+      exception instanceof HttpException
+        ? exception.getStatus()
+        : isDatabaseUnavailable(exception)
+          ? HttpStatus.SERVICE_UNAVAILABLE
+          : HttpStatus.INTERNAL_SERVER_ERROR;
     const requestId =
       typeof response.locals.requestId === 'string' ? response.locals.requestId : randomUUID();
     const error = publicErrors[statusCode] ?? {

@@ -14,6 +14,7 @@ import { configureApplication } from '../src/app.factory';
 import { parseEnvironment } from '../src/config/env';
 import { PrismaService } from '../src/database/prisma.service';
 import { hashPassword } from '../src/modules/identity/password';
+import { localDatabaseUrl } from './local-database-url';
 
 const describeDatabase = process.env.RUN_DB_TESTS === '1' ? describe : describe.skip;
 function cookieHeader(response: request.Response): string {
@@ -28,9 +29,7 @@ describeDatabase('v0.1 HTTP with PostgreSQL', () => {
     S3_ACCESS_KEY: 'synthetic',
     S3_SECRET_KEY: 'synthetic',
   });
-  const databaseUrl = new URL(environment.DATABASE_URL);
-  if (!['127.0.0.1', 'localhost', '[::1]'].includes(databaseUrl.hostname))
-    throw new Error('Integration tests require local PostgreSQL');
+  localDatabaseUrl(environment.DATABASE_URL);
   const origin = environment.CORS_ORIGIN;
   const prefix = randomUUID();
   const email = `${prefix}@renr.example`;
