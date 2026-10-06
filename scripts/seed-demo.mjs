@@ -2,6 +2,7 @@ import { createRequire } from 'node:module';
 import { randomBytes, scrypt } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { localSeedUrl } from './local-seed-url.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const requireApi = createRequire(path.join(root, 'apps/api/package.json'));
@@ -10,13 +11,7 @@ const { PrismaPg } = requireApi('@prisma/adapter-pg');
 const { PrismaClient } = requireApi('./dist/generated/prisma/client.js');
 config({ path: path.join(root, 'apps/api/.env'), quiet: true });
 
-const url = new URL(process.env.DATABASE_URL ?? '');
-if (
-  process.env.NODE_ENV !== 'development' ||
-  !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname) ||
-  !['postgres:', 'postgresql:'].includes(url.protocol)
-)
-  throw new Error('Demo seed requires a local development PostgreSQL database');
+const url = localSeedUrl(process.env.DATABASE_URL ?? '', process.env.NODE_ENV);
 const password = process.env.DEMO_PASSWORD;
 if (!password || password.length < 16 || password.length > 256)
   throw new Error('DEMO_PASSWORD must contain 16–256 characters');
