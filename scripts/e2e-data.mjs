@@ -2,6 +2,7 @@ import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { readFileSync } from 'node:fs';
 import { parse } from 'dotenv';
+import { localDatabaseUrl } from './local-database-url.mjs';
 
 // Playwright loads its test helpers through CommonJS; resolve from the project cwd.
 const apiDirectory = resolve('apps/api');
@@ -25,10 +26,7 @@ export async function cleanupTestOrganization(id, expectedName) {
     ...parse(readFileSync(resolve(apiDirectory, '.env'), 'utf8')),
     ...process.env,
   };
-  const database = new URL(environment.DATABASE_URL);
-  if (!['localhost', '127.0.0.1', '[::1]'].includes(database.hostname)) {
-    throw new Error('Limpeza E2E permitida somente no banco local.');
-  }
+  const database = localDatabaseUrl(environment.DATABASE_URL);
   const { PrismaPg } = apiRequire('@prisma/adapter-pg');
   const { PrismaClient } = apiRequire('./dist/generated/prisma/client.js');
   const client = new PrismaClient({

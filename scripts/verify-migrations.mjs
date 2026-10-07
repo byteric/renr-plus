@@ -5,6 +5,7 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import { parse } from 'dotenv';
+import { localDatabaseUrl } from './local-database-url.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const environment = {
@@ -12,12 +13,7 @@ const environment = {
   ...process.env,
   NODE_ENV: 'development',
 };
-const configured = new URL(environment.DATABASE_URL);
-if (
-  !['localhost', '127.0.0.1', '[::1]'].includes(configured.hostname) ||
-  !['postgres:', 'postgresql:'].includes(configured.protocol)
-)
-  throw new Error('Verificação de migrações permitida somente em PostgreSQL local.');
+const configured = localDatabaseUrl(environment.DATABASE_URL);
 
 const name = `renr_verify_${randomUUID().replaceAll('-', '')}`;
 if (!/^renr_verify_[a-f0-9]{32}$/.test(name)) throw new Error('Nome temporário inválido.');
