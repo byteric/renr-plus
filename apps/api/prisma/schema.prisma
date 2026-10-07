@@ -105,4 +105,3 @@ model AuditEvent {
   @@index([organizationId, createdAt])
   @@map("audit_events")
 }
-
