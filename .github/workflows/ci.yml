@@ -1,0 +1,53 @@
+name: Qualidade
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+        env:
+          POSTGRES_USER: renr
+          POSTGRES_PASSWORD: renr_ci_only
+          POSTGRES_DB: renr_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U renr -d renr_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://renr:renr_ci_only@127.0.0.1:5432/renr_test?schema=public
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.25.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm setup:local
+      - run: pnpm check
+      - run: pnpm format:check
+      - run: pnpm db:deploy
+      - run: pnpm db:seed
+      - run: pnpm test:integration
+      - run: pnpm test:migrations
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: resultados-e2e
+          path: test-results/
+          retention-days: 7

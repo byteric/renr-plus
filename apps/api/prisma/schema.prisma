@@ -1,0 +1,107 @@
+generator client {
+  provider = "prisma-client"
+  output = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Organization {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @db.VarChar(160)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  fiscalIdentifier String? @map("fiscal_identifier") @db.VarChar(32)
+  timezone String @default("America/Sao_Paulo")
+  isActive Boolean @default(true) @map("is_active")
+  memberships Membership[]
+  units Unit[]
+  sectors Sector[]
+
+  @@map("organizations")
+}
+
+enum Role {
+  ADMIN
+  READER
+}
+
+model User {
+  id String @id @default(uuid()) @db.Uuid
+  name String @db.VarChar(120)
+  email String @unique @db.VarChar(254)
+  passwordHash String @map("password_hash")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  memberships Membership[]
+  sessions Session[]
+  @@map("users")
+}
+
+model Membership {
+  userId String @map("user_id") @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  role Role
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  @@id([userId, organizationId])
+  @@index([organizationId])
+  @@map("memberships")
+}
+
+model Session {
+  id String @id @default(uuid()) @db.Uuid
+  tokenHash String @unique @map("token_hash")
+  userId String @map("user_id") @db.Uuid
+  activeOrganizationId String? @map("active_organization_id") @db.Uuid
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model Unit {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  name String @db.VarChar(120)
+  normalizedName String @map("normalized_name") @db.VarChar(120)
+  code String? @db.VarChar(32)
+  isActive Boolean @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  organization Organization @relation(fields: [organizationId], references: [id])
+  sectors Sector[]
+  @@unique([organizationId, normalizedName])
+  @@map("units")
+}
+
+model Sector {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  unitId String @map("unit_id") @db.Uuid
+  name String @db.VarChar(120)
+  normalizedName String @map("normalized_name") @db.VarChar(120)
+  isActive Boolean @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  organization Organization @relation(fields: [organizationId], references: [id])
+  unit Unit @relation(fields: [unitId], references: [id])
+  @@unique([unitId, normalizedName])
+  @@index([organizationId])
+  @@map("sectors")
+}
+
+model AuditEvent {
+  id String @id @default(uuid()) @db.Uuid
+  actorId String? @map("actor_id") @db.Uuid
+  organizationId String? @map("organization_id") @db.Uuid
+  action String @db.VarChar(80)
+  resourceId String? @map("resource_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  @@index([organizationId, createdAt])
+  @@map("audit_events")
+}
