@@ -10,7 +10,7 @@ O MVP conectará, em um único histórico rastreável:
 
 ## Estado do projeto
 
-O projeto está na fase de definição e validação do MVP. A implementação de código ainda não foi iniciada neste repositório.
+O incremento v0.1 implementa login, sessão e cadastros de empresas, unidades e setores, com API integrada e persistência no PostgreSQL. Diagnósticos, inventário, ações, evidências e indicadores permanecem nos próximos incrementos; a v0.1 não é o MVP completo. Consulte o [guia de execução](../README.md) e o [escopo e roteiro da v0.1](IMPLEMENTACAO_V01.md).
 
 ## Escopo do MVP
 
@@ -26,7 +26,7 @@ O projeto está na fase de definição e validação do MVP. A implementação d
 
 Ficam fora do MVP: diagnóstico clínico, prontuário, exposição de respostas individuais, IA decisória, aplicativo nativo, integrações corporativas e certificação automática de conformidade.
 
-## Stack planejada
+## Stack escolhida
 
 - Frontend: React, TypeScript, Vite, Tailwind CSS e shadcn/ui.
 - Backend: NestJS com TypeScript, API REST versionada e OpenAPI.
@@ -35,7 +35,7 @@ Ficam fora do MVP: diagnóstico clínico, prontuário, exposição de respostas 
 - Testes: Vitest, React Testing Library, Jest, Supertest e Playwright.
 - Ambiente: Docker Compose, GitHub e GitHub Actions.
 
-A arquitetura será um monólito modular. IA não faz parte do MVP; uma porta de integração desacoplada poderá ser adicionada posteriormente sem tornar o fluxo manual dependente dela.
+A arquitetura é um monólito modular. IA não faz parte do MVP; uma porta de integração desacoplada poderá ser adicionada posteriormente sem tornar o fluxo manual dependente dela.
 
 ## Equipe
 
@@ -53,6 +53,7 @@ A arquitetura será um monólito modular. IA não faz parte do MVP; uma porta de
 ## Documentação
 
 - [PRD do MVP](PRD.md)
+- [Incremento v0.1 e roteiro de demonstração](IMPLEMENTACAO_V01.md)
 
 ## Governança do repositório
 
