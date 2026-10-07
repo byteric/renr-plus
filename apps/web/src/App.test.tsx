@@ -124,6 +124,35 @@ async function enter() {
   return user;
 }
 describe('acesso e estrutura organizacional', () => {
+  it.each([
+    { route: '/unidades', heading: 'Unidades', create: 'Nova unidade', field: 'Nome da unidade' },
+    {
+      route: `/setores/${unitId}`,
+      heading: 'Setores',
+      create: 'Novo setor',
+      field: 'Nome do setor',
+    },
+  ])('preserva a rota e o rascunho de $heading ao ir para o conteúdo', async (scenario) => {
+    authenticated = true;
+    window.location.hash = scenario.route;
+    render(<App />);
+    const user = userEvent.setup();
+    await screen.findByRole('heading', { name: scenario.heading, level: 1 });
+    await user.click(screen.getByRole('button', { name: scenario.create }));
+    await user.type(screen.getByLabelText(scenario.field), 'Rascunho não salvo');
+    const content = screen.getByRole('main');
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(content, 'scrollIntoView', { value: scrollIntoView });
+    screen.getByRole('link', { name: 'Ir para conteúdo' }).focus();
+
+    await user.keyboard('{Enter}');
+
+    expect(window.location.hash).toBe(`#${scenario.route}`);
+    expect(content).toHaveFocus();
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start' });
+    expect(screen.getByLabelText(scenario.field)).toHaveValue('Rascunho não salvo');
+    expect(screen.getByRole('heading', { name: scenario.heading, level: 1 })).toBeInTheDocument();
+  });
   it('permite reativar uma empresa inativa depois de trabalhar em outra empresa', async () => {
     const companyA = { ...organization, name: 'Empresa A' };
     const companyB = {
