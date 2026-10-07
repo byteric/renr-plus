@@ -1,6 +1,6 @@
 # ReNR+ — incremento v0.1
 
-Referência: 04/10/2026. Revisão planejada: 08/10/2026.
+Referência: 04/10/2026. Atualização: 07/10/2026. Revisão planejada: 08/10/2026.
 
 ## Objetivo e recorte
 
@@ -99,17 +99,24 @@ pnpm audit --prod
 Testes incluem persistência após recarga, entradas inválidas, duplicidade,
 autorização ADMIN/READER, isolamento entre empresas, origem externa, logout,
 falha de gravação com preservação do texto e navegação desktop/mobile.
-O workflow de CI reproduz build, testes e migrações em PostgreSQL de teste;
-a execução remota só poderá ser confirmada após publicação autorizada.
+O workflow de CI reproduz build, testes e migrações em PostgreSQL de teste.
+A composição publicada em `integracao/v01` passou na
+[execução remota de qualidade](https://github.com/byteric/renr-plus/actions/runs/37670562273),
+verificada em 07/10/2026, após incorporar as contribuições e correções de revisão.
 
-Resultados verificados em 04/10/2026:
+Resultados da CI da integração verificados em 07/10/2026:
 
-- 40 testes unitários/contratos: 24 API, 10 interface e 6 contratos.
+- 71 testes de código: 15 de scripts, 6 de contratos, 38 da API e 12 da interface.
 - 10 testes de integração com PostgreSQL real.
 - 16 testes de navegador: 8 cenários em desktop e mobile.
-- Tipos, lint, formatação, build e validação Prisma aprovados.
-- Auditoria de dependências de produção sem vulnerabilidades conhecidas após
-  correções transitivas restritas ao Prisma CLI. Isso não garante segurança absoluta.
+- Tipos, lint, formatação, build e geração do cliente Prisma aprovados.
+- Instalação com lockfile congelado, migrações em banco vazio e repetição de deploy/seed
+  aprovadas. Os 10 testes de banco são executados separadamente dos 71 testes de código.
+
+Verificações locais de 04/10/2026: schema Prisma e armazenamento MinIO aprovados;
+auditoria de dependências de produção sem vulnerabilidades conhecidas após correções
+transitivas restritas ao Prisma CLI. Essas verificações não são etapas da CI descrita
+acima e não garantem segurança absoluta nem homologação de produção.
 
 Também é verificada a aplicação de migrações em um banco local inicialmente vazio,
 repetindo deploy e seed para conferir idempotência. A base temporária criada por essa
