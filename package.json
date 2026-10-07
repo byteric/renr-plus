@@ -15,7 +15,7 @@
     "lint": "eslint . --max-warnings 0",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "node --test scripts/local-seed-url.test.mjs && pnpm -r test",
+    "test": "node --test scripts/local-seed-url.test.mjs scripts/local-database-url.test.mjs && pnpm -r test",
     "test:e2e": "playwright test",
     "test:integration": "node scripts/run-db-tests.mjs",
     "test:migrations": "node scripts/verify-migrations.mjs",
