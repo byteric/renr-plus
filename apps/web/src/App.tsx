@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { loginSchema, sessionResponseSchema, type SessionResponse } from '@renr/contracts';
 import { Button } from './components/ui/button';
 import { getHealth, request, RequestError, send } from './lib/api';
@@ -161,6 +161,7 @@ function Login({
   );
 }
 export function App() {
+  const contentRef = useRef<HTMLElement>(null);
   const [theme, setTheme] = useState<Theme>(initialTheme);
   const [session, setSession] = useState<SessionResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -228,7 +229,15 @@ export function App() {
   }
   return (
     <div className="app-shell">
-      <a className="skip-link" href="#conteudo">
+      <a
+        className="skip-link"
+        href="#conteudo"
+        onClick={(event) => {
+          event.preventDefault();
+          contentRef.current?.focus({ preventScroll: true });
+          contentRef.current?.scrollIntoView({ block: 'start' });
+        }}
+      >
         Ir para conteúdo
       </a>
       <header className="site-header">
@@ -250,7 +259,7 @@ export function App() {
           )}
         </div>
       </header>
-      <main id="conteudo" tabIndex={-1}>
+      <main id="conteudo" ref={contentRef} tabIndex={-1}>
         {loading ? (
           <p role="status" className="surface">
             Verificando seu acesso…
