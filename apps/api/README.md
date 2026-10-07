@@ -4,10 +4,21 @@ NestJS API for cookie sessions and organizational structure. This is the v0.1
 scope: identity, organizations, units, sectors and basic transactional audit.
 Diagnostics, risk assessments and the complete MVP remain outside this release.
 
-Run the repository setup command to prepare local environment files, then use
-`pnpm --filter @renr/api prisma:generate` before build/typecheck/tests.
-`pnpm --filter @renr/api dev` starts watch mode; `build` produces
-`dist/main.js` and `start` runs the compiled application.
+After installing workspace dependencies, run these commands from the repository
+root to start the API on its own:
+
+```sh
+pnpm setup:local
+pnpm --filter @renr/contracts build
+pnpm --filter @renr/api prisma:generate
+pnpm --filter @renr/api dev
+```
+
+The shared contracts must be built before standalone API build/typecheck/tests
+because the package exports generated files from `dist`. Rebuild them after
+changing contracts; root `pnpm dev` builds them and keeps them in watch mode.
+The API `dev` command starts watch mode; `build` produces `dist/main.js` and
+`start` runs the compiled application.
 
 The API starts without Docker or PostgreSQL. GET /api/v1/health checks only process
 liveness. GET /api/v1/ready executes SELECT 1 and responds with 503 when PostgreSQL
