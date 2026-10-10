@@ -6,6 +6,7 @@ import { AppModule } from './app.module';
 import type { Environment } from './config/env';
 import { ApiExceptionFilter } from './http/api-exception.filter';
 import { requestIdMiddleware } from './http/request-id';
+import { configureWebServing } from './http/serve-web';
 
 export function configureApplication(app: INestApplication, environment: Environment): void {
   app.setGlobalPrefix('api/v1');
@@ -17,6 +18,9 @@ export function configureApplication(app: INestApplication, environment: Environ
   );
   app.useGlobalFilters(new ApiExceptionFilter());
   app.enableShutdownHooks();
+  if (environment.SERVE_WEB) {
+    configureWebServing(app, environment);
+  }
 
   if (environment.NODE_ENV !== 'production') {
     const config = new DocumentBuilder()
