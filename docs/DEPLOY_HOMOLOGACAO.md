@@ -1,10 +1,27 @@
 # Publicar a homologação ReNR+ com orçamento zero
 
-## Estado desta preparação
+## Estado da homologação
 
-Esta rodada reúne a preparação de publicação e o painel organizacional da v0.2, sem substituir a stack.
-O código deve ser revisado e integrado antes da publicação. A criação do serviço Render
-inicia o primeiro deploy, mesmo com atualizações automáticas desativadas.
+Esta rodada reúne a publicação e o painel organizacional da v0.2, sem substituir a stack.
+A homologação foi publicada em **12/10/2026**, após revisão e CI aprovada na
+[PR #21](https://github.com/byteric/renr-plus/pull/21).
+
+- Aplicação: <https://renr-plus-homologation.onrender.com>.
+- Serviço Render: `renr-plus-homologation`, plano **Free**, região **Ohio**, sem cartão cadastrado.
+- Branch publicada: `integracao/deploy-v01`; código do deploy verificado: `5e39aeb`.
+- Atualizações automáticas e previews desativados; health check em `/api/v1/health`.
+- A `main` continua protegida e não foi alterada por esta publicação.
+
+Os oito checks públicos passaram: liveness, prontidão do PostgreSQL, HTML da interface,
+erro JSON para API inexistente, dois endpoints protegidos sem sessão e bloqueio de arquivos
+privados e Swagger. Doze checks autenticados também passaram, cobrindo cookies protegidos,
+sessão, empresas, painel, unidades, isolamento entre empresas, permissões de leitor,
+rejeição de origem indevida e logout. Nenhum cadastro de negócio foi alterado nessa verificação.
+O painel e os temas foram conferidos no navegador; no tamanho de celular não houve rolagem horizontal.
+
+Na primeira checagem, a prontidão retornou 503; na repetição retornou 200.
+Se esse comportamento reaparecer, revisar a disponibilidade do banco antes de apresentar.
+Estas são verificações de homologação, não certificação de conformidade ou teste de carga.
 
 O projeto **ReNR+ — Homologação** foi criado no Neon, plano **Free**, PostgreSQL 17,
 região AWS Ohio. O banco é `renr_homologation`. IA, Auth, Functions e armazenamento
@@ -108,7 +125,7 @@ Substituir a origem abaixo pela origem real do serviço, sem caminho ou barra fi
 node scripts/check-hosted.mjs https://renr-plus-homologation.onrender.com
 ```
 
-Esse endereço é um exemplo, não uma publicação já disponível. O script recusa HTTP,
+Esse é o endereço real da homologação. O script recusa HTTP,
 origens fora de `onrender.com` e URLs com credenciais. Não envia senhas nem autentica;
 confere liveness, PostgreSQL, HTML, API inexistente, endpoints protegidos e arquivos privados.
 Se o primeiro acesso falhar por suspensão do plano gratuito, aguardar o serviço iniciar e repetir.
