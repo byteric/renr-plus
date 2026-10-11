@@ -127,6 +127,13 @@ banco e preserva a base de desenvolvimento.
 Para novas dependências, atualizar o lockfile usando pnpm. Não editar o lockfile à mão.
 Não publicar `.env`, dados pessoais, respostas reais de colaboradores ou credenciais.
 
+## Homologação online
+
+A preparação para Render Free e Neon Free está documentada em
+[publicar a homologação](docs/DEPLOY_HOMOLOGACAO.md). React e API usam a mesma origem;
+armazenamento de anexos permanece desativado na v0.1. O primeiro deploy e os commits
+exigem autorização de Ricardo. Nenhuma credencial online faz parte do repositório.
+
 ## Equipe e contribuição
 
 Consulte [equipe, perfis e branches](docs/README.md#equipe) e [PRD](docs/PRD.md).

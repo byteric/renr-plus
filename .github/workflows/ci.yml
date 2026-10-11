@@ -37,6 +37,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm setup:local
+      - run: node --test scripts/start-production.test.mjs scripts/homologation-config.test.mjs scripts/homologation-data.test.mjs scripts/prisma-datasource.test.mjs scripts/check-hosted.test.mjs
       - run: pnpm check
       - run: pnpm format:check
       - run: pnpm db:deploy
