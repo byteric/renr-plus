@@ -5,14 +5,22 @@ relacionados ao trabalho, no Programa de Residência Tecnológica do Porto Digit
 
 ## Estado atual
 
-**Incremento v0.1:** login, sessão, criação/consulta/edição/inativação de empresas,
+**Incremento v0.2, em homologação online desde 12/10/2026:** painel organizacional com contagens reais
+de unidades e setores ativos/inativos e unidades sem setores.
+Veja [recorte e critérios da v0.2](docs/IMPLEMENTACAO_V02.md).
+
+[Acessar a homologação ReNR+](https://renr-plus-homologation.onrender.com).
+O ambiente usa somente dados sintéticos e requer acesso autorizado. O primeiro acesso
+após inatividade pode demorar enquanto o serviço gratuito inicia.
+
+**Base v0.1:** login, sessão, criação/consulta/edição/inativação de empresas,
 unidades e setores, com frontend integrado à API e persistência no PostgreSQL.
 Administrador altera cadastros; leitor consulta. A autorização limita cada operação
 ao contexto de empresa permitido. A interface adapta-se a desktop e celular e oferece
 modos claro e escuro.
 
 Este é o recorte planejado para revisão em **08/10/2026**, não o MVP completo.
-Diagnósticos, colaboradores, inventário, planos de ação, evidências e indicadores
+Diagnósticos, colaboradores, inventário, planos de ação, evidências e indicadores de riscos
 ainda não têm fluxos implementados. Veja [entrega e demonstração da v0.1](docs/IMPLEMENTACAO_V01.md).
 
 ReNR+ não realiza diagnóstico clínico nem certifica automaticamente conformidade legal.
@@ -97,8 +105,8 @@ scripts/               Preparação segura do ambiente
 docs/                  Documentação do produto e equipe
 ```
 
-Identidade, estrutura organizacional e auditoria básica estão implementadas.
-Diagnósticos, riscos, ações, evidências e relatórios são somente pontos de organização
+Identidade, estrutura organizacional, painel de cadastros e auditoria básica possuem implementação.
+Diagnósticos, riscos, ações, evidências e relatórios de prevenção são somente pontos de organização
 para os próximos incrementos.
 
 ## Qualidade
@@ -127,10 +135,21 @@ banco e preserva a base de desenvolvimento.
 Para novas dependências, atualizar o lockfile usando pnpm. Não editar o lockfile à mão.
 Não publicar `.env`, dados pessoais, respostas reais de colaboradores ou credenciais.
 
+## Homologação online
+
+O serviço [ReNR+ em homologação](https://renr-plus-homologation.onrender.com) executa no
+Render Free, com banco persistente no Neon Free, sem depender do computador de desenvolvimento.
+React e API usam a mesma origem; armazenamento de anexos permanece desativado.
+Veja [publicação, verificações e limites](docs/DEPLOY_HOMOLOGACAO.md).
+Novos commits e publicações exigem autorização de Ricardo. Atualizações automáticas
+estão desativadas, e nenhuma credencial online faz parte do repositório.
+
 ## Equipe e contribuição
 
 Consulte [equipe, perfis e branches](docs/README.md#equipe) e [PRD](docs/PRD.md).
 Ricardo coordena a integração; Thomaz/Diogo cuidam de frontend/UX, Bruno de backend,
 Pedro de dados, Luiz de qualidade/ambiente, Júlia de requisitos e Eliziane de documentação.
 Cada integrante trabalha na sua branch e submete pull request para revisão de `@Byteric`.
+O [fluxo de contribuição](docs/FLUXO_CONTRIBUICAO.md) orienta pacotes individuais e
+integrações com coautoria. Não reaplicar arquivos que já estejam na branch de destino.
 Commits e publicação dependem de autorização de Ricardo. Licença do projeto: a definir.
