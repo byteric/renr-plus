@@ -2,9 +2,9 @@
 
 ## Estado desta preparação
 
-Esta rodada adapta a v0.1 para publicação, sem alterar os cadastros ou substituir a stack.
-O código está preparado para revisão; não há commit, push ou publicação desta rodada.
-O serviço Render não foi criado: sua criação pode iniciar o primeiro deploy, mesmo com atualizações automáticas desativadas.
+Esta rodada reúne a preparação de publicação e o painel organizacional da v0.2, sem substituir a stack.
+O código deve ser revisado e integrado antes da publicação. A criação do serviço Render
+inicia o primeiro deploy, mesmo com atualizações automáticas desativadas.
 
 O projeto **ReNR+ — Homologação** foi criado no Neon, plano **Free**, PostgreSQL 17,
 região AWS Ohio. O banco é `renr_homologation`. IA, Auth, Functions e armazenamento
@@ -20,6 +20,8 @@ do Neon não foram ativados. A autenticação existente continua pertencendo à 
 
 O serviço público será um único container: React compilado e API NestJS na mesma origem.
 Não usar `pnpm dev`, `vite preview`, MinIO local ou armazenamento efêmero do container para arquivos permanentes.
+Depois de publicado, o código executa no Render e os dados persistem no Neon, inclusive com o PC de desenvolvimento desligado.
+Não é necessário instalar o projeto nos dispositivos da mentoria: basta o link HTTPS e um acesso autorizado.
 
 ## Preparar o banco
 
@@ -72,11 +74,11 @@ evitam publicação automática de novos commits; não impedem o primeiro deploy
 
 Após a autorização para publicar e depois do merge dos pacotes:
 
-1. Criar o serviço Docker a partir de `https://github.com/byteric/renr-plus`, branch `main`.
+1. Criar o serviço Docker a partir de `https://github.com/byteric/renr-plus`, branch `integracao/deploy-v01` para a homologação revisada. A `main` permanece protegida e recebe a versão por PR aprovada.
 2. Selecionar plano **Free**, região **Ohio**, contexto `.`, Dockerfile `./Dockerfile`.
 3. Desativar atualizações automáticas. Não instalar integrações com acesso a outros repositórios.
 4. Preencher `DATABASE_URL` e `DATABASE_URL_UNPOOLED` com as conexões privadas do Neon.
-5. Preencher `CORS_ORIGIN` com a origem HTTPS exata atribuída ao serviço, sem barra final ou caminho.
+5. O primeiro deploy pode derivar a origem HTTPS de `RENDER_EXTERNAL_URL`, fornecida pelo Render. Depois, preencher `CORS_ORIGIN` com a origem HTTPS exata do serviço, sem barra final ou caminho.
 6. Confirmar os valores da tabela abaixo antes de iniciar o deploy.
 
 | Variável                | Valor                                             |
@@ -94,17 +96,34 @@ Após a autorização para publicar e depois do merge dos pacotes:
 
 Não preencher credenciais S3 falsas. Ao implementar anexos, ativar armazenamento
 durável privado e revisar os custos antes de habilitar `STORAGE_ENABLED`.
+O fallback de origem só funciona com `RENDER=true` e uma origem HTTPS oficial `onrender.com`.
+Uma origem explícita sempre prevalece. Ausência, HTTP, caminho ou URL inválida impedem o início do serviço.
+Depois da aprovação e integração na `main`, apontar o serviço para ela antes de remover a branch temporária.
 
 ## Conferir o link antes de entregar
+
+Substituir a origem abaixo pela origem real do serviço, sem caminho ou barra final:
+
+```bash
+node scripts/check-hosted.mjs https://renr-plus-homologation.onrender.com
+```
+
+Esse endereço é um exemplo, não uma publicação já disponível. O script recusa HTTP,
+origens fora de `onrender.com` e URLs com credenciais. Não envia senhas nem autentica;
+confere liveness, PostgreSQL, HTML, API inexistente, endpoints protegidos e arquivos privados.
+Se o primeiro acesso falhar por suspensão do plano gratuito, aguardar o serviço iniciar e repetir.
+Qualquer saída `FALHOU` impede a liberação do link até revisão.
 
 - A página inicial e uma rota da interface recarregam sem o servidor Vite.
 - `/api/v1/health` retorna 200; `/api/v1/ready` retorna 200 com PostgreSQL acessível.
 - Um endpoint inexistente em `/api/v1` retorna erro JSON, nunca o HTML da interface.
 - Login, logout e cadastros funcionam em navegador desktop e mobile pelo HTTPS.
+- O painel representa a empresa selecionada, permite nova tentativa e não recupera dados de outras empresas.
 - Administrador pode alterar cadastros; leitor não pode. Empresas não acessam dados umas das outras.
 - Cookie de sessão é `HttpOnly` e `Secure`; origem não autorizada recebe rejeição.
 - `/api/docs`, arquivos ocultos e credenciais não ficam disponíveis publicamente.
 - O serviço continua acessível depois de um reinício, com dados preservados no Neon.
+- A demonstração funciona em outro dispositivo, com o computador de desenvolvimento desligado.
 
 O limite de tentativas de login permanece em memória e o proxy não é confiado
 automaticamente. Em uma demonstração pequena, acessos podem compartilhar esse limite.

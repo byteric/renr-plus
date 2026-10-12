@@ -5,14 +5,18 @@ relacionados ao trabalho, no Programa de Residência Tecnológica do Porto Digit
 
 ## Estado atual
 
-**Incremento v0.1:** login, sessão, criação/consulta/edição/inativação de empresas,
+**Incremento v0.2, preparado para integração:** painel organizacional com contagens reais
+de unidades e setores ativos/inativos, unidades sem setores e preparação de homologação online.
+Veja [recorte e critérios da v0.2](docs/IMPLEMENTACAO_V02.md).
+
+**Base v0.1:** login, sessão, criação/consulta/edição/inativação de empresas,
 unidades e setores, com frontend integrado à API e persistência no PostgreSQL.
 Administrador altera cadastros; leitor consulta. A autorização limita cada operação
 ao contexto de empresa permitido. A interface adapta-se a desktop e celular e oferece
 modos claro e escuro.
 
 Este é o recorte planejado para revisão em **08/10/2026**, não o MVP completo.
-Diagnósticos, colaboradores, inventário, planos de ação, evidências e indicadores
+Diagnósticos, colaboradores, inventário, planos de ação, evidências e indicadores de riscos
 ainda não têm fluxos implementados. Veja [entrega e demonstração da v0.1](docs/IMPLEMENTACAO_V01.md).
 
 ReNR+ não realiza diagnóstico clínico nem certifica automaticamente conformidade legal.
@@ -97,8 +101,8 @@ scripts/               Preparação segura do ambiente
 docs/                  Documentação do produto e equipe
 ```
 
-Identidade, estrutura organizacional e auditoria básica estão implementadas.
-Diagnósticos, riscos, ações, evidências e relatórios são somente pontos de organização
+Identidade, estrutura organizacional, painel de cadastros e auditoria básica possuem implementação.
+Diagnósticos, riscos, ações, evidências e relatórios de prevenção são somente pontos de organização
 para os próximos incrementos.
 
 ## Qualidade
@@ -140,4 +144,5 @@ Consulte [equipe, perfis e branches](docs/README.md#equipe) e [PRD](docs/PRD.md)
 Ricardo coordena a integração; Thomaz/Diogo cuidam de frontend/UX, Bruno de backend,
 Pedro de dados, Luiz de qualidade/ambiente, Júlia de requisitos e Eliziane de documentação.
 Cada integrante trabalha na sua branch e submete pull request para revisão de `@Byteric`.
+Nesta rodada, são dois commits por pessoa e uma PR, conforme [fluxo de contribuição](docs/FLUXO_CONTRIBUICAO.md).
 Commits e publicação dependem de autorização de Ricardo. Licença do projeto: a definir.

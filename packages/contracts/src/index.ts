@@ -1,4 +1,5 @@
 import { z } from 'zod';
+export { organizationOverviewSchema, type OrganizationOverview } from './overview';
 
 /** Liveness: não implica que PostgreSQL ou armazenamento estejam disponíveis. */
 export const healthResponseSchema = z.object({
