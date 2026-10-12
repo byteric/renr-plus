@@ -25,8 +25,9 @@ export function configureApplication(app: INestApplication, environment: Environ
   if (environment.NODE_ENV !== 'production') {
     const config = new DocumentBuilder()
       .setTitle('RENR+ API')
-      .setDescription('ReNR+ v0.1: sessões e estrutura organizacional.')
-      .setVersion('0.1.0')
+      .setDescription('ReNR+ v0.2: sessões, estrutura organizacional e painel de cadastros.')
+      .setVersion('0.2.0')
+      .addCookieAuth('renr_session', { type: 'apiKey', in: 'cookie' }, 'renr_session')
       .build();
     const document = SwaggerModule.createDocument(app, config);
     SwaggerModule.setup('api/docs', app, document, { jsonDocumentUrl: 'api/docs-json' });

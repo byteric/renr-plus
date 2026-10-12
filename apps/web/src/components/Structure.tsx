@@ -17,18 +17,21 @@ import {
 } from '@renr/contracts';
 import { Button } from './ui/button';
 import { request, RequestError } from '../lib/api';
+import { OrganizationOverview } from './OrganizationOverview';
 
 type Kind = 'empresas' | 'unidades' | 'setores';
 type RecordItem = Organization | Unit | Sector;
-type Route = { kind: Kind; unitId: string | null };
+type Route = { kind: Kind | 'painel'; unitId: string | null };
 function readRoute(): Route {
   const parts = window.location.hash.replace(/^#\/?/, '').split('/');
+  if (parts[0] === 'painel') return { kind: 'painel', unitId: null };
   if (parts[0] === 'unidades') return { kind: 'unidades', unitId: null };
   if (parts[0] === 'setores' && /^[0-9a-f-]{36}$/i.test(parts[1] ?? ''))
     return { kind: 'setores', unitId: parts[1] ?? null };
   return { kind: 'empresas', unitId: null };
 }
-const titles: Record<Kind, string> = {
+const titles: Record<Route['kind'], string> = {
+  painel: 'Painel',
   empresas: 'Empresas',
   unidades: 'Unidades',
   setores: 'Setores',
@@ -363,6 +366,9 @@ export function Structure({
         <p className="panel-label">ESPAÇO DE TRABALHO</p>
         <p className="user-name">{session.user.name}</p>
         <nav aria-label="Estrutura organizacional">
+          <a href="#/painel" aria-current={route.kind === 'painel' ? 'page' : undefined}>
+            Painel
+          </a>
           <a href="#/empresas" aria-current={route.kind === 'empresas' ? 'page' : undefined}>
             Empresas
           </a>
@@ -394,14 +400,16 @@ export function Structure({
               {titles[route.kind]}
             </h1>
             <p className="muted">
-              {route.kind === 'empresas'
-                ? 'Escolha a empresa em que você deseja trabalhar.'
-                : route.kind === 'unidades'
-                  ? 'Organize os locais de trabalho da empresa.'
-                  : 'Organize as equipes e áreas da unidade selecionada.'}
+              {route.kind === 'painel'
+                ? 'Acompanhe os cadastros da empresa selecionada.'
+                : route.kind === 'empresas'
+                  ? 'Escolha a empresa em que você deseja trabalhar.'
+                  : route.kind === 'unidades'
+                    ? 'Organize os locais de trabalho da empresa.'
+                    : 'Organize as equipes e áreas da unidade selecionada.'}
             </p>
           </div>
-          {canWrite && listPath && (
+          {canWrite && listPath && route.kind !== 'painel' && (
             <Button
               disabled={pending}
               onClick={() => {
@@ -413,150 +421,160 @@ export function Structure({
             </Button>
           )}
         </div>
-        {confirmation && (
-          <p role="status" className="feedback success">
-            {confirmation}
-          </p>
-        )}
-        {!listPath && (
-          <div className="surface empty-state">
-            <h2>Primeiro, selecione uma empresa</h2>
-            <p>A estrutura será exibida no contexto do seu acesso.</p>
-            <a href="#/empresas">Ir para Empresas →</a>
-          </div>
-        )}
-        {error && (
-          <div role="alert" className="feedback error">
-            <p>{error}</p>
-            <Button variant="outline" onClick={() => setAttempt(attempt + 1)}>
-              Atualizar lista
-            </Button>
-          </div>
-        )}
-        <div className={editor ? 'list-editor-layout' : ''}>
-          <div>
-            {loading && (
-              <p role="status" className="surface">
-                Carregando {titles[route.kind].toLowerCase()}…
+        {route.kind === 'painel' ? (
+          <OrganizationOverview
+            key={session.activeOrganizationId ?? 'no-organization'}
+            organizationId={session.activeOrganizationId}
+            onExpire={onExpire}
+          />
+        ) : (
+          <>
+            {confirmation && (
+              <p role="status" className="feedback success">
+                {confirmation}
               </p>
             )}
-            {listing && listing.items.length === 0 && (
+            {!listPath && (
               <div className="surface empty-state">
-                <h2>Nenhum cadastro por aqui</h2>
-                <p>
-                  {canWrite
-                    ? `Cadastre ${route.kind === 'setores' ? 'o primeiro setor' : `a primeira ${singular[route.kind]}`} para começar.`
-                    : 'Os cadastros disponíveis aparecerão aqui.'}
-                </p>
+                <h2>Primeiro, selecione uma empresa</h2>
+                <p>A estrutura será exibida no contexto do seu acesso.</p>
+                <a href="#/empresas">Ir para Empresas →</a>
               </div>
             )}
-            {listing && listing.items.length > 0 && (
-              <>
-                <p className="list-summary">
-                  {listing.total} {listing.total === 1 ? 'cadastro' : 'cadastros'} · Página{' '}
-                  {listing.page}
-                </p>
-                <ul className="record-list">
-                  {listing.items.map((item) => {
-                    const writable =
-                      route.kind === 'empresas'
-                        ? item.id === session.activeOrganizationId && canWrite
-                        : canWrite;
-                    return (
-                      <li key={item.id} className="surface record">
-                        <div className="record-details">
-                          <h2>{item.name}</h2>
-                          <p className="muted">
-                            {'timezone' in item
-                              ? item.timezone
-                              : 'code' in item
-                                ? item.code
-                                  ? `Código: ${item.code}`
-                                  : 'Sem código informado'
-                                : 'Setor da unidade'}
-                          </p>
-                          <span className={`badge ${item.isActive ? 'active' : ''}`}>
-                            {item.isActive ? 'Ativo' : 'Inativo'}
-                          </span>
-                        </div>
-                        <div className="record-actions">
-                          {route.kind === 'empresas' && (
-                            <Button
-                              disabled={pending}
-                              aria-label={`Selecionar empresa ${item.name}`}
-                              onClick={() => void select(item)}
-                            >
-                              Selecionar empresa
-                            </Button>
-                          )}
-                          {route.kind === 'unidades' && (
-                            <a
-                              className="action-link"
-                              href={`#/setores/${item.id}`}
-                              aria-label={`Ver setores de ${item.name}`}
-                            >
-                              Ver setores →
-                            </a>
-                          )}
-                          {writable && (
-                            <Button
-                              variant="outline"
-                              disabled={pending}
-                              aria-label={`Editar ${singular[route.kind]} ${item.name}`}
-                              onClick={() => {
-                                setConfirmation('');
-                                setEditor({ item });
-                              }}
-                            >
-                              Editar
-                            </Button>
-                          )}
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-                {listing.total > listing.pageSize && (
-                  <nav className="pagination" aria-label="Paginação">
-                    <Button
-                      variant="outline"
-                      disabled={page === 1 || loading}
-                      onClick={() => setPage(page - 1)}
-                    >
-                      Página anterior
-                    </Button>
-                    <Button
-                      variant="outline"
-                      disabled={page * listing.pageSize >= listing.total || loading}
-                      onClick={() => setPage(page + 1)}
-                    >
-                      Próxima página
-                    </Button>
-                  </nav>
-                )}
-              </>
+            {error && (
+              <div role="alert" className="feedback error">
+                <p>{error}</p>
+                <Button variant="outline" onClick={() => setAttempt(attempt + 1)}>
+                  Atualizar lista
+                </Button>
+              </div>
             )}
-          </div>
-          {editor && listPath && (
-            <Editor
-              key={`${route.kind}-${editor.item?.id ?? 'new'}`}
-              kind={route.kind}
-              item={editor.item}
-              path={editPath(editor.item)}
-              onExpire={onExpire}
-              onCancel={() => {
-                setEditor(null);
-                heading.current?.focus();
-              }}
-              onSaved={() => {
-                setEditor(null);
-                setConfirmation('Cadastro salvo com sucesso.');
-                setAttempt(attempt + 1);
-                heading.current?.focus();
-              }}
-            />
-          )}
-        </div>
+            <div className={editor ? 'list-editor-layout' : ''}>
+              <div>
+                {loading && (
+                  <p role="status" className="surface">
+                    Carregando {titles[route.kind].toLowerCase()}…
+                  </p>
+                )}
+                {listing && listing.items.length === 0 && (
+                  <div className="surface empty-state">
+                    <h2>Nenhum cadastro por aqui</h2>
+                    <p>
+                      {canWrite
+                        ? `Cadastre ${route.kind === 'setores' ? 'o primeiro setor' : `a primeira ${singular[route.kind]}`} para começar.`
+                        : 'Os cadastros disponíveis aparecerão aqui.'}
+                    </p>
+                  </div>
+                )}
+                {listing && listing.items.length > 0 && (
+                  <>
+                    <p className="list-summary">
+                      {listing.total} {listing.total === 1 ? 'cadastro' : 'cadastros'} · Página{' '}
+                      {listing.page}
+                    </p>
+                    <ul className="record-list">
+                      {listing.items.map((item) => {
+                        const writable =
+                          route.kind === 'empresas'
+                            ? item.id === session.activeOrganizationId && canWrite
+                            : canWrite;
+                        return (
+                          <li key={item.id} className="surface record">
+                            <div className="record-details">
+                              <h2>{item.name}</h2>
+                              <p className="muted">
+                                {'timezone' in item
+                                  ? item.timezone
+                                  : 'code' in item
+                                    ? item.code
+                                      ? `Código: ${item.code}`
+                                      : 'Sem código informado'
+                                    : 'Setor da unidade'}
+                              </p>
+                              <span className={`badge ${item.isActive ? 'active' : ''}`}>
+                                {item.isActive ? 'Ativo' : 'Inativo'}
+                              </span>
+                            </div>
+                            <div className="record-actions">
+                              {route.kind === 'empresas' && (
+                                <Button
+                                  disabled={pending}
+                                  aria-label={`Selecionar empresa ${item.name}`}
+                                  onClick={() => void select(item)}
+                                >
+                                  Selecionar empresa
+                                </Button>
+                              )}
+                              {route.kind === 'unidades' && (
+                                <a
+                                  className="action-link"
+                                  href={`#/setores/${item.id}`}
+                                  aria-label={`Ver setores de ${item.name}`}
+                                >
+                                  Ver setores →
+                                </a>
+                              )}
+                              {writable && route.kind !== 'painel' && (
+                                <Button
+                                  variant="outline"
+                                  disabled={pending}
+                                  aria-label={`Editar ${singular[route.kind]} ${item.name}`}
+                                  onClick={() => {
+                                    setConfirmation('');
+                                    setEditor({ item });
+                                  }}
+                                >
+                                  Editar
+                                </Button>
+                              )}
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                    {listing.total > listing.pageSize && (
+                      <nav className="pagination" aria-label="Paginação">
+                        <Button
+                          variant="outline"
+                          disabled={page === 1 || loading}
+                          onClick={() => setPage(page - 1)}
+                        >
+                          Página anterior
+                        </Button>
+                        <Button
+                          variant="outline"
+                          disabled={page * listing.pageSize >= listing.total || loading}
+                          onClick={() => setPage(page + 1)}
+                        >
+                          Próxima página
+                        </Button>
+                      </nav>
+                    )}
+                  </>
+                )}
+              </div>
+              {editor && listPath && (
+                <Editor
+                  key={`${route.kind}-${editor.item?.id ?? 'new'}`}
+                  kind={route.kind}
+                  item={editor.item}
+                  path={editPath(editor.item)}
+                  onExpire={onExpire}
+                  onCancel={() => {
+                    setEditor(null);
+                    heading.current?.focus();
+                  }}
+                  onSaved={() => {
+                    setEditor(null);
+                    setConfirmation('Cadastro salvo com sucesso.');
+                    setAttempt(attempt + 1);
+                    heading.current?.focus();
+                  }}
+                />
+              )}
+            </div>
+          </>
+        )}
       </section>
     </div>
   );

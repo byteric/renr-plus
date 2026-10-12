@@ -1,0 +1,33 @@
+previews:
+  generation: off
+services:
+  - type: web
+    name: renr-plus-homologation
+    runtime: docker
+    plan: free
+    region: ohio
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    autoDeployTrigger: off
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: PORT
+        value: '10000'
+      - key: SERVE_WEB
+        value: 'true'
+      - key: WEB_DIST_PATH
+        value: /app/apps/web/dist
+      - key: STORAGE_ENABLED
+        value: 'false'
+      - key: RUN_MIGRATIONS
+        value: 'false'
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_URL_UNPOOLED
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
