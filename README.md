@@ -150,6 +150,4 @@ Consulte [equipe, perfis e branches](docs/README.md#equipe) e [PRD](docs/PRD.md)
 Ricardo coordena a integração; Thomaz/Diogo cuidam de frontend/UX, Bruno de backend,
 Pedro de dados, Luiz de qualidade/ambiente, Júlia de requisitos e Eliziane de documentação.
 Cada integrante trabalha na sua branch e submete pull request para revisão de `@Byteric`.
-O [fluxo de contribuição](docs/FLUXO_CONTRIBUICAO.md) orienta pacotes individuais e
-integrações com coautoria. Não reaplicar arquivos que já estejam na branch de destino.
 Commits e publicação dependem de autorização de Ricardo. Licença do projeto: a definir.
