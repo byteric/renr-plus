@@ -44,7 +44,6 @@ As credenciais remotas ficam fora do Git e dos pacotes distribuídos.
 - [Cenários de validação](CENARIOS_PAINEL.md)
 - [Experiência e acessibilidade](UX_PAINEL.md)
 - [Publicação e recuperação](DEPLOY_HOMOLOGACAO.md)
-- [Contribuição e PRs](FLUXO_CONTRIBUICAO.md)
 - [Checklist de release](CHECKLIST_RELEASE.md)
 
 Diagnósticos/questionários, colaboradores, inventário, ações, evidências e IA continuam fora deste recorte.
