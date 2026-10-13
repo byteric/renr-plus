@@ -1,4 +1,5 @@
 import { z } from 'zod';
+export * from './diagnostics';
 export { organizationOverviewSchema, type OrganizationOverview } from './overview';
 
 /** Liveness: não implica que PostgreSQL ou armazenamento estejam disponíveis. */
