@@ -48,8 +48,9 @@ export function configureWebServing(app: INestApplication, environment: Environm
   let directory: string;
   let index: string;
   try {
-    directory = realpathSync(resolve(environment.WEB_DIST_PATH));
-    index = realpathSync(resolve(directory, 'index.html'));
+    // Match async realpath canonicalization, including Windows 8.3 aliases.
+    directory = realpathSync.native(resolve(environment.WEB_DIST_PATH));
+    index = realpathSync.native(resolve(directory, 'index.html'));
     if (
       !statSync(directory).isDirectory() ||
       !statSync(index).isFile() ||

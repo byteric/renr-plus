@@ -1,5 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import filesystem from 'node:fs';
 import { mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -91,6 +92,41 @@ describe('Production web and API on the same origin', () => {
     const response = await request(app.getHttpServer()).get('/assets/app.js').expect(200);
     expect(response.text).toBe('console.log("renr");');
     expect(response.headers['content-type']).toMatch(/javascript/);
+  });
+
+  it('serves public assets when a legacy build path retains its filesystem alias', async () => {
+    const aliasDirectory = join(fixtureRoot, 'aliased-dist');
+    await symlink(directory, aliasDirectory, 'junction');
+    const originalResolver = filesystem.realpathSync;
+    // Model Windows 8.3 resolution; native/async resolution and file reads remain real.
+    const legacyResolver = jest
+      .spyOn(filesystem, 'realpathSync')
+      .mockImplementation((path, options) => {
+        if (
+          options === undefined &&
+          (path === aliasDirectory || path === join(aliasDirectory, 'index.html'))
+        )
+          return path;
+        return originalResolver(path, options);
+      });
+    Object.assign(legacyResolver, { native: originalResolver.native });
+    let aliasedApplication: INestApplication | undefined;
+    try {
+      aliasedApplication = await buildApplication(aliasDirectory);
+      const response = await request(aliasedApplication.getHttpServer())
+        .get('/assets/app.js')
+        .expect(200);
+      expect(response.text).toBe('console.log("renr");');
+      await request(aliasedApplication.getHttpServer()).get('/external/secret.json').expect(404);
+      await request(aliasedApplication.getHttpServer()).get('/hidden/secret.json').expect(404);
+      await request(aliasedApplication.getHttpServer()).get('/.env').expect(404);
+    } finally {
+      try {
+        await aliasedApplication?.close();
+      } finally {
+        legacyResolver.mockRestore();
+      }
+    }
   });
 
   it.each([
