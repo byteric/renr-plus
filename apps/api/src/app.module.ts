@@ -9,6 +9,8 @@ import { OrganizationsService } from './modules/organizations/organizations.serv
 import { OverviewController } from './modules/overview/overview.controller';
 import { OverviewRepository } from './modules/overview/overview.repository';
 import { OverviewService } from './modules/overview/overview.service';
+import { DiagnosticsController } from './modules/diagnostics/diagnostics.controller';
+import { DiagnosticsService } from './modules/diagnostics/diagnostics.service';
 
 @Module({})
 export class AppModule {
@@ -20,6 +22,7 @@ export class AppModule {
         IdentityController,
         OrganizationsController,
         OverviewController,
+        DiagnosticsController,
       ],
       providers: [
         { provide: ENVIRONMENT, useValue: environment },
@@ -28,6 +31,7 @@ export class AppModule {
         OrganizationsService,
         OverviewRepository,
         OverviewService,
+        DiagnosticsService,
       ],
     };
   }

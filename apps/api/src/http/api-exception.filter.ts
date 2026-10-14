@@ -11,6 +11,7 @@ import { randomUUID } from 'node:crypto';
 import type { Response } from 'express';
 import { z } from 'zod';
 import { Prisma } from '../generated/prisma/client';
+import { InviteUnavailableException } from '../modules/diagnostics/diagnostics.service';
 
 const unavailableDatabaseCodes = new Set(['P1001', 'P1002', 'P1008', 'P1017', 'P2024']);
 function isDatabaseUnavailable(exception: unknown): boolean {
@@ -53,6 +54,10 @@ export class ApiExceptionFilter implements ExceptionFilter {
       message: 'Internal server error',
     };
     const body: ApiError = { statusCode, ...error, requestId, timestamp: new Date().toISOString() };
+    if (exception instanceof InviteUnavailableException) {
+      body.code = 'INVITE_UNAVAILABLE';
+      body.message = 'Invite unavailable';
+    }
     if (exception instanceof HttpException && statusCode === 400) {
       const details = z
         .object({ details: z.array(z.object({ field: z.string(), message: z.string() })) })
