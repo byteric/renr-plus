@@ -113,7 +113,10 @@ beforeEach(() => {
   });
   vi.stubGlobal('fetch', fetchMock);
 });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+});
 
 async function enter() {
   const user = userEvent.setup();
@@ -124,6 +127,51 @@ async function enter() {
   return user;
 }
 describe('acesso e estrutura organizacional', () => {
+  it('limpa rascunho e ignora lista antiga ao trocar a empresa ativa', async () => {
+    authenticated = true;
+    units = [unit];
+    window.location.hash = '/unidades';
+    const otherId = '10000000-0000-4000-8000-000000000002';
+    fetchMock.mockImplementation(async (url) => {
+      const path = String(url);
+      if (path.endsWith('/health')) return json(healthy);
+      const next = {
+        ...session,
+        memberships: [
+          ...session.memberships,
+          { organizationId: otherId, organizationName: 'Outra empresa', role: 'ADMIN' },
+        ],
+      };
+      if (path.endsWith('/auth/session')) return json(next);
+      if (path.endsWith('/auth/session/organization'))
+        return json({ ...next, activeOrganizationId: otherId });
+      if (path.includes(otherId)) return json(list([]));
+      return json(list([unit]));
+    });
+    render(<App />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Nova unidade' }));
+    await user.type(screen.getByLabelText('Nome da unidade'), 'Rascunho anterior');
+    await user.selectOptions(screen.getByLabelText('Empresa ativa'), otherId);
+    expect(await screen.findByText('Nenhum cadastro por aqui')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Nome da unidade')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: unit.name })).not.toBeInTheDocument();
+  });
+  it('oferece diagnóstico e seletor de contexto no shell', async () => {
+    authenticated = true;
+    render(<App />);
+    expect(await screen.findByLabelText('Empresa ativa')).toHaveValue(organizationId);
+    expect(screen.getByRole('link', { name: 'Diagnóstico' })).toHaveAttribute(
+      'href',
+      '#/diagnostico',
+    );
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Abrir navegação' }));
+    expect(await screen.findByRole('dialog', { name: 'Navegação' })).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'Abrir navegação' })).toHaveFocus();
+  });
   it.each([
     { route: '/unidades', heading: 'Unidades', create: 'Nova unidade', field: 'Nome da unidade' },
     {

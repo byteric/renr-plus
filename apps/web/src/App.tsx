@@ -3,6 +3,7 @@ import { loginSchema, sessionResponseSchema, type SessionResponse } from '@renr/
 import { Button } from './components/ui/button';
 import { getHealth, request, RequestError, send } from './lib/api';
 import { Structure } from './components/Structure';
+import { Participation } from './components/Participation';
 
 type Theme = 'light' | 'dark';
 function initialTheme(): Theme {
@@ -161,6 +162,15 @@ function Login({
   );
 }
 export function App() {
+  const [publicRoute, setPublicRoute] = useState(
+    () => window.location.hash.replace(/^#\/?/, '').split('/')[0] === 'participar',
+  );
+  useEffect(() => {
+    const change = () =>
+      setPublicRoute(window.location.hash.replace(/^#\/?/, '').split('/')[0] === 'participar');
+    window.addEventListener('hashchange', change);
+    return () => window.removeEventListener('hashchange', change);
+  }, []);
   const contentRef = useRef<HTMLElement>(null);
   const [theme, setTheme] = useState<Theme>(initialTheme);
   const [session, setSession] = useState<SessionResponse | null>(null);
@@ -180,6 +190,7 @@ export function App() {
   useEffect(() => {
     const controller = new AbortController();
     let active = true;
+    if (publicRoute) return;
     void request('/auth/session', sessionResponseSchema, { signal: controller.signal })
       .then((value) => {
         if (active) setSession(value);
@@ -197,18 +208,18 @@ export function App() {
       active = false;
       controller.abort();
     };
-  }, [attempt]);
+  }, [attempt, publicRoute]);
   const expire = useCallback(() => {
     setSession(null);
     setNotice('Sua sessão terminou. Entre novamente para continuar.');
     window.location.hash = '/empresas';
   }, []);
   useEffect(() => {
-    if (!session) return;
+    if (!session || publicRoute) return;
     const remaining = new Date(session.expiresAt).getTime() - Date.now();
     const timer = window.setTimeout(expire, Math.max(0, Math.min(remaining, 2_147_483_647)));
     return () => window.clearTimeout(timer);
-  }, [session, expire]);
+  }, [session, expire, publicRoute]);
   async function logout() {
     if (pending) return;
     setPending(true);
@@ -252,7 +263,7 @@ export function App() {
           >
             {theme === 'light' ? 'Modo escuro' : 'Modo claro'}
           </Button>
-          {session && (
+          {session && !publicRoute && (
             <Button variant="outline" disabled={pending} onClick={() => void logout()}>
               {pending ? 'Saindo…' : 'Sair'}
             </Button>
@@ -260,7 +271,9 @@ export function App() {
         </div>
       </header>
       <main id="conteudo" ref={contentRef} tabIndex={-1}>
-        {loading ? (
+        {publicRoute ? (
+          <Participation />
+        ) : loading ? (
           <p role="status" className="surface">
             Verificando seu acesso…
           </p>
@@ -272,7 +285,7 @@ export function App() {
               </p>
             )}
             <Structure
-              key={session.user.id}
+              key={`${session.user.id}-${session.activeOrganizationId}`}
               session={session}
               onSession={setSession}
               onExpire={expire}
