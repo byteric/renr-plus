@@ -36,7 +36,7 @@ COPY --from=builder --chown=node:node /app/packages/contracts/package.json ./pac
 COPY --from=builder --chown=node:node /app/packages/contracts/node_modules ./packages/contracts/node_modules
 COPY --from=builder --chown=node:node /app/packages/contracts/dist ./packages/contracts/dist
 COPY --from=builder --chown=node:node /app/apps/web/dist ./apps/web/dist
-COPY --chown=node:node scripts/start-production.mjs scripts/provision-homologation.mjs scripts/homologation-config.mjs scripts/homologation-data.mjs ./scripts/
+COPY --chown=node:node scripts/start-production.mjs scripts/provision-homologation.mjs scripts/homologation-config.mjs scripts/homologation-data.mjs scripts/diagnostic-demo-data.mjs ./scripts/
 USER node
 EXPOSE 10000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
