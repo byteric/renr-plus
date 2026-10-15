@@ -10,7 +10,7 @@ O MVP conectará, em um único histórico rastreável:
 
 ## Estado do projeto
 
-O incremento v0.1 implementa login, sessão e cadastros de empresas, unidades e setores, com API integrada e persistência no PostgreSQL. Diagnósticos, inventário, ações, evidências e indicadores permanecem nos próximos incrementos; a v0.1 não é o MVP completo. Consulte o [guia de execução](../README.md) e o [escopo e roteiro da v0.1](IMPLEMENTACAO_V01.md).
+A base v0.1 implementa login, sessão e cadastros. A segunda etapa da v0.2 acrescenta painel organizacional e diagnóstico demonstrativo: ciclos, convites de uso único, participação pública e consolidação protegida. O instrumento é fictício, sem pontuação de riscos ou validação metodológica. Inventário, ações, evidências e avaliação técnica continuam nos próximos incrementos. Consulte o [guia de execução](../README.md) e o [recorte demonstrativo](DIAGNOSTICO_V02.md). A disponibilidade online depende do commit publicado, não apenas da documentação.
 
 ## Escopo do MVP
 
@@ -54,6 +54,12 @@ A arquitetura é um monólito modular. IA não faz parte do MVP; uma porta de in
 
 - [PRD do MVP](PRD.md)
 - [Incremento v0.1 e roteiro de demonstração](IMPLEMENTACAO_V01.md)
+- [Incremento v0.2](IMPLEMENTACAO_V02.md)
+- [Diagnóstico demonstrativo](DIAGNOSTICO_V02.md)
+- [Histórias e critérios do diagnóstico](CRITERIOS_DIAGNOSTICO_V02.md)
+- [Contrato HTTP do diagnóstico](API_DIAGNOSTICO_V02.md)
+- [Roteiro de apresentação](APRESENTACAO_V02.md)
+- [Verificações de qualidade](QUALIDADE_DIAGNOSTICO_V02.md)
 
 ## Governança do repositório
 
