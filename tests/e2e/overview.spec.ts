@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
+import { navigateWorkspace } from './navigation';
 import { organizationOverviewSchema } from '../../packages/contracts/src/index';
 import { demoPassword } from '../../scripts/e2e-data.mjs';
-import { navigateWorkspace } from './navigation';
 
 // Keep authentication out of traces/videos; capture only the loaded panel.
 test.use({ trace: 'off', video: 'off', screenshot: 'off' });
