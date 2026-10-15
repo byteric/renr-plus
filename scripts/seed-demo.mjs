@@ -3,6 +3,7 @@ import { randomBytes, scrypt } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { localSeedUrl } from './local-seed-url.mjs';
+import { provisionDemoInstrument } from './diagnostic-demo-data.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const requireApi = createRequire(path.join(root, 'apps/api/package.json'));
@@ -46,6 +47,7 @@ try {
       [1, '10000000-0000-4000-8000-000000000002', 'Empresa demonstração 2'],
     ]) {
       await tx.organization.upsert({ where: { id }, update: {}, create: { id, name } });
+      await provisionDemoInstrument(tx, id);
       await tx.membership.upsert({
         where: { userId_organizationId: { userId: users[index].id, organizationId: id } },
         update: {},

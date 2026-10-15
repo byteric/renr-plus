@@ -4,7 +4,10 @@ import { provisionHomologationData } from './homologation-data.mjs';
 
 test('synthetic provisioning is idempotent and preserves all existing records', async () => {
   const stores = Object.fromEntries(
-    ['user', 'organization', 'membership', 'unit', 'sector'].map((model) => [model, new Map()]),
+    ['user', 'organization', 'membership', 'unit', 'sector', 'instrumentVersion'].map((model) => [
+      model,
+      new Map(),
+    ]),
   );
   const existing = {
     id: 'existing-user',
@@ -40,7 +43,20 @@ test('synthetic provisioning is idempotent and preserves all existing records', 
   assert.deepEqual(stores.user.get(JSON.stringify({ email: existing.email })), existing);
   assert.deepEqual(
     Object.values(stores).map((store) => store.size),
-    [3, 2, 3, 2, 2],
+    [3, 2, 3, 2, 2, 2],
   );
   assert.equal(transactions, 2);
+  for (const instrument of stores.instrumentVersion.values()) {
+    assert.equal(instrument.isDemo, true);
+    assert.equal(instrument.status, 'PUBLISHED');
+    assert.equal(instrument.questions.create.length, 5);
+    assert.deepEqual(
+      instrument.questions.create.map((question) => question.type),
+      ['SINGLE_CHOICE', 'SINGLE_CHOICE', 'SINGLE_CHOICE', 'MULTIPLE_CHOICE', 'MULTIPLE_CHOICE'],
+    );
+    assert.equal(
+      instrument.questions.create.every((question) => question.required),
+      true,
+    );
+  }
 });

@@ -1,3 +1,5 @@
+import { provisionDemoInstrument } from './diagnostic-demo-data.mjs';
+
 export async function provisionHomologationData(client, passwordHash) {
   await client.$transaction(async (tx) => {
     const users = [];
@@ -19,6 +21,7 @@ export async function provisionHomologationData(client, passwordHash) {
       [1, '10000000-0000-4000-8000-000000000002', 'Empresa homologação 2'],
     ]) {
       await tx.organization.upsert({ where: { id }, update: {}, create: { id, name } });
+      await provisionDemoInstrument(tx, id);
       await tx.membership.upsert({
         where: { userId_organizationId: { userId: users[index].id, organizationId: id } },
         update: {},

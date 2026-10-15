@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { navigateWorkspace } from './navigation';
 import { organizationOverviewSchema } from '../../packages/contracts/src/index';
 import { demoPassword } from '../../scripts/e2e-data.mjs';
 
@@ -33,7 +34,7 @@ test('painel lê indicadores reais, mantém contexto e funciona em claro e escur
   const responsePromise = page.waitForResponse(
     (response) => response.url().endsWith('/overview') && response.request().method() === 'GET',
   );
-  await page.getByRole('link', { name: 'Painel', exact: true }).click();
+  await navigateWorkspace(page, 'Painel');
   const response = await responsePromise;
   expect(response.status()).toBe(200);
   const overview = organizationOverviewSchema.parse(await response.json());
@@ -78,7 +79,7 @@ test('painel recupera após falha temporária usando nova resposta real', async 
     if (fail) await route.fulfill({ status: 503, contentType: 'application/json', body: '{}' });
     else await route.continue();
   });
-  await page.getByRole('link', { name: 'Painel', exact: true }).click();
+  await navigateWorkspace(page, 'Painel');
   await expect(page.getByRole('alert')).toContainText('Serviço temporariamente indisponível');
   await expect(page.getByText('Unidades cadastradas', { exact: true })).toHaveCount(0);
   fail = false;
@@ -97,7 +98,7 @@ test('resposta inválida não exibe indicadores e sessão expirada retorna ao lo
   await page.route('**/api/v1/organizations/*/overview', (route) =>
     route.fulfill({ status, contentType: 'application/json', body: '{}' }),
   );
-  await page.getByRole('link', { name: 'Painel', exact: true }).click();
+  await navigateWorkspace(page, 'Painel');
   await expect(page.getByRole('alert')).toContainText('Não foi possível concluir a operação');
   await expect(page.getByText('Unidades cadastradas', { exact: true })).toHaveCount(0);
   status = 401;
