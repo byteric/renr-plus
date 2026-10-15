@@ -4,6 +4,7 @@ import { mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { organizationSchema } from '../../packages/contracts/src/index';
 import { demoPassword, cleanupTestOrganization } from '../../scripts/e2e-data.mjs';
+import { navigateWorkspace } from './navigation';
 
 const origin = 'http://127.0.0.1:5173';
 const headers = { Origin: origin };
@@ -87,15 +88,15 @@ test('estrutura completa persiste após recarga e permite editar e inativar seto
   await expect(page.getByRole('heading', { name: 'Gestão de pessoas', exact: true })).toBeVisible();
   await expect(page.getByText('Inativo', { exact: true })).toBeVisible();
   // An inactive company must remain selectable so an administrator can reactivate it.
-  await page.getByRole('link', { name: 'Empresas', exact: true }).click();
+  await navigateWorkspace(page, 'Empresas');
   await page.getByRole('button', { name: `Editar empresa ${name}`, exact: true }).click();
   await page.getByLabel('Cadastro ativo', { exact: true }).uncheck();
   await page.getByRole('button', { name: 'Salvar empresa', exact: true }).click();
   await selectDemo(page);
-  await page.getByRole('link', { name: 'Empresas', exact: true }).click();
+  await navigateWorkspace(page, 'Empresas');
   await page.getByRole('button', { name: `Selecionar empresa ${name}`, exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Unidades', exact: true })).toBeVisible();
-  await page.getByRole('link', { name: 'Empresas', exact: true }).click();
+  await navigateWorkspace(page, 'Empresas');
   await page.getByRole('button', { name: `Editar empresa ${name}`, exact: true }).click();
   await page.getByLabel('Cadastro ativo', { exact: true }).check();
   await page.getByRole('button', { name: 'Salvar empresa', exact: true }).click();

@@ -19,6 +19,9 @@ model Organization {
   memberships Membership[]
   units Unit[]
   sectors Sector[]
+  instrumentVersions InstrumentVersion[]
+  assessmentGroups AssessmentGroup[]
+  diagnosticCycles DiagnosticCycle[]
 
   @@map("organizations")
 }
@@ -90,9 +93,154 @@ model Sector {
   updatedAt DateTime @updatedAt @map("updated_at")
   organization Organization @relation(fields: [organizationId], references: [id])
   unit Unit @relation(fields: [unitId], references: [id])
+  assessmentGroups AssessmentGroup[]
+  @@unique([organizationId, id])
   @@unique([unitId, normalizedName])
   @@index([organizationId])
   @@map("sectors")
+}
+
+enum DiagnosticQuestionType {
+  SINGLE_CHOICE
+  MULTIPLE_CHOICE
+}
+
+enum DiagnosticCycleStatus {
+  DRAFT
+  OPEN
+  CLOSED
+}
+
+model InstrumentVersion {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  title String @db.VarChar(160)
+  version Int
+  status String @default("PUBLISHED") @db.VarChar(20)
+  isDemo Boolean @default(true) @map("is_demo")
+  createdAt DateTime @default(now()) @map("created_at")
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  questions DiagnosticQuestion[]
+  cycles DiagnosticCycle[]
+  @@unique([organizationId, id])
+  @@unique([organizationId, version])
+  @@map("instrument_versions")
+}
+
+model DiagnosticQuestion {
+  id String @id @default(uuid()) @db.Uuid
+  instrumentVersionId String @map("instrument_version_id") @db.Uuid
+  label String @db.VarChar(400)
+  type DiagnosticQuestionType
+  required Boolean @default(true)
+  position Int
+  instrumentVersion InstrumentVersion @relation(fields: [instrumentVersionId], references: [id], onDelete: Restrict)
+  options QuestionOption[]
+  answers ResponseAnswer[]
+  @@unique([instrumentVersionId, id])
+  @@unique([instrumentVersionId, position])
+  @@map("diagnostic_questions")
+}
+
+model QuestionOption {
+  id String @id @default(uuid()) @db.Uuid
+  instrumentVersionId String @map("instrument_version_id") @db.Uuid
+  questionId String @map("question_id") @db.Uuid
+  label String @db.VarChar(200)
+  position Int
+  question DiagnosticQuestion @relation(fields: [instrumentVersionId, questionId], references: [instrumentVersionId, id], onDelete: Restrict)
+  @@unique([questionId, position])
+  @@index([instrumentVersionId, questionId])
+  @@map("question_options")
+}
+
+model AssessmentGroup {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  sectorId String @map("sector_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  sector Sector @relation(fields: [organizationId, sectorId], references: [organizationId, id], onDelete: Restrict)
+  cycleGroups CycleGroup[]
+  @@unique([organizationId, id])
+  @@unique([organizationId, sectorId])
+  @@map("assessment_groups")
+}
+
+model DiagnosticCycle {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  instrumentVersionId String @map("instrument_version_id") @db.Uuid
+  name String @db.VarChar(160)
+  startsAt DateTime @map("starts_at")
+  endsAt DateTime @map("ends_at")
+  status DiagnosticCycleStatus @default(DRAFT)
+  createdAt DateTime @default(now()) @map("created_at")
+  closedAt DateTime? @map("closed_at")
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  instrumentVersion InstrumentVersion @relation(fields: [organizationId, instrumentVersionId], references: [organizationId, id], onDelete: Restrict)
+  groups CycleGroup[]
+  invites ParticipationInvite[]
+  responses DiagnosticResponse[]
+  @@unique([organizationId, id])
+  @@unique([organizationId, id, instrumentVersionId])
+  @@index([organizationId, createdAt])
+  @@index([organizationId, instrumentVersionId])
+  @@map("diagnostic_cycles")
+}
+
+model CycleGroup {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  cycleId String @map("cycle_id") @db.Uuid
+  assessmentGroupId String @map("assessment_group_id") @db.Uuid
+  cycle DiagnosticCycle @relation(fields: [organizationId, cycleId], references: [organizationId, id], onDelete: Restrict)
+  assessmentGroup AssessmentGroup @relation(fields: [organizationId, assessmentGroupId], references: [organizationId, id], onDelete: Restrict)
+  @@unique([organizationId, cycleId, assessmentGroupId])
+  @@index([organizationId, cycleId])
+  @@index([organizationId, assessmentGroupId])
+  @@map("cycle_groups")
+}
+
+model ParticipationInvite {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  cycleId String @map("cycle_id") @db.Uuid
+  tokenHash String @unique @map("token_hash") @db.Char(64)
+  expiresAt DateTime @map("expires_at")
+  consumedAt DateTime? @map("consumed_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  cycle DiagnosticCycle @relation(fields: [organizationId, cycleId], references: [organizationId, id], onDelete: Restrict)
+  @@index([organizationId, cycleId])
+  @@map("participation_invites")
+}
+
+model DiagnosticResponse {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  cycleId String @map("cycle_id") @db.Uuid
+  instrumentVersionId String @map("instrument_version_id") @db.Uuid
+  submittedPeriod DateTime @map("submitted_period") @db.Date
+  cycle DiagnosticCycle @relation(fields: [organizationId, cycleId, instrumentVersionId], references: [organizationId, id, instrumentVersionId], onDelete: Restrict)
+  answers ResponseAnswer[]
+  @@unique([id, instrumentVersionId])
+  @@index([organizationId, cycleId, instrumentVersionId])
+  @@map("diagnostic_responses")
+}
+
+model ResponseAnswer {
+  id String @id @default(uuid()) @db.Uuid
+  responseId String @map("response_id") @db.Uuid
+  instrumentVersionId String @map("instrument_version_id") @db.Uuid
+  questionId String @map("question_id") @db.Uuid
+  optionIds Json @map("option_ids")
+  response DiagnosticResponse @relation(fields: [responseId, instrumentVersionId], references: [id, instrumentVersionId], onDelete: Restrict)
+  question DiagnosticQuestion @relation(fields: [instrumentVersionId, questionId], references: [instrumentVersionId, id], onDelete: Restrict)
+  @@unique([responseId, questionId])
+  @@index([responseId, instrumentVersionId])
+  @@index([instrumentVersionId, questionId])
+  @@map("response_answers")
 }
 
 model AuditEvent {
