@@ -1,10 +1,15 @@
-# Incremento v0.2 — painel e preparação de homologação
+# Incremento v0.2 — painel, homologação e diagnóstico demonstrativo
 
 ## Recorte
 
 Esta versão acrescenta um painel organizacional integrado à API da estrutura cadastrada.
 Também reúne a preparação de publicação em Render e Neon, sem dependência de serviços do computador pessoal.
 A aprovação e a publicação dependem da integração dos pacotes, dos testes e da autorização de Ricardo.
+
+A segunda etapa acrescenta o [diagnóstico demonstrativo](DIAGNOSTICO_V02.md): ciclo por setor,
+instrumento fictício fixo, convites individuais, resposta pública e consolidação coletiva.
+Os [critérios por história](CRITERIOS_DIAGNOSTICO_V02.md) e o [contrato HTTP](API_DIAGNOSTICO_V02.md)
+definem o comportamento deste recorte, separado da avaliação técnica futura.
 
 ## Funcionalidade
 
@@ -32,7 +37,8 @@ Cada total equivale à soma de ativos e inativos. A consulta usa snapshot consis
 
 Frontend e API são compilados e executados em um único container no Render Free.
 Dados e sessões persistem no Neon Free. Docker local e MinIO não sustentam o serviço online.
-Não há mudança de schema neste incremento, nem necessidade de segundo banco no Supabase.
+A primeira etapa do painel não alterou o schema. A etapa diagnóstica adiciona uma migração versionada,
+sem reset de dados e sem necessidade de segundo banco no Supabase.
 Anexos permanecem desativados até implementação de armazenamento durável.
 
 `scripts/check-hosted.mjs` confere oito endpoints públicos e proteções básicas sem autenticar ou alterar dados.
@@ -46,4 +52,6 @@ As credenciais remotas ficam fora do Git e dos pacotes distribuídos.
 - [Publicação e recuperação](DEPLOY_HOMOLOGACAO.md)
 - [Checklist de release](CHECKLIST_RELEASE.md)
 
-Diagnósticos/questionários, colaboradores, inventário, ações, evidências e IA continuam fora deste recorte.
+O editor de instrumentos, colaboradores, inventário, ações, evidências, avaliação técnica e IA
+continuam fora deste recorte. Respostas de teste são persistidas; o caráter fictício do instrumento
+não significa que a aplicação deixa de coletar ou gravar os envios.
