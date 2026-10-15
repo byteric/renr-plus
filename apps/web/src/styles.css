@@ -700,3 +700,227 @@ form > button,
     font-size: 24px;
   }
 }
+
+/* v0.2: contextual navigation and honest diagnostic states. */
+select {
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  padding: 10px 12px;
+  font: inherit;
+  color: var(--foreground);
+  background: var(--background);
+  border: 1px solid var(--input);
+  border-radius: 6px;
+}
+select:focus-visible,
+.sheet-close:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+.context label {
+  display: block;
+  margin: 0 0 8px;
+  font-size: 12px;
+}
+.context span {
+  margin-top: 10px;
+}
+.desktop-navigation nav {
+  margin: 24px 0;
+}
+.mobile-nav-trigger {
+  display: none;
+}
+.sheet-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: #051e28aa;
+}
+.sheet-content {
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: min(88vw, 360px);
+  z-index: 41;
+  padding: 60px 26px 28px;
+  overflow-y: auto;
+  color: var(--foreground);
+  background: var(--card);
+  border-right: 1px solid var(--border);
+  box-shadow: 8px 0 32px #0002;
+}
+.sheet-content h2 {
+  font-size: 26px;
+}
+.sheet-content nav {
+  display: grid;
+  gap: 8px;
+  margin-top: 26px;
+}
+.sheet-content nav a {
+  padding: 13px 16px;
+  color: var(--foreground);
+  border-radius: 6px;
+  text-decoration: none;
+}
+.sheet-content nav a[aria-current='page'] {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.sheet-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 26px;
+  cursor: pointer;
+}
+.demo-notice {
+  margin: 0;
+  padding: 12px 16px;
+  border-left: 3px solid var(--brand-orange);
+  font-size: 13px;
+  background: var(--muted);
+  border-radius: 4px;
+}
+.diagnostic-stack {
+  display: grid;
+  gap: 20px;
+}
+.diagnostic-stack > button {
+  justify-self: start;
+}
+.invite-actions {
+  display: grid;
+  gap: 10px;
+  max-width: 270px;
+  padding-top: 16px;
+}
+.invites {
+  border-top: 1px solid var(--border);
+  margin-top: 24px;
+  padding-top: 24px;
+}
+.invite-code {
+  margin-top: 22px;
+}
+.copy-value {
+  overflow-wrap: anywhere;
+  font-size: 14px;
+}
+.invite-code input {
+  font-family: monospace;
+  font-size: 13px;
+}
+.participation {
+  max-width: 760px;
+  margin: 36px auto 60px;
+  border-top: 4px solid var(--primary);
+}
+.participation h1 {
+  font-size: clamp(28px, 4vw, 40px);
+  letter-spacing: -1px;
+}
+.participation form {
+  margin-top: 20px;
+}
+.question {
+  padding: 20px;
+  margin: 20px 0 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  min-width: 0;
+}
+.question legend {
+  font-size: 16px;
+  font-weight: 650;
+  padding: 0 6px;
+}
+.question legend .muted {
+  font-size: 12px;
+  font-weight: 400;
+}
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  margin: 5px 0;
+  font-weight: 400;
+  min-height: 44px;
+  cursor: pointer;
+  background: var(--background);
+  border-radius: 5px;
+}
+.choice input {
+  flex: 0 0 20px;
+  width: 20px;
+  min-height: 20px;
+  height: 20px;
+  padding: 0;
+  accent-color: var(--primary);
+}
+.choice:has(input:checked) {
+  background: var(--muted);
+  outline: 1px solid var(--input);
+}
+.result-question {
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+  margin-top: 20px;
+}
+.result-options {
+  list-style: none;
+  padding: 0;
+}
+.result-options li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  padding: 10px 0;
+}
+.result-options meter {
+  grid-column: 1 / -1;
+  width: 100%;
+  height: 12px;
+  accent-color: var(--primary);
+}
+.instrument-preview {
+  padding-left: 22px;
+}
+.instrument-preview > li {
+  padding: 12px 0;
+}
+@media (max-width: 750px) {
+  .desktop-navigation {
+    display: none;
+  }
+  .mobile-nav-trigger {
+    display: inline-flex;
+  }
+  .context {
+    display: block;
+    margin-top: 18px;
+  }
+  .context select {
+    max-width: 420px;
+  }
+  .context span {
+    margin-left: 8px;
+  }
+  .participation {
+    margin: 24px auto;
+  }
+  .question {
+    padding: 14px;
+  }
+  .result-options li {
+    grid-template-columns: 1fr;
+  }
+}
