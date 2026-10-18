@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { localSeedUrl } from './local-seed-url.mjs';
 import { provisionDemoInstrument } from './diagnostic-demo-data.mjs';
+import { provisionDemoRisks } from './risk-demo-data.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const requireApi = createRequire(path.join(root, 'apps/api/package.json'));
@@ -73,7 +74,7 @@ try {
           normalizedName: 'unidade demonstração',
         },
       });
-      await tx.sector.upsert({
+      const sector = await tx.sector.upsert({
         where: { unitId_normalizedName: { unitId: unit.id, normalizedName: 'setor demonstração' } },
         update: {},
         create: {
@@ -82,6 +83,11 @@ try {
           name: 'Setor demonstração',
           normalizedName: 'setor demonstração',
         },
+      });
+      await provisionDemoRisks(tx, {
+        organizationId: id,
+        sectorId: sector.id,
+        userId: users[index].id,
       });
     }
   });
