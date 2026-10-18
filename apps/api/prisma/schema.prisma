@@ -22,6 +22,8 @@ model Organization {
   instrumentVersions InstrumentVersion[]
   assessmentGroups AssessmentGroup[]
   diagnosticCycles DiagnosticCycle[]
+  risks Risk[]
+  riskEvaluations RiskEvaluation[]
 
   @@map("organizations")
 }
@@ -40,6 +42,9 @@ model User {
   updatedAt DateTime @updatedAt @map("updated_at")
   memberships Membership[]
   sessions Session[]
+  risksCreated Risk[] @relation("RiskCreator")
+  risksUpdated Risk[] @relation("RiskUpdater")
+  riskEvaluations RiskEvaluation[]
   @@map("users")
 }
 
@@ -162,6 +167,7 @@ model AssessmentGroup {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   sector Sector @relation(fields: [organizationId, sectorId], references: [organizationId, id], onDelete: Restrict)
   cycleGroups CycleGroup[]
+  risks Risk[]
   @@unique([organizationId, id])
   @@unique([organizationId, sectorId])
   @@map("assessment_groups")
@@ -182,6 +188,7 @@ model DiagnosticCycle {
   groups CycleGroup[]
   invites ParticipationInvite[]
   responses DiagnosticResponse[]
+  risks Risk[]
   @@unique([organizationId, id])
   @@unique([organizationId, id, instrumentVersionId])
   @@index([organizationId, createdAt])
@@ -252,4 +259,69 @@ model AuditEvent {
   createdAt DateTime @default(now()) @map("created_at")
   @@index([organizationId, createdAt])
   @@map("audit_events")
+}
+
+enum RiskStatus {
+  DRAFT
+  REGISTERED
+  ARCHIVED
+}
+
+enum RiskSourceKind {
+  DIAGNOSTIC_CYCLE
+  TECHNICAL_RECORD
+}
+
+model Risk {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  assessmentGroupId String @map("assessment_group_id") @db.Uuid
+  factor String @db.VarChar(160)
+  description String? @db.VarChar(2000)
+  exposureDescription String? @map("exposure_description") @db.VarChar(2000)
+  exposedGroupDescription String? @map("exposed_group_description") @db.VarChar(2000)
+  possibleHarms String? @map("possible_harms") @db.VarChar(2000)
+  existingControls String? @map("existing_controls") @db.VarChar(2000)
+  sourceKind RiskSourceKind? @map("source_kind")
+  sourceNote String? @map("source_note") @db.VarChar(1000)
+  diagnosticCycleId String? @map("diagnostic_cycle_id") @db.Uuid
+  status RiskStatus @default(DRAFT)
+  version Int @default(1)
+  createdById String @map("created_by_id") @db.Uuid
+  updatedById String @map("updated_by_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  assessmentGroup AssessmentGroup @relation(fields: [organizationId, assessmentGroupId], references: [organizationId, id], onDelete: Restrict, map: "risks_group_fkey")
+  diagnosticCycle DiagnosticCycle? @relation(fields: [organizationId, diagnosticCycleId], references: [organizationId, id], onDelete: Restrict, map: "risks_cycle_fkey")
+  createdBy User @relation("RiskCreator", fields: [createdById], references: [id], onDelete: Restrict, map: "risks_creator_fkey")
+  updatedBy User @relation("RiskUpdater", fields: [updatedById], references: [id], onDelete: Restrict, map: "risks_updater_fkey")
+  evaluations RiskEvaluation[]
+  @@unique([organizationId, id])
+  @@index([organizationId, status, createdAt, id])
+  @@index([organizationId, assessmentGroupId])
+  @@index([organizationId, diagnosticCycleId])
+  @@map("risks")
+}
+
+model RiskEvaluation {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  riskId String @map("risk_id") @db.Uuid
+  sequence Int
+  riskVersion Int @map("risk_version")
+  contextSnapshot Json @map("context_snapshot")
+  label String @default("PRELIMINARY") @db.VarChar(20)
+  methodReference String @map("method_reference") @db.VarChar(200)
+  methodVersion String @map("method_version") @db.VarChar(40)
+  observation String @db.VarChar(2000)
+  rationale String @db.VarChar(2000)
+  authorId String @map("author_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "risk_evaluations_org_fkey")
+  risk Risk @relation(fields: [organizationId, riskId], references: [organizationId, id], onDelete: Restrict, map: "risk_evaluations_risk_fkey")
+  author User @relation(fields: [authorId], references: [id], onDelete: Restrict, map: "risk_evaluations_author_fkey")
+  @@unique([riskId, sequence])
+  @@index([organizationId, riskId])
+  @@map("risk_evaluations")
 }
