@@ -211,6 +211,80 @@ describeDatabase('Daily registrations against PostgreSQL', () => {
     expect(series.points).toHaveLength(7);
     expect(series.points.every((point) => point.count === 0)).toBe(true);
   });
+  it.each([
+    {
+      timeZone: 'CST',
+      generatedAt: '2026-07-01T05:30:00.000Z',
+      timestamps: [
+        '2026-06-25T04:59:59.999Z',
+        '2026-06-25T05:00:00.000Z',
+        '2026-06-30T05:15:00.000Z',
+        '2026-07-01T05:30:00.000Z',
+        '2026-07-02T04:59:59.999Z',
+        '2026-07-02T05:00:00.000Z',
+      ],
+    },
+    {
+      timeZone: 'PST',
+      generatedAt: '2026-07-01T07:30:00.000Z',
+      timestamps: [
+        '2026-06-25T06:59:59.999Z',
+        '2026-06-25T07:00:00.000Z',
+        '2026-06-30T07:15:00.000Z',
+        '2026-07-01T07:30:00.000Z',
+        '2026-07-02T06:59:59.999Z',
+        '2026-07-02T07:00:00.000Z',
+      ],
+    },
+  ])(
+    'keeps Intl calendar and daylight-saving boundaries for $timeZone',
+    async ({ timeZone, generatedAt, timestamps }) => {
+      const created = await request(app.getHttpServer())
+        .post('/api/v1/organizations')
+        .set('Cookie', cookie)
+        .set('Origin', environment.CORS_ORIGIN)
+        .send({ name: `Fuso sintético ${timeZone}`, timezone: timeZone })
+        .expect(201);
+      const orgId = created.body.id as string;
+      organizationIds.push(orgId);
+      expect(created.body.timezone).toBe(timeZone);
+      const unit = await database.client.unit.create({
+        data: { organizationId: orgId, name: 'Fuso', normalizedName: 'fuso' },
+      });
+      const sector = await database.client.sector.create({
+        data: { organizationId: orgId, unitId: unit.id, name: 'Fuso', normalizedName: 'fuso' },
+      });
+      const group = await database.client.assessmentGroup.create({
+        data: { organizationId: orgId, sectorId: sector.id },
+      });
+      await database.client.risk.createMany({
+        data: timestamps.map((createdAt) => ({
+          organizationId: orgId,
+          assessmentGroupId: group.id,
+          factor: 'Limite de horário de verão sintético',
+          createdById: userId,
+          updatedById: userId,
+          createdAt: new Date(createdAt),
+        })),
+      });
+      const snapshot = await app.get(RiskRegistrationsRepository).snapshot(orgId, 7, generatedAt);
+      // Literal dates distinguish the region's summer offset from PostgreSQL's fixed abbreviation.
+      expect(snapshot).toMatchObject({
+        timeZone,
+        fromDate: '2026-06-25',
+        toDate: '2026-07-01',
+        total: 4,
+      });
+      const series = riskRegistrationsSchema.parse(snapshot);
+      expect(
+        Object.fromEntries(
+          series.points
+            .filter((point) => point.count > 0)
+            .map((point) => [point.date, point.count]),
+        ),
+      ).toEqual({ '2026-06-25': 1, '2026-06-30': 1, '2026-07-01': 2 });
+    },
+  );
   it.each(['+03:00', '-03:00', '+03:30', '-03:30', '+23:00', '+03', '+0330'])(
     'preserves organization create/update compatibility and correct UTC boundaries for %s',
     async (timeZone) => {

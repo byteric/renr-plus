@@ -20,7 +20,8 @@ export class RiskRegistrationsRepository {
         });
         if (!organization) return null;
         const timeZone = organization.timezone;
-        // Intl canonicalizes accepted offset spellings (+03, +0330) without changing the wire value.
+        // Share Intl's canonical region/offset with PostgreSQL, preserving the original wire value.
+        // Abbreviations such as CST/PST otherwise use fixed SQL offsets instead of regional DST.
         const canonicalZone = new Intl.DateTimeFormat('en', { timeZone }).resolvedOptions()
           .timeZone;
         const offset = /^([+-])(\d{2}):(\d{2})$/.exec(canonicalZone);
@@ -33,16 +34,16 @@ export class RiskRegistrationsRepository {
           : null;
         const localNow = interval
           ? Prisma.sql`((${generatedAt}::timestamptz AT TIME ZONE 'UTC') + ${interval})::date`
-          : Prisma.sql`(${generatedAt}::timestamptz AT TIME ZONE ${timeZone})::date`;
+          : Prisma.sql`(${generatedAt}::timestamptz AT TIME ZONE ${canonicalZone})::date`;
         const localCreated = interval
           ? Prisma.sql`(r.created_at + ${interval})::date`
-          : Prisma.sql`(r.created_at AT TIME ZONE 'UTC' AT TIME ZONE ${timeZone})::date`;
+          : Prisma.sql`(r.created_at AT TIME ZONE 'UTC' AT TIME ZONE ${canonicalZone})::date`;
         const firstUtc = interval
           ? Prisma.sql`(b.first_date::timestamp - ${interval})`
-          : Prisma.sql`((b.first_date::timestamp AT TIME ZONE ${timeZone}) AT TIME ZONE 'UTC')`;
+          : Prisma.sql`((b.first_date::timestamp AT TIME ZONE ${canonicalZone}) AT TIME ZONE 'UTC')`;
         const afterLastUtc = interval
           ? Prisma.sql`((b.last_date + 1)::timestamp - ${interval})`
-          : Prisma.sql`(((b.last_date + 1)::timestamp AT TIME ZONE ${timeZone}) AT TIME ZONE 'UTC')`;
+          : Prisma.sql`(((b.last_date + 1)::timestamp AT TIME ZONE ${canonicalZone}) AT TIME ZONE 'UTC')`;
         // Prisma stores created_at as UTC timestamp without time zone. Interpret UTC first,
         // then apply the organization's zone; local midnight bounds preserve DST and filter the stored UTC column.
         const rows = await tx.$queryRaw<Array<{ date: string; count: bigint }>>`
