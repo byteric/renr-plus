@@ -227,6 +227,16 @@ export function Structure({
                 </Button>
               )}
           </div>
+          {error && (
+            <div role="alert" className="feedback error">
+              <p>{error}</p>
+              {listPath && (
+                <Button variant="outline" onClick={() => setAttempt(attempt + 1)}>
+                  Atualizar lista
+                </Button>
+              )}
+            </div>
+          )}
           {route.kind === 'inventario' ? (
             <Suspense
               fallback={
@@ -269,14 +279,6 @@ export function Structure({
                   <h2>Primeiro, selecione uma empresa</h2>
                   <p>A estrutura será exibida no contexto do seu acesso.</p>
                   <a href="#/empresas">Ir para Empresas →</a>
-                </div>
-              )}
-              {error && (
-                <div role="alert" className="feedback error">
-                  <p>{error}</p>
-                  <Button variant="outline" onClick={() => setAttempt(attempt + 1)}>
-                    Atualizar lista
-                  </Button>
                 </div>
               )}
               <div className={editor ? 'list-editor-layout' : ''}>
