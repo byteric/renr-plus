@@ -3,7 +3,9 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  font-family: 'Segoe UI', Arial, sans-serif;
+  font-family: 'Manrope Variable', 'Segoe UI', Arial, sans-serif;
+  font-synthesis: none;
+  line-height: 1.6;
   --background: #faf9f3;
   --foreground: #153b40;
   --card: #ffffff;
@@ -62,7 +64,7 @@ a:focus-visible {
   outline-offset: 5px;
 }
 .app-shell {
-  max-width: 1200px;
+  max-width: 1440px;
   margin: 0 auto;
   padding: 0 48px;
   min-height: 100vh;
@@ -74,8 +76,12 @@ a:focus-visible {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 32px 0;
+  padding: 22px 0;
   border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--background);
 }
 .wordmark {
   color: var(--foreground);
@@ -278,7 +284,7 @@ main {
 .surface {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 26px;
 }
 .muted,
@@ -299,9 +305,9 @@ p {
 .login-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
-  gap: 80px;
+  gap: 64px;
   align-items: center;
-  padding: 70px 0;
+  padding: 48px 0 64px;
 }
 .login-intro > p:not(.eyebrow) {
   font-size: 19px;
@@ -322,8 +328,9 @@ p {
   margin-top: 6px;
 }
 .login-panel {
-  padding: 34px;
-  border-top: 4px solid var(--primary);
+  padding: 36px;
+  border-top: 4px solid var(--brand-green);
+  border-radius: 20px;
 }
 .login-panel h2 {
   font-size: 27px;
@@ -433,13 +440,16 @@ form > button,
 }
 .workspace {
   display: grid;
-  grid-template-columns: 200px minmax(0, 1fr);
+  grid-template-columns: 208px minmax(0, 1fr);
   gap: 36px;
   padding: 38px 0 64px;
 }
 .workspace-nav {
   padding-right: 24px;
   border-right: 1px solid var(--border);
+  align-self: start;
+  position: sticky;
+  top: 110px;
 }
 .workspace-nav nav {
   display: flex;
@@ -450,7 +460,7 @@ form > button,
 .workspace-nav nav a {
   color: var(--muted-foreground);
   padding: 12px;
-  border-radius: 5px;
+  border-radius: 8px;
   text-decoration: none;
   font-size: 14px;
   font-weight: 600;
@@ -745,6 +755,7 @@ select:focus-visible,
   z-index: 41;
   padding: 60px 26px 28px;
   overflow-y: auto;
+  overscroll-behavior: contain;
   color: var(--foreground);
   background: var(--card);
   border-right: 1px solid var(--border);
@@ -908,6 +919,9 @@ select:focus-visible,
     display: block;
     margin-top: 18px;
   }
+  .workspace-nav {
+    position: static;
+  }
   .context select {
     max-width: 420px;
   }
@@ -922,5 +936,108 @@ select:focus-visible,
   }
   .result-options li {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Native scrolling, persistent context, and a visible focus at every viewport. */
+html {
+  scroll-padding-top: 140px;
+}
+:where(h1, h2, h3, input, select, textarea, button, a, [tabindex]) {
+  scroll-margin-top: 140px;
+}
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+button {
+  min-height: 44px;
+}
+textarea {
+  min-height: 110px;
+  width: 100%;
+  min-width: 0;
+  padding: 12px;
+  color: var(--foreground);
+  background: var(--background);
+  border: 1px solid var(--input);
+  border-radius: 8px;
+  font: inherit;
+  resize: vertical;
+}
+textarea:focus-visible,
+button:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+.skip-link {
+  z-index: 50;
+}
+.workspace-nav nav a:hover:not([aria-current='page']),
+.sheet-content nav a:hover:not([aria-current='page']) {
+  background: var(--muted);
+  color: var(--foreground);
+}
+.page-heading h1 {
+  font-weight: 650;
+  letter-spacing: -0.035em;
+}
+.page-heading .eyebrow {
+  letter-spacing: 0.1em;
+}
+.page-heading p {
+  max-width: 680px;
+}
+.record {
+  border-radius: 12px;
+}
+.record h2 {
+  font-weight: 650;
+}
+.action-link {
+  text-underline-offset: 4px;
+}
+.sheet-content nav a {
+  min-height: 44px;
+}
+.context {
+  padding-top: 24px;
+}
+.context select {
+  border-radius: 8px;
+}
+.panel-label {
+  line-height: 1.5;
+}
+@media (min-width: 751px) {
+  .login-panel {
+    align-self: center;
+  }
+}
+@media (max-width: 750px) {
+  .site-header {
+    padding: 16px 0;
+  }
+  .login-panel {
+    padding: 26px;
+  }
+  .login-layout {
+    padding-top: 32px;
+  }
+}
+@media (max-width: 400px) {
+  .site-header {
+    gap: 10px;
+  }
+  .login-panel {
+    padding: 22px 18px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
   }
 }

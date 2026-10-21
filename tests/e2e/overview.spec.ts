@@ -50,7 +50,9 @@ test('painel lê indicadores reais, mantém contexto e funciona em claro e escur
     const metric = page.getByText(label, { exact: true }).locator('..');
     await expect(metric.getByRole('definition')).toHaveText(String(value));
   }
-  await expect(page.getByText(/NR-01 ainda não estão implementados/)).toBeVisible();
+  await expect(
+    page.getByText(/não representam avaliação de riscos nem conformidade com a NR-01/),
+  ).toBeVisible();
   for (const theme of ['light', 'dark'] as const) {
     if (theme === 'dark')
       await page.getByRole('button', { name: 'Modo escuro', exact: true }).click();

@@ -1,0 +1,150 @@
+.brand-intro {
+  min-width: 0;
+}
+.brand-intro .eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  margin-bottom: 22px;
+}
+.brand-intro h1 {
+  max-width: 620px;
+  font-size: clamp(2.35rem, 4.3vw, 3.8rem);
+  letter-spacing: -0.045em;
+  line-height: 1.08;
+  margin-bottom: 22px;
+}
+.brand-intro h1 em {
+  color: var(--primary);
+  font-style: normal;
+}
+.brand-description {
+  max-width: 510px;
+  font-size: 18px;
+  color: var(--muted-foreground);
+  margin: 0;
+}
+.brand-illustration {
+  max-width: 520px;
+  margin: 16px 0 0;
+}
+.brand-illustration svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+.brand-orbit {
+  stroke: var(--border);
+  stroke-width: 1.5;
+}
+.brand-connector {
+  stroke: var(--primary);
+  stroke-width: 2;
+  stroke-dasharray: 5 7;
+}
+.brand-shield-shadow {
+  fill: var(--muted);
+}
+.brand-shield {
+  fill: #075663;
+}
+.brand-shield-plane {
+  fill: #26727c;
+}
+.brand-shield-fold {
+  fill: #06444f;
+}
+.brand-check {
+  stroke: #fff;
+  stroke-width: 12;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.brand-node {
+  fill: var(--card);
+  stroke: var(--primary);
+  stroke-width: 2;
+}
+.brand-node-end {
+  fill: var(--brand-orange);
+  stroke: var(--brand-orange);
+}
+.brand-node-icon {
+  stroke: var(--foreground);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+.brand-node-end + .brand-node-icon {
+  stroke: #153b40;
+}
+.brand-spark {
+  fill: var(--brand-green);
+}
+.brand-spark-line {
+  stroke: var(--brand-orange);
+  stroke-width: 2;
+}
+.brand-journey {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.brand-journey li {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  min-width: 0;
+}
+.brand-journey span {
+  display: block;
+  color: var(--primary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 7px;
+}
+.brand-journey strong {
+  display: block;
+  font-size: 14px;
+}
+.brand-journey small {
+  display: block;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 1.6;
+  margin-top: 4px;
+}
+.brand-scope {
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--muted-foreground);
+  max-width: 510px;
+  margin: 24px 0 0;
+}
+@media (max-width: 750px) {
+  .brand-intro h1 {
+    max-width: 600px;
+  }
+  .brand-illustration {
+    max-width: 380px;
+    margin: 0 auto;
+  }
+  .brand-description {
+    font-size: 16px;
+  }
+}
+@media (max-width: 400px) {
+  .brand-intro h1 {
+    font-size: 2.2rem;
+  }
+  .brand-journey {
+    gap: 8px;
+  }
+  .brand-journey strong {
+    font-size: 12px;
+  }
+  .brand-journey small {
+    font-size: 11px;
+  }
+}
