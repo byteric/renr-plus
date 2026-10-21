@@ -32,7 +32,10 @@ describe('painel organizacional', () => {
     expect(
       screen.getByText('Unidades sem setores', { exact: true }).nextElementSibling,
     ).toHaveTextContent('1');
-    expect(screen.getByText(/NR-01 ainda não estão implementados/)).toBeVisible();
+    expect(
+      screen.getByText(/não representam avaliação de riscos nem conformidade com a NR-01/),
+    ).toBeVisible();
+    expect(screen.queryByText(/ainda não estão implementados/)).not.toBeInTheDocument();
     expect(fetchMock.mock.calls[0]?.[0]).toBe(`/api/v1/organizations/${organizationId}/overview`);
     const units = screen.getByRole('heading', { name: 'Unidades' }).parentElement!;
     expect(within(units).getByText('Ativas').nextElementSibling).toHaveTextContent('2');

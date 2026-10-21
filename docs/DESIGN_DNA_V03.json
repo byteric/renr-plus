@@ -1,0 +1,469 @@
+{
+  "meta": {
+    "name": "ReNR+ — Design DNA v0.3",
+    "description": "Perfil composto proposto para a evolução visual da aplicação. Referências analisadas como inspiração; identidade ReTech+ preservada. Não é cópia dos sites nem evidência de implementação.",
+    "created_at": "2026-10-15",
+    "source_references": [
+      "https://resn.co.nz/",
+      "https://locatelliadv.com.br/",
+      "https://www.bautz.com.br/",
+      "https://ryazbek.com.br/"
+    ],
+    "observation_method": "Inspeção visual de páginas em navegador e leitura de estilos computados do DOM em viewport desktop 1280×720. Valores CSS observados não equivalem a histograma das imagens; tokens do perfil abaixo são propostas ou preservação da base ReNR+.",
+    "confidence": {
+      "css_tokens": "alta nas amostras identificadas",
+      "composition": "alta nas seções visitadas",
+      "animation_timing": "não medido nas referências; durações abaixo são propostas",
+      "mobile_reference_behavior": "não verificado",
+      "rendering_internals": "não confirmados; Canvas observado não identifica biblioteca ou shader"
+    },
+    "reference_findings": [
+      {
+        "name": "Resn",
+        "url": "https://resn.co.nz/",
+        "design_system": {
+          "observed_font": "Fort-Extralight, Arial, sans-serif",
+          "observed_heading_px": 38.4,
+          "observed_heading_color": "#ffffff",
+          "observed_body_background": "#000000"
+        },
+        "design_style": "Cena escura, objeto facetado central, composição isolada e chamada de interação por pressionar.",
+        "visual_effects": {
+          "observed": "6 elementos canvas no DOM e geometria facetada com movimento; interação click-and-hold acionada",
+          "inferred": "Renderização 3D/WebGL provável, implementação não confirmada",
+          "not_transferred": "Preloader bloqueante, renderização pesada, cursor proprietário e interação obrigatória por pressionar"
+        },
+        "transfer": "Presença visual, profundidade em SVG e transições coreografadas curtas, sem impor WebGL ao sistema."
+      },
+      {
+        "name": "Locatelli",
+        "url": "https://locatelliadv.com.br/",
+        "design_system": {
+          "observed_body_font": "Inter, system-ui, sans-serif",
+          "observed_body_px": 17,
+          "observed_heading_font": "\"Source Serif 4\", Georgia, serif",
+          "observed_heading_px": 67.2,
+          "observed_background": "#ffffff",
+          "observed_text": "#141414",
+          "observed_cta_background": "#1a4f63",
+          "observed_cta_radius": "0px"
+        },
+        "design_style": "Hierarquia editorial, espaço em branco amplo, divisórias finas e blocos em petróleo; navegação permaneceu visível durante a rolagem observada.",
+        "visual_effects": {
+          "observed": "Alternância de seções clara/petróleo e navegação persistente",
+          "unverified": "Curvas e duração de transições não medidas"
+        },
+        "transfer": "Clareza, hierarquia e composição de seções; não copiar marca, texto ou tipografia licenciada sem autorização."
+      },
+      {
+        "name": "Bautz",
+        "url": "https://www.bautz.com.br/",
+        "design_system": {
+          "observed_body_font": "Poppins, sans-serif",
+          "observed_body_px": 15,
+          "observed_heading_font": "Prata, sans-serif",
+          "observed_heading_px": 45,
+          "observed_text": "#195a6e",
+          "observed_heading_color": "#b9844f",
+          "observed_body_background": "#ffffff"
+        },
+        "design_style": "Hero editorial com imagem ampla, texto contrastante em escala, blocos assimétricos e imagens sobrepostas.",
+        "visual_effects": {
+          "observed": "Mudança de slide no hero e entrada de conteúdo durante a rolagem; uma captura intermediária registrou fade ainda em andamento",
+          "unverified": "Motor e duração exata não determinados"
+        },
+        "transfer": "Acabamento, hierarquia, entradas discretas e sobreposição somente decorativa; não reutilizar fotografias e marcas de joias."
+      },
+      {
+        "name": "R. Yazbek",
+        "url": "https://ryazbek.com.br/",
+        "design_system": {
+          "observed_body_font": "Lato, sans-serif",
+          "observed_body_px": 16,
+          "observed_heading_px": 45.008,
+          "observed_link_color": "#e33237",
+          "observed_heading_color": "#0f0f0f"
+        },
+        "design_style": "Catálogo em grade, navegação por categorias, CTAs evidentes e contraste entre cards e metadados.",
+        "visual_effects": {
+          "observed": "Cards e abas de categoria na seção 'Encontre o seu'",
+          "limitation": "Mídia principal do hero não foi renderizada na sessão; não inferir seu efeito ou sua performance"
+        },
+        "transfer": "Filtros categóricos e cards com hierarquia clara para inventário; não copiar imagens imobiliárias ou identidade vermelha."
+      }
+    ],
+    "scope": "Apenas planejamento. Não instalar dependências, mudar a aplicação ou publicar a partir deste perfil."
+  },
+  "design_system": {
+    "color": {
+      "palette_type": "Identidade petróleo/verde com acento laranja e neutros claros/escuros",
+      "primary": {
+        "hex": "#075663",
+        "role": "CTA e foco de navegação no modo claro; preserva a base"
+      },
+      "secondary": {
+        "hex": "#009d37",
+        "role": "Marca e realce gráfico, não texto branco pequeno"
+      },
+      "accent": {
+        "hex": "#ff8a12",
+        "role": "Acentos e chamadas pontuais com texto escuro"
+      },
+      "neutral": {
+        "scale": [
+          "#ffffff",
+          "#faf9f3",
+          "#dce4df",
+          "#b0c5c5",
+          "#516569",
+          "#344b4f",
+          "#153b40",
+          "#182c30",
+          "#101f23"
+        ],
+        "usage": "Ordenação visual aproximada do claro ao escuro; fundos, divisórias, textos e superfícies conforme o tema."
+      },
+      "semantic": {
+        "success": "#007f32",
+        "warning": "#8a4b00",
+        "error": "#b42318",
+        "info": "#075663"
+      },
+      "surface": {
+        "background": "#faf9f3",
+        "card": "#ffffff",
+        "elevated": "#ffffff"
+      },
+      "contrast_strategy": "Texto comum ≥4.5:1, texto grande/ícones essenciais ≥3:1; validar cada tema. Branco sobre #009d37 dá 3.57:1 e não será usado em texto pequeno; branco sobre #007f32 dá 5.14:1. Valores calculados, não auditoria completa.",
+      "dark_theme": {
+        "background": "#101f23",
+        "card": "#182c30",
+        "elevated": "#21373b",
+        "foreground": "#f0f5ef",
+        "muted_foreground": "#b0c5c5",
+        "primary": "#a0ded8",
+        "primary_foreground": "#123136"
+      }
+    },
+    "typography": {
+      "type_scale": {
+        "display": {
+          "size": "clamp(2.5rem, 4vw, 4rem)",
+          "weight": 650,
+          "line_height": 1.08,
+          "tracking": "-0.04em"
+        },
+        "heading_1": {
+          "size": "clamp(1.75rem, 2.3vw, 2.5rem)",
+          "weight": 650,
+          "line_height": 1.15,
+          "tracking": "-0.03em"
+        },
+        "heading_2": {
+          "size": "1.5rem",
+          "weight": 650,
+          "line_height": 1.25,
+          "tracking": "-0.02em"
+        },
+        "heading_3": {
+          "size": "1.125rem",
+          "weight": 600,
+          "line_height": 1.35,
+          "tracking": "-0.01em"
+        },
+        "body": {
+          "size": "1rem",
+          "weight": 400,
+          "line_height": 1.6,
+          "tracking": "0em"
+        },
+        "body_small": {
+          "size": "0.875rem",
+          "weight": 400,
+          "line_height": 1.5,
+          "tracking": "0em"
+        },
+        "caption": {
+          "size": "0.75rem",
+          "weight": 500,
+          "line_height": 1.5,
+          "tracking": "0.01em"
+        },
+        "overline": {
+          "size": "0.6875rem",
+          "weight": 650,
+          "line_height": 1.4,
+          "tracking": "0.12em"
+        }
+      },
+      "font_families": {
+        "heading": "Manrope Variable, Segoe UI, Arial, sans-serif",
+        "body": "Manrope Variable, Segoe UI, Arial, sans-serif",
+        "mono": "ui-monospace, Consolas, monospace"
+      },
+      "font_style_notes": "Família proposta, não instalada. Preferir um WOFF2 Latin auto-hospedado após conferir licença e glifos pt-BR; fallback imediato. Numerais tabulares nos KPIs; não transportar fontes proprietárias das referências."
+    },
+    "spacing": {
+      "base_unit": "4px",
+      "scale": ["4px", "8px", "12px", "16px", "24px", "32px", "48px", "64px", "96px"],
+      "content_density": "Confortável no painel, compacta sem perder alvos de toque nas listas",
+      "section_rhythm": "24–32px entre blocos de trabalho; 48–96px em seções narrativas de entrada."
+    },
+    "layout": {
+      "grid_system": "CSS Grid responsivo; shell com sidebar desktop e drawer móvel; documento com rolagem nativa",
+      "max_content_width": "1440px no workspace; 720px para leitura e questionário",
+      "columns": "12 desktop; 8 tablet; 4 mobile",
+      "gutter": "24px desktop; 16px mobile",
+      "breakpoints": [
+        "320px mínimo",
+        "750px navegação móvel existente",
+        "1024px grade expandida",
+        "1440px limite de conteúdo"
+      ],
+      "alignment_tendency": "Alinhamento à esquerda com composição assimétrica controlada no dashboard"
+    },
+    "shape": {
+      "border_radius": {
+        "small": "8px",
+        "medium": "12px",
+        "large": "20px",
+        "pill": "999px"
+      },
+      "border_usage": "1px nas superfícies e campos; destaque de foco visível",
+      "divider_style": "Linhas finas com token de borda, sem caixas redundantes"
+    },
+    "elevation": {
+      "shadow_style": "Suave e limitada a sobreposições",
+      "levels": {
+        "low": "0 2px 8px rgba(8,30,32,0.04)",
+        "medium": "0 8px 24px rgba(8,30,32,0.10)",
+        "high": "0 20px 56px rgba(8,30,32,0.18)"
+      },
+      "depth_cues": "Superfícies, bordas e sombras moderadas; não depender de blur"
+    },
+    "iconography": {
+      "style": "Traço simples coerente; escudo ReNR+ preservado",
+      "stroke_weight": "1.75–2px",
+      "size_scale": ["16px", "20px", "24px"],
+      "preferred_set": "Reutilizar ícones existentes e SVGs locais; um único conjunto se houver expansão"
+    },
+    "motion": {
+      "easing": "cubic-bezier(0.2,0,0,1) nas transições; power2.out em GSAP; none em progresso ligado ao scroll",
+      "duration_scale": {
+        "micro": "120–160ms",
+        "normal": "180–280ms",
+        "macro": "320–450ms"
+      },
+      "entrance_pattern": "Opacidade e translateY 8–16px em grupos curtos; barras SVG e números decorativos ligados ao dado final real",
+      "exit_pattern": "Opacidade/translate curto, 120–180ms; sem bloquear ação ou foco",
+      "philosophy": "Expressiva na entrada, funcional no trabalho; modo reduzido entrega o estado final imediatamente; sem repetição infinita no dashboard"
+    },
+    "components": {
+      "button_style": "Variantes existentes evoluídas; primário petróleo, secundário outline e acentos laranja com texto escuro",
+      "input_style": "Rótulo persistente, ajuda e erro associados, foco destacado, altura de toque proposta 44px",
+      "card_style": "Destaque por hierarquia e respiro; superfície neutra com borda fina; um bloco principal de dados e blocos auxiliares",
+      "navigation_pattern": "Sidebar desktop, topbar e filtros sticky sem sobrepor conteúdo; Sheet móvel existente com foco e scroll do fundo restaurados",
+      "modal_style": "Dialog/Sheet Radix existente, foco contido e devolvido, fechamento por Escape e clique explícito",
+      "list_style": "Tabela semântica paginada no desktop e cards equivalentes no celular; filtros e detalhe endereçáveis por URL",
+      "component_notes": "Extender ui/button, ui/card, ui/sheet; não substituir a stack ou instalar uma segunda biblioteca de componentes."
+    }
+  },
+  "design_style": {
+    "aesthetic": {
+      "mood": ["confiável", "claro", "sofisticado", "vivo"],
+      "visual_metaphor": "Dados conectados a decisões preventivas, não monitoramento de indivíduos",
+      "era_influence": "Produto digital contemporâneo com disciplina editorial",
+      "genre": "Workspace B2B para gestão preventiva",
+      "personality_traits": ["preciso", "acolhedor", "seguro", "objetivo"],
+      "adjectives": ["legível", "responsivo", "rastreável", "expressivo"]
+    },
+    "visual_language": {
+      "complexity": "Moderada; informação em camadas",
+      "ornamentation": "Acentos localizados",
+      "whitespace_usage": "Respiro como separador de decisões",
+      "visual_weight_distribution": "Uma visualização principal e suporte secundário",
+      "focal_strategy": "Contexto da empresa → indicador → detalhe acionável",
+      "contrast_level": "Alto para leitura e foco; sutil nas bordas",
+      "texture_usage": "Nenhuma textura obrigatória; SVG decorativo leve só na entrada"
+    },
+    "composition": {
+      "hierarchy_method": "Tipografia, cor funcional e espaçamento",
+      "balance_type": "Assimétrico no dashboard e estável nos formulários",
+      "flow_direction": "Vertical, com navegação lateral desktop e linear mobile",
+      "grouping_strategy": "Agrupar por tarefa, contexto organizacional e fonte",
+      "negative_space_role": "Separar contexto, indicadores e ações sem inflar rolagem"
+    },
+    "imagery": {
+      "photo_treatment": "Sem fotos de terceiros; não exigidas para o dashboard",
+      "illustration_style": "SVG original com escudo, conexão de etapas e poucos planos",
+      "graphic_elements": "Barras, anel operacional, divisórias e trilha de histórico",
+      "pattern_usage": "Sem padrão contínuo na área de leitura",
+      "image_shape": "Gráficos responsivos em superfícies de raio moderado"
+    },
+    "interaction_feel": {
+      "feedback_style": "Imediato, com confirmação observável da API",
+      "hover_behavior": "Realce discreto espelhado em focus-visible; sem mover o alvo",
+      "transition_personality": "Entrada fluida e resposta rápida",
+      "loading_style": "Skeleton estável e estado de carregamento textual; sem números inventados",
+      "microinteraction_density": "Baixa em formulários e moderada nos gráficos; animação não é pré-condição"
+    },
+    "brand_voice_in_ui": {
+      "tone": "Direto e respeitoso",
+      "formality": "Profissional, sem jargão desnecessário",
+      "cta_style": "Ver inventário, Registrar risco, Salvar rascunho, Ver origem",
+      "empty_state_approach": "Explicar ausência de dados e oferecer próxima ação autorizada",
+      "error_tone": "Explicar o que falhou, preservar dados e oferecer nova tentativa sem culpar a pessoa"
+    }
+  },
+  "visual_effects": {
+    "overview": {
+      "effect_intensity": "moderate",
+      "performance_tier": "lightweight",
+      "fallback_strategy": "Conteúdo final estático e completo em reduced motion ou falha do motor; SVG tem alternativa textual",
+      "primary_technology": "GSAP 3 + @gsap/react existentes; ScrollTrigger para revelações narrativas; CSS e SVG locais"
+    },
+    "background_effects": {
+      "type": "none",
+      "description": "Fundo sólido nos fluxos de trabalho; ilustração SVG estática na entrada",
+      "technology": "CSS e SVG",
+      "params": {
+        "color_palette": ["#075663", "#009d37", "#ff8a12"],
+        "speed": 0,
+        "density": 0,
+        "opacity": 1,
+        "blend_mode": "normal"
+      }
+    },
+    "particle_systems": {
+      "enabled": false,
+      "type": "none",
+      "description": "Não incluído na v0.3",
+      "technology": "Não se aplica",
+      "params": {
+        "count": 0,
+        "shape": "Não se aplica",
+        "size_range": "Não se aplica",
+        "movement_pattern": "Nenhum",
+        "color_behavior": "Nenhum",
+        "interaction": "none",
+        "spawn_area": "Nenhuma"
+      }
+    },
+    "3d_elements": {
+      "enabled": false,
+      "type": "none",
+      "description": "Profundidade visual em SVG/CSS, sem cena 3D de runtime na v0.3",
+      "technology": "Não se aplica",
+      "params": {
+        "renderer": "Nenhum",
+        "lighting": "Não se aplica",
+        "camera": "Não se aplica",
+        "materials": "Não se aplica",
+        "geometry": "Não se aplica",
+        "post_processing": [],
+        "interaction_model": "Nenhum"
+      }
+    },
+    "shader_effects": {
+      "enabled": false,
+      "type": "none",
+      "description": "Shaders da referência não são reproduzidos nesta versão",
+      "technology": "Não se aplica",
+      "params": {
+        "uniforms": {},
+        "vertex_manipulation": "Nenhuma",
+        "fragment_output": "Não se aplica",
+        "noise_type": "none",
+        "distortion": "Nenhuma"
+      }
+    },
+    "scroll_effects": {
+      "parallax": {
+        "enabled": false,
+        "layers": 0,
+        "depth_range": "0px",
+        "speed_curve": "Nenhuma"
+      },
+      "scroll_triggered_animations": {
+        "enabled": true,
+        "trigger_points": "Entrada de seções na região visível; revelar uma vez; nunca esconder campos essenciais",
+        "animation_type": "fade-up e desenho de conexão SVG na entrada; gráficos animam após dados reais",
+        "scrub_behavior": "Sem scrub obrigatório nos fluxos operacionais; piloto narrativo opcional sem pin no mobile"
+      },
+      "scroll_morphing": {
+        "enabled": false,
+        "description": "Não necessário para o recorte"
+      }
+    },
+    "text_effects": {
+      "type": "counter-decorative",
+      "description": "Contagem visual opcional dos KPIs após sucesso; valor final acessível permanece estável, sem aria-live por frame",
+      "technology": "GSAP + texto semântico",
+      "params": {
+        "split_strategy": "Nenhuma fragmentação de textos de leitura",
+        "animation_per_unit": "Apenas número decorativo",
+        "stagger": "Até 40ms, atraso acumulado limitado",
+        "effect_style": "Final verdadeiro fornecido pela API"
+      }
+    },
+    "cursor_effects": {
+      "enabled": false,
+      "type": "none",
+      "description": "Cursor nativo e alvos de toque previsíveis",
+      "params": {
+        "shape": "Nativa",
+        "size": "Nativo",
+        "blend_mode": "normal",
+        "trail": "Nenhum",
+        "interaction_zone": "Não se aplica"
+      }
+    },
+    "image_effects": {
+      "type": "reveal-clip",
+      "description": "Revelação simples da ilustração original na entrada, opcional e não bloqueante",
+      "technology": "GSAP/SVG",
+      "params": {
+        "filter_pipeline": "Sem filtros pesados",
+        "hover_transform": "Nenhum em campos/controles",
+        "reveal_animation": "Opacidade/translate ≤450ms",
+        "distortion_type": "none"
+      }
+    },
+    "glassmorphism_neumorphism": {
+      "enabled": false,
+      "style": "none",
+      "params": {
+        "blur_radius": "0px",
+        "transparency": 1,
+        "border_treatment": "Borda sólida com token semântico",
+        "shadow_type": "Suave quando necessário",
+        "light_source_angle": "Não se aplica"
+      }
+    },
+    "canvas_drawings": {
+      "enabled": false,
+      "type": "none",
+      "description": "Gráficos SVG não exigem Canvas/WebGL",
+      "technology": "Não se aplica",
+      "params": {
+        "draw_method": "Nenhum",
+        "animation_loop": "Nenhum",
+        "color_scheme": "Tokens semânticos",
+        "responsiveness": "SVG/CSS responsivos",
+        "interaction": "Nenhuma cena canvas"
+      }
+    },
+    "svg_animations": {
+      "enabled": true,
+      "type": "path-draw",
+      "description": "Barras/anel animados após validação dos dados; símbolo original preservado",
+      "params": {
+        "animation_method": "GSAP com refs e useGSAP",
+        "path_morphing": false,
+        "stroke_animation": "Curta, uma vez por atualização válida",
+        "filter_effects": "Nenhum obrigatório"
+      }
+    },
+    "composite_notes": "Perfil proposto, não implementado. A referência Resn usa composição imersiva e Canvas, mas bibliotecas, shaders e fps não foram determinados. Na aplicação, visualização não deve confundir cadastro com prevalência de risco, saúde mental ou conformidade. Não animar campos críticos, não capturar rolagem e não copiar branding, imagens, textos ou código dos sites."
+  }
+}
