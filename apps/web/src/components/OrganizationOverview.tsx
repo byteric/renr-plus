@@ -164,8 +164,8 @@ export function OrganizationOverview({
       <aside className="overview-scope" aria-labelledby="overview-scope">
         <h2 id="overview-scope">Indicadores de cadastro</h2>
         <p>
-          Estes números descrevem a estrutura organizacional. Avaliações de riscos psicossociais e
-          indicadores de conformidade com a NR-01 ainda não estão implementados.
+          Estes números descrevem a estrutura organizacional e não representam avaliação de riscos
+          nem conformidade com a NR-01.
         </p>
       </aside>
       <nav className="overview-links" aria-label="Cadastros da empresa">

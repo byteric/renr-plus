@@ -4,6 +4,7 @@ import { Button } from './components/ui/button';
 import { getHealth, request, RequestError, send } from './lib/api';
 import { Structure } from './components/Structure';
 import { Participation } from './components/Participation';
+import { BrandIntro } from './components/BrandIntro';
 
 type Theme = 'light' | 'dark';
 function initialTheme(): Theme {
@@ -100,22 +101,9 @@ function Login({
   }
   return (
     <div className="login-layout">
-      <section className="login-intro">
-        <p className="eyebrow">GESTÃO PREVENTIVA · NR-01</p>
-        <h1>
-          O cuidado começa com uma estrutura clara<span className="title-dot">.</span>
-        </h1>
-        <p>
-          Organize suas empresas, unidades e setores em um só lugar. Uma base para acompanhar o
-          trabalho e construir a prevenção.
-        </p>
-        <div className="intro-note">
-          ReTech+ / Porto Digital<span>ReNR+ · Gestão organizacional</span>
-        </div>
-      </section>
       <section className="surface login-panel" aria-labelledby="login-title">
         <p className="panel-label">SEU ESPAÇO DE TRABALHO</p>
-        <h2 id="login-title">Acesse o ReNR+</h2>
+        <h1 id="login-title">Acesse o ReNR+</h1>
         <p className="muted">Entre com seu acesso autorizado.</p>
         {notice && (
           <p role="status" className="feedback">
@@ -158,6 +146,7 @@ function Login({
           Se precisar de acesso, fale com o administrador da sua organização.
         </p>
       </section>
+      <BrandIntro />
     </div>
   );
 }

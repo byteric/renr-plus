@@ -35,7 +35,7 @@
   margin: 0;
 }
 .overview-metric {
-  border-top: 3px solid var(--primary);
+  border-top: 1px solid var(--border);
 }
 .overview-metric dt {
   color: var(--muted-foreground);
@@ -43,9 +43,9 @@
 }
 .overview-metric dd {
   margin: 12px 0 0;
-  font-size: 40px;
+  font-size: 36px;
   line-height: 1.1;
-  font-weight: 750;
+  font-weight: 650;
   font-variant-numeric: tabular-nums;
 }
 .overview-hint {
@@ -100,17 +100,33 @@
   align-items: center;
   min-height: 44px;
 }
-@media (max-width: 700px) {
+@media (max-width: 750px) {
   .overview-context {
     align-items: flex-start;
     flex-direction: column;
     gap: 16px;
   }
   .overview-metrics {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
   }
   .overview-status-grid {
     grid-template-columns: 1fr;
     gap: 24px;
+  }
+}
+@media (max-width: 500px) {
+  .overview-metrics {
+    grid-template-columns: 1fr;
+  }
+  .overview-metric {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  .overview-metric dd {
+    margin: 0;
+    font-size: 30px;
   }
 }

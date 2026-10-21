@@ -1,6 +1,6 @@
 {
   "name": "renr-plus",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "packageManager": "pnpm@11.25.0",
   "engines": {
@@ -15,10 +15,10 @@
     "lint": "eslint . --max-warnings 0",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "node --test scripts/local-seed-url.test.mjs scripts/local-database-url.test.mjs scripts/prisma-datasource.test.mjs scripts/homologation-config.test.mjs scripts/homologation-data.test.mjs scripts/start-production.test.mjs scripts/check-hosted.test.mjs && pnpm -r test",
+    "test": "node --test scripts/local-seed-url.test.mjs scripts/local-database-url.test.mjs scripts/prisma-datasource.test.mjs scripts/homologation-config.test.mjs scripts/homologation-data.test.mjs scripts/start-production.test.mjs scripts/check-hosted.test.mjs scripts/risk-demo-data.test.mjs && pnpm -r test",
     "test:e2e": "playwright test",
     "test:integration": "node scripts/run-db-tests.mjs",
-    "test:migrations": "node scripts/verify-migrations.mjs",
+    "test:migrations": "node scripts/verify-migrations.mjs && node --test scripts/risk-migrations.test.mjs",
     "check": "pnpm prisma:generate && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "prisma:generate": "pnpm --filter @renr/api prisma:generate",
     "prisma:validate": "pnpm --filter @renr/api prisma:validate",

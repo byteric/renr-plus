@@ -11,6 +11,15 @@ import { OverviewRepository } from './modules/overview/overview.repository';
 import { OverviewService } from './modules/overview/overview.service';
 import { DiagnosticsController } from './modules/diagnostics/diagnostics.controller';
 import { DiagnosticsService } from './modules/diagnostics/diagnostics.service';
+import { RisksController } from './modules/risks/risks.controller';
+import { RisksService } from './modules/risks/risks.service';
+import { RisksRepository } from './modules/risks/risks.repository';
+import { RiskOverviewController } from './modules/risks/risk-overview.controller';
+import { RiskOverviewService } from './modules/risks/risk-overview.service';
+import { RiskOverviewRepository } from './modules/risks/risk-overview.repository';
+import { RiskRegistrationsController } from './modules/risks/risk-registrations.controller';
+import { RiskRegistrationsService } from './modules/risks/risk-registrations.service';
+import { RiskRegistrationsRepository } from './modules/risks/risk-registrations.repository';
 
 @Module({})
 export class AppModule {
@@ -23,6 +32,9 @@ export class AppModule {
         OrganizationsController,
         OverviewController,
         DiagnosticsController,
+        RisksController,
+        RiskOverviewController,
+        RiskRegistrationsController,
       ],
       providers: [
         { provide: ENVIRONMENT, useValue: environment },
@@ -32,6 +44,12 @@ export class AppModule {
         OverviewRepository,
         OverviewService,
         DiagnosticsService,
+        RisksService,
+        RisksRepository,
+        RiskOverviewService,
+        RiskOverviewRepository,
+        RiskRegistrationsService,
+        RiskRegistrationsRepository,
       ],
     };
   }

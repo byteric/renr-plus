@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <title>ReNR+</title>
+  <rect x="1" y="1" width="62" height="62" rx="15" fill="#f5faf7" />
+  <path
+    d="M28 9c-6 4-11 6-17 8v14c0 12 7 19 17 24 10-5 17-12 17-24V17c-6-2-11-4-17-8Z"
+    fill="#005663"
+  />
+  <path d="M11 31c0 12 7 19 17 24 10-5 17-12 17-24v-2L28 44Z" fill="#009d37" />
+  <circle cx="27" cy="24" r="5.5" fill="#f5faf7" />
+  <path
+    d="m17 36 9 8 17-17"
+    fill="none"
+    stroke="#f5faf7"
+    stroke-width="5.5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <path d="M49 9v14m-7-7h14" fill="none" stroke="#ff8a12" stroke-width="6" stroke-linecap="round" />
+</svg>

@@ -127,6 +127,21 @@ async function enter() {
   return user;
 }
 describe('acesso e estrutura organizacional', () => {
+  it('apresenta a jornada preventiva junto do acesso, sem esconder o formulário', async () => {
+    render(<App />);
+    expect(await screen.findByRole('heading', { level: 1, name: 'Acesse o ReNR+' })).toBeVisible();
+    const presentation = screen.getByRole('heading', { level: 2, name: /decisão rastreável/ });
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole('list', { name: 'Jornada de gestão preventiva' })).toBeVisible();
+    const form = screen.getByRole('form', { name: 'Acesso' });
+    expect(form).toBeVisible();
+    expect(form.compareDocumentPosition(presentation) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(screen.getByLabelText('E-mail')).toHaveAttribute('autocomplete', 'username');
+    expect(screen.getByLabelText('Senha')).toHaveAttribute('autocomplete', 'current-password');
+    expect(screen.getByRole('button', { name: 'Entrar' })).toBeEnabled();
+  });
   it('limpa rascunho e ignora lista antiga ao trocar a empresa ativa', async () => {
     authenticated = true;
     units = [unit];
