@@ -1,6 +1,9 @@
 import { test, expect, type Page } from '@playwright/test';
 import { navigateWorkspace } from './navigation';
-import { organizationOverviewSchema } from '../../packages/contracts/src/index';
+import {
+  organizationListSchema,
+  organizationOverviewSchema,
+} from '../../packages/contracts/src/index';
 import { demoPassword } from '../../scripts/e2e-data.mjs';
 
 // Keep authentication out of traces/videos; capture only the loaded panel.
@@ -19,10 +22,17 @@ async function login(page: Page) {
   await page.getByLabel('Senha', { exact: true }).fill(demoPassword());
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Empresas', exact: true })).toBeVisible();
-  await page
-    .getByRole('button', { name: 'Selecionar empresa Empresa demonstração 1', exact: true })
-    .click();
+  const orgId = '10000000-0000-4000-8000-000000000001';
+  const select = page.getByRole('combobox', { name: 'Empresa ativa', exact: true });
+  if ((await select.inputValue()) !== orgId) await select.selectOption(orgId);
+  else await navigateWorkspace(page, 'Unidades');
   await expect(page.getByRole('heading', { name: 'Unidades', exact: true })).toBeVisible();
+  const organizations = organizationListSchema.parse(
+    await (await page.request.get('/api/v1/organizations')).json(),
+  );
+  const current = organizations.items.find((entry) => entry.id === orgId);
+  if (!current) throw new Error('Organização fictícia local ausente.');
+  return current.name;
 }
 
 test('painel lê indicadores reais, mantém contexto e funciona em claro e escuro', async ({
@@ -50,7 +60,9 @@ test('painel lê indicadores reais, mantém contexto e funciona em claro e escur
     const metric = page.getByText(label, { exact: true }).locator('..');
     await expect(metric.getByRole('definition')).toHaveText(String(value));
   }
-  await expect(page.getByText(/NR-01 ainda não estão implementados/)).toBeVisible();
+  await expect(
+    page.getByText(/não representam avaliação de riscos nem conformidade com a NR-01/),
+  ).toBeVisible();
   for (const theme of ['light', 'dark'] as const) {
     if (theme === 'dark')
       await page.getByRole('button', { name: 'Modo escuro', exact: true }).click();
@@ -73,7 +85,7 @@ test('painel lê indicadores reais, mantém contexto e funciona em claro e escur
 });
 
 test('painel recupera após falha temporária usando nova resposta real', async ({ page }) => {
-  await login(page);
+  const name = await login(page);
   let fail = true;
   await page.route('**/api/v1/organizations/*/overview', async (route) => {
     if (fail) await route.fulfill({ status: 503, contentType: 'application/json', body: '{}' });
@@ -84,9 +96,7 @@ test('painel recupera após falha temporária usando nova resposta real', async 
   await expect(page.getByText('Unidades cadastradas', { exact: true })).toHaveCount(0);
   fail = false;
   await page.getByRole('button', { name: 'Tentar novamente', exact: true }).click();
-  await expect(
-    page.getByRole('heading', { name: 'Empresa demonstração 1', exact: true }),
-  ).toBeVisible();
+  await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
   await expect(page.getByRole('alert')).toHaveCount(0);
 });
 
