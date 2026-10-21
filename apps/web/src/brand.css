@@ -4,28 +4,28 @@
 .brand-intro .eyebrow {
   font-size: 11px;
   letter-spacing: 0.1em;
-  margin-bottom: 22px;
+  margin-bottom: 12px;
 }
-.brand-intro h1 {
+.brand-intro h2 {
   max-width: 620px;
-  font-size: clamp(2.35rem, 4.3vw, 3.8rem);
+  font-size: clamp(2rem, 3.6vw, 3rem);
   letter-spacing: -0.045em;
-  line-height: 1.08;
-  margin-bottom: 22px;
+  line-height: 1.12;
+  margin-bottom: 14px;
 }
-.brand-intro h1 em {
+.brand-intro h2 em {
   color: var(--primary);
   font-style: normal;
 }
 .brand-description {
   max-width: 510px;
-  font-size: 18px;
+  font-size: 16px;
   color: var(--muted-foreground);
   margin: 0;
 }
 .brand-illustration {
-  max-width: 520px;
-  margin: 16px 0 0;
+  max-width: 340px;
+  margin: 12px 0;
 }
 .brand-illustration svg {
   width: 100%;
@@ -94,7 +94,7 @@
 }
 .brand-journey li {
   border-top: 1px solid var(--border);
-  padding-top: 12px;
+  padding-top: 8px;
   min-width: 0;
 }
 .brand-journey span {
@@ -102,7 +102,7 @@
   color: var(--primary);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
-  margin-bottom: 7px;
+  margin-bottom: 4px;
 }
 .brand-journey strong {
   display: block;
@@ -120,23 +120,23 @@
   line-height: 1.65;
   color: var(--muted-foreground);
   max-width: 510px;
-  margin: 24px 0 0;
+  margin: 16px 0 0;
 }
-@media (max-width: 750px) {
-  .brand-intro h1 {
+@media (max-width: 900px) {
+  .brand-intro h2 {
     max-width: 600px;
   }
   .brand-illustration {
-    max-width: 380px;
-    margin: 0 auto;
+    max-width: 300px;
+    margin: 12px auto;
   }
   .brand-description {
     font-size: 16px;
   }
 }
 @media (max-width: 400px) {
-  .brand-intro h1 {
-    font-size: 2.2rem;
+  .brand-intro h2 {
+    font-size: 2rem;
   }
   .brand-journey {
     gap: 8px;

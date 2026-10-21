@@ -4,7 +4,9 @@ import { BrandIntro } from './BrandIntro';
 
 it('apresenta a jornada rastreável sem exigir interação para acessar o login', () => {
   render(<BrandIntro />);
-  expect(screen.getByRole('heading', { name: /informação.*decisão rastreável/i })).toBeVisible();
+  expect(
+    screen.getByRole('heading', { level: 2, name: /informação.*decisão rastreável/i }),
+  ).toBeVisible();
   expect(screen.getByRole('list', { name: 'Jornada de gestão preventiva' })).toBeVisible();
   expect(screen.getAllByRole('listitem')).toHaveLength(3);
   expect(screen.getByText('Diagnóstico')).toBeVisible();

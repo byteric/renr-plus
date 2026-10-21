@@ -4,7 +4,7 @@
 
 A v0.3 conecta o diagnóstico coletivo ao inventário de riscos e às fichas preliminares.
 O painel apresenta dados persistidos e oferece acesso ao inventário filtrado.
-O incremento está preparado localmente; publicação e integração remota são etapas separadas.
+A composição do código, a integração remota e a publicação são etapas verificadas separadamente.
 
 ## Funcionalidades
 

@@ -5,18 +5,20 @@ relacionados ao trabalho, no Programa de Residência Tecnológica do Porto Digit
 
 ## Estado atual
 
-**Código do incremento v0.2:** painel organizacional e diagnóstico demonstrativo integrado à API,
-com ciclo por setor, convites de uso único, questionário público e consolidação coletiva protegida.
-O instrumento possui cinco perguntas fictícias e não produz avaliação técnica ou clínica de riscos.
-Veja [recorte da v0.2](docs/IMPLEMENTACAO_V02.md) e [execução do diagnóstico](docs/DIAGNOSTICO_V02.md).
+**v0.3:** inventário persistido, fichas preliminares com histórico imutável,
+painel com dados reais e navegação por gráficos, temas claro/escuro e movimento opcional.
+O fluxo conecta diagnóstico coletivo, origem do risco e contexto de cada ficha.
+Veja [recorte da v0.3](docs/IMPLEMENTACAO_V03.md), [guia de uso](docs/USO_V03.md)
+e [verificações](docs/VERIFICACAO_V03.md).
 
-As contribuições de requisitos, banco, API, UX, frontend, testes e documentação foram incorporadas
-à integração desta rodada. A liberação online exige a PR final para `main`, revisão válida,
-CI aprovada, migração aditiva e publicação manual do commit aprovado.
+A liberação da v0.3 exige composição na integração,
+PR revisada para `main`, CI aprovada, migração aditiva e publicação manual do commit aprovado.
+O [diagnóstico da v0.2](docs/DIAGNOSTICO_V02.md) permanece demonstrativo:
+cinco perguntas fictícias, convites de uso único e consolidação coletiva protegida.
 
 [Acessar a homologação ReNR+](https://renr-plus-homologation.onrender.com).
 O ambiente usa somente dados sintéticos e requer acesso autorizado para gestão.
-O diagnóstico só deve ser apresentado como disponível online após os checks do novo deploy;
+A versão disponível corresponde ao commit ativo verificado no Render. Cada funcionalidade só fica disponível online após os checks do novo deploy;
 um merge no GitHub não atualiza o serviço automaticamente. O primeiro acesso após inatividade
 pode demorar enquanto o serviço gratuito inicia.
 
@@ -27,8 +29,9 @@ ao contexto de empresa permitido. A interface adapta-se a desktop e celular e of
 modos claro e escuro.
 
 Esta base não é o MVP completo. O diagnóstico implementado é demonstrativo, sem editor de instrumentos,
-texto livre ou metodologia validada. Colaboradores, inventário, planos de ação, evidências e indicadores
-de riscos permanecem nos próximos incrementos. Veja [base v0.1](docs/IMPLEMENTACAO_V01.md).
+texto livre ou metodologia validada. Colaboradores, planos de ação, evidências, matriz técnica validada
+e relatórios regulamentares permanecem nos próximos incrementos. O painel mede registros e preenchimento,
+não grau de risco. Veja [base v0.1](docs/IMPLEMENTACAO_V01.md).
 
 ReNR+ não realiza diagnóstico clínico nem certifica automaticamente conformidade legal.
 IA permanece fora do MVP; o código de domínio não deverá depender de provedores externos.
@@ -87,8 +90,8 @@ pnpm db:studio
 
 PostgreSQL e MinIO usam volumes persistentes e portas restritas ao computador local.
 Veja [infra/README.md](infra/README.md). MinIO é compilado de fonte oficial fixada.
-O schema contém a base organizacional e as entidades de instrumento, pergunta/opção, grupo, ciclo,
-convite, envio e resposta. A migração diagnóstica é aditiva: preserva tabelas e registros existentes.
+O schema contém a base organizacional, instrumento, pergunta/opção, grupo, ciclo,
+convite, envio, resposta, risco e ficha preliminar. As migrações são aditivas e preservam registros existentes.
 O consumo do convite e a persistência do envio ocorrem na mesma transação. A identidade administrativa
 não é ligada à resposta do participante. Isso não representa garantia absoluta de anonimato.
 
@@ -114,8 +117,8 @@ docs/                  Documentação do produto e equipe
 ```
 
 Identidade, estrutura organizacional, painel, diagnóstico demonstrativo e auditoria das ações
-administrativas possuem implementação. Riscos, ações, evidências e relatórios de prevenção continuam
-nos próximos incrementos.
+administrativas possuem implementação, assim como inventário de riscos e fichas preliminares.
+Planos de ação, evidências e relatórios de prevenção continuam nos próximos incrementos.
 
 ## Qualidade
 
@@ -133,16 +136,16 @@ pnpm test:e2e
 web/API automaticamente. O workflow GitHub Actions executa essas verificações nas PRs e nos pushes
 da `main`, com PostgreSQL de teste. A versão composta deve passar novamente nos checks antes
 da publicação. `test:integration` exige banco local migrado; E2E exige build e seed.
-Os testes removem apenas seus próprios dados fictícios identificados, sem limpar tabelas
-ou reinicializar volumes.
+Os testes removem ou arquivam apenas seus próprios dados fictícios identificados, sem limpar tabelas
+ou reinicializar volumes. Fichas imutáveis e suas origens sintéticas permanecem na base local.
 
 `test:migrations` cria um banco local temporário exclusivo, verifica migrações e
-seed duas vezes e remove somente esse banco. Requer permissão local de criação de
+seed duas vezes, comprova preservação de dados v0.2 e remove somente suas bases temporárias. Requer permissão local de criação de
 banco e preserva a base de desenvolvimento.
 
 Para novas dependências, atualizar o lockfile usando pnpm. Não editar o lockfile à mão.
 Não publicar `.env`, dados pessoais, respostas reais de colaboradores ou credenciais.
-Veja [resultados e limites de qualidade](docs/QUALIDADE_DIAGNOSTICO_V02.md).
+Veja [resultados e limites de qualidade da v0.3](docs/VERIFICACAO_V03.md).
 
 ## Diagnóstico demonstrativo
 
@@ -169,11 +172,11 @@ Veja [publicação, verificações e limites](docs/DEPLOY_HOMOLOGACAO.md).
 Novos commits e publicações exigem autorização de Ricardo. Atualizações automáticas
 estão desativadas, e nenhuma credencial online faz parte do repositório.
 
-### Promoção da v0.2
+### Promoção da v0.3
 
-Nesta rodada, a sequência é `integracao/v02` → PR revisada para `main` → deploy manual da `main`.
-O serviço existente já acompanha `main`, com `autoDeploy` desligado; a branch antiga
-`integracao/deploy-v01` pertence ao histórico da publicação inicial, não ao fluxo atual.
+A sequência é `integracao/v03` → PR revisada para `main` → deploy manual da `main`.
+O serviço existente acompanha `main`, com `autoDeploy` desligado. Um merge não publica automaticamente.
+A integração anterior pertence ao histórico da v0.2.
 
 Aplicar somente a migração versionada com `prisma migrate deploy`, usando a conexão direta
 do banco de homologação e TLS verificado. Não executar seed local, `migrate reset` ou `migrate dev`
@@ -182,8 +185,8 @@ rodar após confirmar host e banco; o container inclui suas dependências de dia
 
 Antes de liberar a versão, validar o commit ativo no Render, os oito checks de
 `node scripts/check-hosted.mjs https://renr-plus-homologation.onrender.com` e as jornadas HTTPS de
-login, painel, diagnóstico, isolamento, permissões e logout. Permanecem pendentes até executadas
-no commit publicado; testes locais ou CI não substituem essa verificação.
+login, painel, inventário, diagnóstico, isolamento, permissões e logout. Esses resultados só valem
+para o commit publicado em que foram executados; testes locais ou CI não substituem essa verificação.
 
 Se a publicação falhar, retornar ao último deploy verificado, sem resetar o Neon.
 Esta versão acrescenta uma migração aditiva; a descrição histórica de ausência de mudança de schema
@@ -194,7 +197,7 @@ no guia inicial não se aplica ao diagnóstico. Manter plano Free e armazenament
 Consulte [equipe, perfis e branches](docs/README.md#equipe) e [PRD](docs/PRD.md).
 Ricardo coordena a integração; Thomaz/Diogo cuidam de frontend/UX, Bruno de backend,
 Pedro de dados, Luiz de qualidade/ambiente, Júlia de requisitos e Eliziane de documentação.
-Cada integrante trabalha na sua branch e submete pull request para `integracao/v02`,
+Cada integrante trabalha na sua branch e submete pull request para `integracao/v03`,
 com revisão de `@Byteric`. A `main` recebe o incremento completo por uma PR final,
 após CI e revisão válidas. Commits e publicação dependem de autorização de Ricardo.
 

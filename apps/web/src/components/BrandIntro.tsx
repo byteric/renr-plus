@@ -10,10 +10,10 @@ export function BrandIntro() {
       <p className="eyebrow">
         <span /> GESTÃO PREVENTIVA · RETECH+
       </p>
-      <h1 id="brand-heading">
+      <h2 id="brand-heading">
         Da informação a uma <em>decisão rastreável</em>
         <span className="title-dot">.</span>
-      </h1>
+      </h2>
       <p className="brand-description">
         Conecte o diagnóstico, organize os riscos e preserve o contexto de cada decisão.
       </p>

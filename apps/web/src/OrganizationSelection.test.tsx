@@ -56,7 +56,7 @@ it.each([
 
     expect(await screen.findByRole('alert')).toHaveTextContent(String(message));
     expect(screen.getByLabelText('Empresa ativa')).toHaveValue(organizationId);
-    expect(screen.getByRole('heading', { name: 'Inventário', exact: true })).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Inventário' })).toBeVisible();
     expect(onSession).not.toHaveBeenCalled();
   },
 );
