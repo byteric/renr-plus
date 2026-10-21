@@ -10,7 +10,7 @@ O MVP conectará, em um único histórico rastreável:
 
 ## Estado do projeto
 
-A base v0.1 implementa login, sessão e cadastros. A segunda etapa da v0.2 acrescenta painel organizacional e diagnóstico demonstrativo: ciclos, convites de uso único, participação pública e consolidação protegida. O instrumento é fictício, sem pontuação de riscos ou validação metodológica. Inventário, ações, evidências e avaliação técnica continuam nos próximos incrementos. Consulte o [guia de execução](../README.md) e o [recorte demonstrativo](DIAGNOSTICO_V02.md). A disponibilidade online depende do commit publicado, não apenas da documentação.
+A base v0.1 implementa login, sessão e cadastros. A v0.2 acrescenta diagnóstico demonstrativo com ciclos, convites de uso único e consolidação coletiva protegida. A v0.3 local conecta inventário, fichas preliminares e dashboards com dados reais, incluindo cadastros por dia. O instrumento é fictício e a ficha não representa pontuação ou validação técnica. Ações, evidências e avaliação técnica validada continuam nos próximos incrementos. Consulte o [guia de execução](../README.md), o [recorte v0.3](IMPLEMENTACAO_V03.md) e o [guia de uso](USO_V03.md). A disponibilidade online depende do commit publicado, não apenas da documentação.
 
 ## Escopo do MVP
 
@@ -55,6 +55,11 @@ A arquitetura é um monólito modular. IA não faz parte do MVP; uma porta de in
 - [PRD do MVP](PRD.md)
 - [Incremento v0.1 e roteiro de demonstração](IMPLEMENTACAO_V01.md)
 - [Incremento v0.2](IMPLEMENTACAO_V02.md)
+- [Incremento v0.3](IMPLEMENTACAO_V03.md)
+- [Inventário e fichas: guia de uso](USO_V03.md)
+- [Contratos e critérios v0.3](CRITERIOS_V03.md)
+- [Experiência e acessibilidade v0.3](UX_V03.md)
+- [Verificação v0.3](VERIFICACAO_V03.md)
 - [Diagnóstico demonstrativo](DIAGNOSTICO_V02.md)
 - [Histórias e critérios do diagnóstico](CRITERIOS_DIAGNOSTICO_V02.md)
 - [Contrato HTTP do diagnóstico](API_DIAGNOSTICO_V02.md)
