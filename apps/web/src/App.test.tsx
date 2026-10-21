@@ -127,6 +127,15 @@ async function enter() {
   return user;
 }
 describe('acesso e estrutura organizacional', () => {
+  it('apresenta a jornada preventiva junto do acesso, sem esconder o formulário', async () => {
+    render(<App />);
+    expect(
+      await screen.findByRole('heading', { level: 1, name: /decisão rastreável/ }),
+    ).toBeVisible();
+    expect(screen.getByRole('list', { name: 'Jornada de gestão preventiva' })).toBeVisible();
+    expect(screen.getByRole('form', { name: 'Acesso' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Entrar' })).toBeEnabled();
+  });
   it('limpa rascunho e ignora lista antiga ao trocar a empresa ativa', async () => {
     authenticated = true;
     units = [unit];

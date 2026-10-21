@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import {
   organizationListSchema,
   unitListSchema,
@@ -11,17 +11,24 @@ import {
 } from '@renr/contracts';
 import { Button } from './ui/button';
 import { request, RequestError } from '../lib/api';
-import { OrganizationOverview } from './OrganizationOverview';
 import { Diagnostics } from './Diagnostics';
 import { WorkspaceNavigation } from './WorkspaceNavigation';
 import { RouteMotion } from './RouteMotion';
 import { StructureEditor } from './StructureEditor';
 
+const RiskWorkspace = lazy(() =>
+  import('./risks/RiskWorkspace').then((module) => ({ default: module.RiskWorkspace })),
+);
+const ManagementDashboard = lazy(() =>
+  import('./ManagementDashboard').then((module) => ({ default: module.ManagementDashboard })),
+);
+
 type Kind = 'empresas' | 'unidades' | 'setores';
 type RecordItem = Organization | Unit | Sector;
-type Route = { kind: Kind | 'painel' | 'diagnostico'; unitId: string | null };
+type Route = { kind: Kind | 'painel' | 'diagnostico' | 'inventario'; unitId: string | null };
 function readRoute(): Route {
-  const parts = window.location.hash.replace(/^#\/?/, '').split('/');
+  const parts = window.location.hash.replace(/^#\/?/, '').split('?')[0]?.split('/') ?? [];
+  if (parts[0] === 'inventario') return { kind: 'inventario', unitId: null };
   if (parts[0] === 'diagnostico') return { kind: 'diagnostico', unitId: null };
   if (parts[0] === 'painel') return { kind: 'painel', unitId: null };
   if (parts[0] === 'unidades') return { kind: 'unidades', unitId: null };
@@ -32,6 +39,7 @@ function readRoute(): Route {
 const titles: Record<Route['kind'], string> = {
   painel: 'Painel',
   diagnostico: 'Diagnóstico',
+  inventario: 'Inventário',
   empresas: 'Empresas',
   unidades: 'Unidades',
   setores: 'Setores',
@@ -177,40 +185,78 @@ export function Structure({
         <RouteMotion route={`${route.kind}-${route.unitId}`}>
           <div className="page-heading">
             <div>
-              <p className="eyebrow">ESTRUTURA ORGANIZACIONAL</p>
+              <p className="eyebrow">
+                {route.kind === 'inventario'
+                  ? 'DA IDENTIFICAÇÃO AO REGISTRO'
+                  : route.kind === 'painel'
+                    ? 'SEU CONTEXTO, EM PERSPECTIVA'
+                    : route.kind === 'diagnostico'
+                      ? 'ESCUTA COLETIVA · DADOS DEMONSTRATIVOS'
+                      : 'ESTRUTURA ORGANIZACIONAL'}
+              </p>
               <h1 ref={heading} tabIndex={-1}>
                 {titles[route.kind]}
               </h1>
               <p className="muted">
                 {route.kind === 'painel'
-                  ? 'Acompanhe os cadastros da empresa selecionada.'
-                  : route.kind === 'empresas'
-                    ? 'Escolha a empresa em que você deseja trabalhar.'
-                    : route.kind === 'unidades'
-                      ? 'Organize os locais de trabalho da empresa.'
-                      : 'Organize as equipes e áreas da unidade selecionada.'}
+                  ? 'Conecte estrutura, registros e próximos passos da empresa selecionada.'
+                  : route.kind === 'inventario'
+                    ? 'Documente fatores, preserve a origem e acompanhe cada versão.'
+                    : route.kind === 'diagnostico'
+                      ? 'Aplique ciclos demonstrativos e consulte a consolidação coletiva.'
+                      : route.kind === 'empresas'
+                        ? 'Escolha a empresa em que você deseja trabalhar.'
+                        : route.kind === 'unidades'
+                          ? 'Organize os locais de trabalho da empresa.'
+                          : 'Organize as equipes e áreas da unidade selecionada.'}
               </p>
             </div>
-            {canWrite && listPath && route.kind !== 'painel' && route.kind !== 'diagnostico' && (
-              <Button
-                disabled={pending}
-                onClick={() => {
-                  setConfirmation('');
-                  setEditor({ item: null });
-                }}
-              >
-                {route.kind === 'setores' ? 'Novo setor' : `Nova ${singular[route.kind]}`}
-              </Button>
-            )}
+            {canWrite &&
+              listPath &&
+              route.kind !== 'painel' &&
+              route.kind !== 'diagnostico' &&
+              route.kind !== 'inventario' && (
+                <Button
+                  disabled={pending}
+                  onClick={() => {
+                    setConfirmation('');
+                    setEditor({ item: null });
+                  }}
+                >
+                  {route.kind === 'setores' ? 'Novo setor' : `Nova ${singular[route.kind]}`}
+                </Button>
+              )}
           </div>
-          {route.kind === 'diagnostico' ? (
+          {route.kind === 'inventario' ? (
+            <Suspense
+              fallback={
+                <p role="status" className="surface">
+                  Carregando inventário…
+                </p>
+              }
+            >
+              <RiskWorkspace
+                key={session.activeOrganizationId ?? 'no-organization'}
+                session={session}
+                onExpire={onExpire}
+              />
+            </Suspense>
+          ) : route.kind === 'diagnostico' ? (
             <Diagnostics key={session.activeOrganizationId} session={session} onExpire={onExpire} />
           ) : route.kind === 'painel' ? (
-            <OrganizationOverview
-              key={session.activeOrganizationId ?? 'no-organization'}
-              organizationId={session.activeOrganizationId}
-              onExpire={onExpire}
-            />
+            <Suspense
+              fallback={
+                <p role="status" className="surface">
+                  Carregando painel…
+                </p>
+              }
+            >
+              <ManagementDashboard
+                key={session.activeOrganizationId ?? 'no-organization'}
+                organizationId={session.activeOrganizationId}
+                onExpire={onExpire}
+              />
+            </Suspense>
           ) : (
             <>
               {confirmation && (
@@ -300,7 +346,8 @@ export function Structure({
                                 )}
                                 {writable &&
                                   route.kind !== 'painel' &&
-                                  route.kind !== 'diagnostico' && (
+                                  route.kind !== 'diagnostico' &&
+                                  route.kind !== 'inventario' && (
                                     <Button
                                       variant="outline"
                                       disabled={pending}
