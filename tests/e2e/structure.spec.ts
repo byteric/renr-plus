@@ -31,9 +31,10 @@ async function login(page: Page, email = 'admin1@renr.example') {
   await expect(page.getByRole('heading', { name: 'Empresas', exact: true })).toBeVisible();
 }
 async function selectDemo(page: Page) {
-  await page
-    .getByRole('button', { name: 'Selecionar empresa Empresa demonstração 1', exact: true })
-    .click();
+  const orgId = '10000000-0000-4000-8000-000000000001';
+  const select = page.getByRole('combobox', { name: 'Empresa ativa', exact: true });
+  if ((await select.inputValue()) !== orgId) await select.selectOption(orgId);
+  else await navigateWorkspace(page, 'Unidades');
   await expect(page.getByRole('heading', { name: 'Unidades', exact: true })).toBeVisible();
 }
 

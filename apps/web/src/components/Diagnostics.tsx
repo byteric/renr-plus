@@ -583,6 +583,14 @@ function CycleDetail({
         </section>
       )}
       {results && <Results result={results} />}
+      {canWrite && cycle?.status === 'CLOSED' && results?.availability === 'AVAILABLE' && (
+        <a
+          className="primary-link"
+          href={`#/inventario/novo?unitId=${cycle.unitId}&sectorId=${cycle.sectorId}&diagnosticCycleId=${cycle.id}`}
+        >
+          Criar registro de risco a partir deste ciclo
+        </a>
+      )}
       <Button variant="outline" disabled={pending} onClick={() => setAttempt(attempt + 1)}>
         Atualizar ciclo
       </Button>
@@ -601,11 +609,27 @@ export function Diagnostics({
   const canWrite =
     session.memberships.find((value) => value.organizationId === organizationId)?.role === 'ADMIN';
   const [list, setList] = useState<DiagnosticCycleList | null>(null);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(() => {
+    const id = new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('cycleId');
+    return id && /^[0-9a-f-]{36}$/i.test(id) ? id : null;
+  });
   const [creating, setCreating] = useState(false);
   const [page, setPage] = useState(1);
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    const synchronize = () => {
+      const id = new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('cycleId');
+      setSelected(id && /^[0-9a-f-]{36}$/i.test(id) ? id : null);
+      setCreating(false);
+    };
+    window.addEventListener('hashchange', synchronize);
+    return () => window.removeEventListener('hashchange', synchronize);
+  }, []);
+  function selectCycle(id: string) {
+    setSelected(id);
+    window.history.pushState(null, '', `#/diagnostico?cycleId=${id}`);
+  }
   useEffect(() => {
     if (!organizationId) return;
     const controller = new AbortController();
@@ -651,6 +675,7 @@ export function Diagnostics({
           onExpire={onExpire}
           onBack={() => {
             setSelected(null);
+            window.history.replaceState(null, '', '#/diagnostico');
             setList(null);
             setAttempt(attempt + 1);
           }}
@@ -662,7 +687,7 @@ export function Diagnostics({
           onCancel={() => setCreating(false)}
           onCreated={(cycle) => {
             setCreating(false);
-            setSelected(cycle.id);
+            selectCycle(cycle.id);
             setAttempt(attempt + 1);
           }}
         />
@@ -705,7 +730,7 @@ export function Diagnostics({
                     <Button
                       variant="outline"
                       aria-label={`Ver ciclo ${cycle.name}`}
-                      onClick={() => setSelected(cycle.id)}
+                      onClick={() => selectCycle(cycle.id)}
                     >
                       Ver ciclo
                     </Button>

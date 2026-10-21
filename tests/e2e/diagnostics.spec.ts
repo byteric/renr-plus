@@ -69,8 +69,8 @@ test('ciclo real percorre criação, convite, resposta, encerramento e consolida
   cyclesToClean.push({ id: cycle.id, name });
   await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
   await page.reload();
-  // Selected detail is local state; reopening from persisted list verifies reload continuity.
-  await page.getByRole('button', { name: `Ver ciclo ${name}`, exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`cycleId=${cycle.id}`));
+  await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Abrir ciclo', exact: true }).click();
   await page.getByLabel('Quantidade de convites', { exact: true }).fill('5');
   const emitting = page.waitForResponse(
