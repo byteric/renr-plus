@@ -3,6 +3,9 @@ export * from './diagnostics';
 export * from './risks';
 export * from './risk-overview';
 export * from './risk-registrations';
+export * from './actions';
+export * from './action-overview';
+export * from './evidence';
 export { organizationOverviewSchema, type OrganizationOverview } from './overview';
 
 /** Liveness: não implica que PostgreSQL ou armazenamento estejam disponíveis. */
