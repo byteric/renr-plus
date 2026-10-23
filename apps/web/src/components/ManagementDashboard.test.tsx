@@ -46,7 +46,24 @@ const registrations = {
   points: registrationPoints,
 };
 let registrationHandler: (url: string) => Response;
+let actionHandler: () => Response;
 beforeEach(() => {
+  actionHandler = () =>
+    json({
+      organizationId,
+      generatedAt: overview.generatedAt,
+      referenceDate: '2026-10-17',
+      timeZone: 'America/Sao_Paulo',
+      totals: {
+        total: 0,
+        planned: 0,
+        inProgress: 0,
+        implemented: 0,
+        cancelled: 0,
+        open: 0,
+        overdue: 0,
+      },
+    });
   registrationHandler = (url) => {
     const days = Number(new URL(url, 'http://localhost').searchParams.get('days') ?? '30');
     const points = registrationPoints.slice(-days);
@@ -59,12 +76,43 @@ beforeEach(() => {
     );
   onExpire.mockReset();
   vi.stubGlobal('fetch', (url: string, init?: RequestInit) =>
-    String(url).includes('/risk-registrations')
-      ? Promise.resolve(registrationHandler(String(url)))
-      : fetchMock(url, init),
+    String(url).endsWith('/action-overview')
+      ? Promise.resolve(actionHandler())
+      : String(url).includes('/risk-registrations')
+        ? Promise.resolve(registrationHandler(String(url)))
+        : fetchMock(url, init),
   );
 });
 afterEach(() => vi.unstubAllGlobals());
+
+it('apresenta medidas por estado e atraso real em links para o recorte correto', async () => {
+  actionHandler = () =>
+    json({
+      organizationId,
+      generatedAt: overview.generatedAt,
+      referenceDate: '2026-10-17',
+      timeZone: 'America/Sao_Paulo',
+      totals: {
+        total: 10,
+        planned: 4,
+        inProgress: 3,
+        implemented: 2,
+        cancelled: 1,
+        open: 7,
+        overdue: 2,
+      },
+    });
+  render(<ManagementDashboard organizationId={organizationId} onExpire={onExpire} />);
+  const metrics = await screen.findByRole('list', { name: 'Indicadores das ações' });
+  expect(within(metrics).getByRole('link', { name: /Atrasadas.*2/ })).toHaveAttribute(
+    'href',
+    '#/acoes?page=1&overdue=true',
+  );
+  expect(within(metrics).getByRole('link', { name: /Em execução.*3/ })).toHaveAttribute(
+    'href',
+    '#/acoes?page=1&status=IN_PROGRESS',
+  );
+});
 
 it('mostra série diária real, período e fuso, incluindo dias sem cadastros', async () => {
   render(<ManagementDashboard organizationId={organizationId} onExpire={onExpire} />);
