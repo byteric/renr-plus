@@ -192,6 +192,17 @@ export function RiskDetail({
           </span>
         </div>
         <div className="record-actions">
+          <a className="action-link" href={`#/acoes?riskId=${id}&page=1`}>
+            Ver ações deste risco
+          </a>
+          {canWrite &&
+            item.status === 'REGISTERED' &&
+            item.unit.isActive &&
+            item.sector.isActive && (
+              <a className="primary-link" href={`#/acoes/nova?riskId=${id}`}>
+                Criar ação preventiva
+              </a>
+            )}
           {writable && (
             <Button variant="outline" onClick={() => setEditing(true)}>
               Editar registro

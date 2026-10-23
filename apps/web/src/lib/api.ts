@@ -14,6 +14,8 @@ export class RequestError extends Error {
       403: 'Você não tem permissão para realizar esta ação.',
       404: 'Este registro não está mais disponível. Atualize a lista.',
       409: 'Já existe um registro com esses dados. Confira o cadastro.',
+      413: 'O arquivo excede o limite de 5 MiB.',
+      415: 'Formato não permitido. Envie PDF, PNG ou JPEG.',
       429: 'Muitas tentativas. Aguarde um pouco e tente novamente.',
       503: 'Serviço temporariamente indisponível. Tente novamente em instantes.',
     };
@@ -53,7 +55,9 @@ export async function send(path: string, options: RequestInit = {}): Promise<Res
         : AbortSignal.timeout(15_000),
       headers: {
         Accept: 'application/json',
-        ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+        ...(options.body && !(options.body instanceof FormData)
+          ? { 'Content-Type': 'application/json' }
+          : {}),
         ...options.headers,
       },
     });
