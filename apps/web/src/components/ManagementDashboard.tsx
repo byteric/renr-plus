@@ -7,6 +7,7 @@ import { RiskRegistrations } from './RiskRegistrations';
 import { MetricCard } from './charts/MetricCard';
 import { OperationalBars } from './charts/OperationalBars';
 import { CompletionRing } from './charts/CompletionRing';
+import { ActionMetrics } from './actions/ActionMetrics';
 import { usePresentationMotion } from '../hooks/usePresentationMotion';
 import '../dashboard.css';
 
@@ -106,6 +107,11 @@ function DashboardContent({
   return (
     <div className="management-dashboard">
       {content}
+      <ActionMetrics
+        key={`actions-${organizationId}`}
+        organizationId={organizationId}
+        onExpire={onExpire}
+      />
       <RiskRegistrations key={organizationId} organizationId={organizationId} onExpire={onExpire} />
       <section className="dashboard-structure" aria-labelledby="dashboard-structure-heading">
         <div className="dashboard-section-heading">

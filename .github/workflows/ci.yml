@@ -11,7 +11,7 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     services:
       postgres:
         image: postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
@@ -26,6 +26,7 @@ jobs:
           --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       DATABASE_URL: postgresql://renr:renr_ci_only@127.0.0.1:5432/renr_test?schema=public
+      STORAGE_ENABLED: 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -37,6 +38,9 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm setup:local
+      - name: Preparar MinIO privado de teste
+        run: docker compose --env-file .env -f infra/compose.yaml up -d --build --wait --wait-timeout 120 minio
+      - run: pnpm infra:verify
       - run: node --test scripts/start-production.test.mjs scripts/homologation-config.test.mjs scripts/homologation-data.test.mjs scripts/prisma-datasource.test.mjs scripts/check-hosted.test.mjs
       - run: pnpm check
       - run: pnpm format:check

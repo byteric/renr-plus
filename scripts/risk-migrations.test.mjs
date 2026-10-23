@@ -13,6 +13,45 @@ const environment = {
   ...process.env,
 };
 
+test('action evidence archival requires a non-null justification in PostgreSQL', async () => {
+  const configured = localDatabaseUrl(environment.DATABASE_URL);
+  const pool = new Pool({ connectionString: configured.toString(), max: 1 });
+  const client = await pool.connect();
+  try {
+    const migration = readFileSync(
+      new URL(
+        '../apps/api/prisma/migrations/20261021010000_action_evidence_v05/migration.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    const archivalCheck = migration
+      .split('\n')
+      .map((line) => line.trim())
+      .find((line) => line.startsWith('CHECK((archived_at'));
+    assert.ok(archivalCheck, 'The migration must define the archival consistency constraint');
+    await client.query(`CREATE TEMP TABLE evidence_archive_constraint (
+      archived_at timestamp, archived_by_id uuid, archive_reason varchar(1000),
+      ${archivalCheck}
+    )`);
+    await client.query('INSERT INTO evidence_archive_constraint VALUES (NULL, NULL, NULL)');
+    await client.query('INSERT INTO evidence_archive_constraint VALUES (now(), $1, $2)', [
+      randomUUID(),
+      'Justificativa fictícia válida',
+    ]);
+    await assert.rejects(
+      client.query('INSERT INTO evidence_archive_constraint VALUES (now(), $1, NULL)', [
+        randomUUID(),
+      ]),
+      { code: '23514' },
+      'Archival must not bypass the justification requirement through SQL NULL semantics',
+    );
+  } finally {
+    client.release();
+    await pool.end();
+  }
+});
+
 test('additive risk migration preserves existing v0.2 organizations, users, sessions, cycle and response', async () => {
   const configured = localDatabaseUrl(environment.DATABASE_URL);
   const name = `renr_v03_${randomUUID().replaceAll('-', '')}`;

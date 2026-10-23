@@ -1,6 +1,17 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { send, RequestError } from './api';
 afterEach(() => vi.unstubAllGlobals());
+it('envia FormData autenticado sem sobrescrever boundary multipart do navegador', async () => {
+  const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 204 }));
+  vi.stubGlobal('fetch', fetcher);
+  const body = new FormData();
+  body.set('description', 'Documento de acompanhamento');
+  await send('/organizations/empresa/actions/acao/evidence', { method: 'POST', body });
+  const options = fetcher.mock.calls[0]?.[1];
+  expect(options?.body).toBe(body);
+  expect(options?.credentials).toBe('include');
+  expect(new Headers(options?.headers).has('Content-Type')).toBe(false);
+});
 it('omite cookies quando o consumidor público pede omit', async () => {
   const fetcher = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 204 }));
   vi.stubGlobal('fetch', fetcher);
