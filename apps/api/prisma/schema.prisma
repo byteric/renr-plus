@@ -24,6 +24,7 @@ model Organization {
   diagnosticCycles DiagnosticCycle[]
   risks Risk[]
   riskEvaluations RiskEvaluation[]
+  actions Action[]
 
   @@map("organizations")
 }
@@ -45,6 +46,11 @@ model User {
   risksCreated Risk[] @relation("RiskCreator")
   risksUpdated Risk[] @relation("RiskUpdater")
   riskEvaluations RiskEvaluation[]
+  actionsCreated Action[] @relation("ActionCreator")
+  actionsUpdated Action[] @relation("ActionUpdater")
+  actionRevisions ActionRevision[]
+  evidenceCreated ActionEvidence[] @relation("EvidenceCreator")
+  evidenceArchived ActionEvidence[] @relation("EvidenceArchiver")
   @@map("users")
 }
 
@@ -297,6 +303,7 @@ model Risk {
   createdBy User @relation("RiskCreator", fields: [createdById], references: [id], onDelete: Restrict, map: "risks_creator_fkey")
   updatedBy User @relation("RiskUpdater", fields: [updatedById], references: [id], onDelete: Restrict, map: "risks_updater_fkey")
   evaluations RiskEvaluation[]
+  actions Action[]
   @@unique([organizationId, id])
   @@index([organizationId, status, createdAt, id])
   @@index([organizationId, assessmentGroupId])
@@ -321,7 +328,94 @@ model RiskEvaluation {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, map: "risk_evaluations_org_fkey")
   risk Risk @relation(fields: [organizationId, riskId], references: [organizationId, id], onDelete: Restrict, map: "risk_evaluations_risk_fkey")
   author User @relation(fields: [authorId], references: [id], onDelete: Restrict, map: "risk_evaluations_author_fkey")
+  actions Action[]
+  @@unique([organizationId, riskId, id])
   @@unique([riskId, sequence])
   @@index([organizationId, riskId])
   @@map("risk_evaluations")
+}
+
+enum ActionStatus {
+  PLANNED
+  IN_PROGRESS
+  IMPLEMENTED
+  CANCELLED
+}
+
+model Action {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  riskId String @map("risk_id") @db.Uuid
+  evaluationId String? @map("evaluation_id") @db.Uuid
+  sourceRiskVersion Int @map("source_risk_version")
+  contextSnapshot Json @map("context_snapshot")
+  title String @db.VarChar(160)
+  description String @db.VarChar(2000)
+  responsibleName String @map("responsible_name") @db.VarChar(120)
+  dueDate DateTime @map("due_date") @db.Date
+  expectedResult String @map("expected_result") @db.VarChar(2000)
+  verificationCriterion String @map("verification_criterion") @db.VarChar(2000)
+  status ActionStatus @default(PLANNED)
+  version Int @default(1)
+  implementationNote String? @map("implementation_note") @db.VarChar(2000)
+  implementedAt DateTime? @map("implemented_at")
+  createdById String @map("created_by_id") @db.Uuid
+  updatedById String @map("updated_by_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  risk Risk @relation(fields: [organizationId, riskId], references: [organizationId, id], onDelete: Restrict)
+  evaluation RiskEvaluation? @relation(fields: [organizationId, riskId, evaluationId], references: [organizationId, riskId, id], onDelete: Restrict)
+  createdBy User @relation("ActionCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy User @relation("ActionUpdater", fields: [updatedById], references: [id], onDelete: Restrict)
+  revisions ActionRevision[]
+  evidence ActionEvidence[]
+  @@unique([organizationId, id])
+  @@index([organizationId, riskId])
+  @@index([organizationId, status, dueDate, id])
+  @@map("actions")
+}
+
+model ActionRevision {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  actionId String @map("action_id") @db.Uuid
+  version Int
+  event String @db.VarChar(32)
+  snapshot Json
+  changeReason String? @map("change_reason") @db.VarChar(1000)
+  text String? @db.VarChar(2000)
+  evidenceId String? @map("evidence_id") @db.Uuid
+  authorId String @map("author_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  action Action @relation(fields: [organizationId, actionId], references: [organizationId, id], onDelete: Restrict)
+  author User @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  evidence ActionEvidence? @relation(fields: [organizationId, actionId, evidenceId], references: [organizationId, actionId, id], onDelete: Restrict)
+  @@unique([actionId, version])
+  @@map("action_revisions")
+}
+
+model ActionEvidence {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  actionId String @map("action_id") @db.Uuid
+  description String @db.VarChar(1000)
+  fileName String @map("file_name") @db.VarChar(100)
+  objectKey String @unique @map("object_key") @db.VarChar(240)
+  mimeType String @map("mime_type") @db.VarChar(64)
+  size Int
+  sha256 String @db.Char(64)
+  actionVersion Int @map("action_version")
+  createdById String @map("created_by_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  archivedAt DateTime? @map("archived_at")
+  archivedById String? @map("archived_by_id") @db.Uuid
+  archiveReason String? @map("archive_reason") @db.VarChar(1000)
+  action Action @relation(fields: [organizationId, actionId], references: [organizationId, id], onDelete: Restrict)
+  createdBy User @relation("EvidenceCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  archivedBy User? @relation("EvidenceArchiver", fields: [archivedById], references: [id], onDelete: Restrict)
+  revisions ActionRevision[]
+  @@unique([organizationId, actionId, id])
+  @@index([organizationId, actionId, createdAt, id])
+  @@map("action_evidence")
 }
