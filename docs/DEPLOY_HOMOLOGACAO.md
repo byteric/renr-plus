@@ -1,16 +1,21 @@
 # Publicar a homologação ReNR+ com orçamento zero
 
-## Estado da homologação
+## Ambiente e fluxo de publicação
 
-Esta rodada reúne a publicação e o painel organizacional da v0.2, sem substituir a stack.
-A homologação foi publicada em **12/10/2026**, após revisão e CI aprovada na
-[PR #21](https://github.com/byteric/renr-plus/pull/21).
+Os incrementos v0.4/v0.5 acrescentam ações preventivas e evidências privadas, sem substituir a stack.
+Promova a integração completa para `main` por PR com CI e revisão independente válidas.
+Publique manualmente o SHA resultante e confira o commit ativo antes de liberar o link.
 
 - Aplicação: <https://renr-plus-homologation.onrender.com>.
-- Serviço Render: `renr-plus-homologation`, plano **Free**, região **Ohio**, sem cartão cadastrado.
-- Branch publicada: `integracao/deploy-v01`; código do deploy verificado: `5e39aeb`.
+- Serviço Render: `renr-plus-homologation`, plano **Free**, região **Ohio**.
+- Branch do serviço: `main`; confirme o SHA ativo no histórico de deploys do Render.
 - Atualizações automáticas e previews desativados; health check em `/api/v1/health`.
-- A `main` continua protegida e não foi alterada por esta publicação.
+- A `main` permanece protegida; não use force push nem bypass das aprovações.
+
+## Histórico de validação da v0.2
+
+A homologação inicial foi publicada em **12/10/2026**, após revisão e CI aprovada na
+[PR #21](https://github.com/byteric/renr-plus/pull/21), no commit `5e39aeb`.
 
 Os oito checks públicos passaram: liveness, prontidão do PostgreSQL, HTML da interface,
 erro JSON para API inexistente, dois endpoints protegidos sem sessão e bloqueio de arquivos
@@ -91,7 +96,7 @@ evitam publicação automática de novos commits; não impedem o primeiro deploy
 
 Após a autorização para publicar e depois do merge dos pacotes:
 
-1. Criar o serviço Docker a partir de `https://github.com/byteric/renr-plus`, branch `integracao/deploy-v01` para a homologação revisada. A `main` permanece protegida e recebe a versão por PR aprovada.
+1. Use o serviço Docker existente, ligado a `https://github.com/byteric/renr-plus`, branch `main`. Não crie outro serviço para esta atualização.
 2. Selecionar plano **Free**, região **Ohio**, contexto `.`, Dockerfile `./Dockerfile`.
 3. Desativar atualizações automáticas. Não instalar integrações com acesso a outros repositórios.
 4. Preencher `DATABASE_URL` e `DATABASE_URL_UNPOOLED` com as conexões privadas do Neon.
@@ -105,17 +110,24 @@ Após a autorização para publicar e depois do merge dos pacotes:
 | `PORT`                  | `10000`                                           |
 | `SERVE_WEB`             | `true`                                            |
 | `WEB_DIST_PATH`         | `/app/apps/web/dist`                              |
-| `STORAGE_ENABLED`       | `false`                                           |
-| `RUN_MIGRATIONS`        | `false`                                           |
+| `STORAGE_ENABLED`       | `true`                                            |
+| `RUN_MIGRATIONS`        | `true`                                            |
 | `CORS_ORIGIN`           | Origem HTTPS exata do serviço                     |
 | `DATABASE_URL`          | Conexão Neon com pool e TLS verificado            |
 | `DATABASE_URL_UNPOOLED` | Conexão Neon direta, mesmo banco e TLS verificado |
 
-Não preencher credenciais S3 falsas. Ao implementar anexos, ativar armazenamento
-durável privado e revisar os custos antes de habilitar `STORAGE_ENABLED`.
+Configure `S3_ENDPOINT`, `S3_REGION` e `S3_BUCKET` a partir do projeto Supabase dedicado,
+com bucket `renr-evidence` privado e região `us-east-2`. Guarde `S3_ACCESS_KEY` e
+`S3_SECRET_KEY` somente nas variáveis privadas do Render. Nunca use credenciais fictícias
+na homologação nem publique esses valores no repositório ou frontend.
+Com `RUN_MIGRATIONS=true`, o startup executa as migrações aditivas pela conexão direta
+antes de iniciar a API. Não execute seed, reset ou testes automatizados no banco remoto.
+Para preparar variáveis antes da liberação, use **Environment → Save only** no Dashboard.
+Atualizações por integrações podem iniciar um build mesmo com auto-deploy desativado;
+nesse caso, cancele o build antecipado e preserve a última versão verificada.
 O fallback de origem só funciona com `RENDER=true` e uma origem HTTPS oficial `onrender.com`.
 Uma origem explícita sempre prevalece. Ausência, HTTP, caminho ou URL inválida impedem o início do serviço.
-Depois da aprovação e integração na `main`, apontar o serviço para ela antes de remover a branch temporária.
+A origem do serviço permanece em `main`; a promoção da integração ocorre por PR aprovada.
 
 ## Conferir o link antes de entregar
 

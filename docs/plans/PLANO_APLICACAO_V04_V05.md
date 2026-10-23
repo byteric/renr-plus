@@ -38,8 +38,10 @@ Metadados, autoria, hash e tamanho são preservados. Adição/arquivamento confe
 versão da ação e acrescentam revisão/auditoria, sem modificar seu estado operacional.
 Arquivar não apaga o histórico nem os bytes retidos no bucket privado.
 
-O armazenamento usa S3/MinIO local existente. Falha de armazenamento retorna erro
-seguro e não impede consultar ações ou registrar notas. Em falha de persistência,
+O armazenamento usa o adaptador S3 existente: MinIO privado no ambiente local/CI
+e um projeto Supabase exclusivo, com bucket privado, na homologação. As credenciais
+permanecem somente nas variáveis privadas do backend no Render. Falha de armazenamento
+retorna erro seguro e não impede consultar ações ou registrar notas. Em falha de persistência,
 compensação atinge somente o objeto novo daquela tentativa. Não há repetição automática
 de POST de resultado incerto nem promessa de idempotência.
 
@@ -73,11 +75,9 @@ de risco, diagnóstico e painel continuam compatíveis. Migrações v0.4 e v0.5 
 | 7     | Eliziane Mota de Souza             | Guias técnicos, uso e verificações.                       |
 | 8     | Ricardo Severiano de Souza Filho   | Composição, dependências, versão e preparação de release. |
 
-Cada pasta reúne somente o delta final do integrante em relação à v0.3, sem arquivos
-intermediários sobrescritos. Um único pacote/commit por integrante contempla as duas versões,
-seguido de PR para a integração conjunta quando sua criação remota for autorizada.
-Manifestos, tutoriais e ZIPs de envio ficam fora do repositório. A ordem evita depender
-de arquivos que só chegarão em uma contribuição posterior.
+As contribuições seguem a ordem de dependências e entram por PR na integração conjunta.
+O conjunto completo é promovido para `main` após CI e revisão independente válidas.
+Histórico, autoria e coautoria são preservados por merge commit, sem squash ou force push.
 
 ## Portões de execução
 
