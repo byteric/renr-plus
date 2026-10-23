@@ -20,6 +20,12 @@ import { RiskOverviewRepository } from './modules/risks/risk-overview.repository
 import { RiskRegistrationsController } from './modules/risks/risk-registrations.controller';
 import { RiskRegistrationsService } from './modules/risks/risk-registrations.service';
 import { RiskRegistrationsRepository } from './modules/risks/risk-registrations.repository';
+import { ActionsController } from './modules/actions/actions.controller';
+import { ActionsService } from './modules/actions/actions.service';
+import { ActionsRepository } from './modules/actions/actions.repository';
+import { EvidenceController, EvidenceGuard } from './modules/evidence/evidence.controller';
+import { EvidenceService } from './modules/evidence/evidence.service';
+import { EvidenceStorage } from './modules/evidence/evidence.storage';
 
 @Module({})
 export class AppModule {
@@ -35,6 +41,8 @@ export class AppModule {
         RisksController,
         RiskOverviewController,
         RiskRegistrationsController,
+        ActionsController,
+        EvidenceController,
       ],
       providers: [
         { provide: ENVIRONMENT, useValue: environment },
@@ -50,6 +58,11 @@ export class AppModule {
         RiskOverviewRepository,
         RiskRegistrationsService,
         RiskRegistrationsRepository,
+        ActionsRepository,
+        ActionsService,
+        EvidenceGuard,
+        EvidenceService,
+        EvidenceStorage,
       ],
     };
   }
