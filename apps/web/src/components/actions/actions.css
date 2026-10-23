@@ -1,0 +1,128 @@
+.actions-workspace {
+  min-width: 0;
+}
+.actions-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+.actions-table caption {
+  text-align: left;
+  font-weight: 700;
+  padding: 1rem;
+}
+.actions-table th,
+.actions-table td {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+.actions-table th {
+  color: var(--muted-foreground);
+  font-size: 0.85rem;
+}
+.actions-table a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-weight: 650;
+}
+.actions-table p {
+  margin: 0.25rem 0;
+}
+.actions-overdue {
+  display: block;
+  color: var(--foreground);
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+}
+.actions-overdue::before {
+  content: '● ';
+  color: var(--primary);
+}
+.actions-checks {
+  align-self: center;
+}
+.risk-filters .actions-checks input {
+  width: 1.25rem;
+  min-height: 1.25rem;
+}
+.actions-checks label {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  min-height: 44px;
+}
+.actions-workspace .record-actions {
+  flex-wrap: wrap;
+}
+.actions-workspace a,
+.actions-workspace dd {
+  overflow-wrap: anywhere;
+}
+.action-evidence-list {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 1rem;
+}
+.action-evidence-list li {
+  padding-block: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+.action-status-bars {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+.action-status-bars a {
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  min-height: 44px;
+  align-items: center;
+}
+.action-status-track {
+  height: 0.4rem;
+  background: var(--muted);
+  border-radius: 1rem;
+  overflow: hidden;
+}
+.action-status-track span {
+  display: block;
+  height: 100%;
+  background: var(--primary);
+}
+@media (max-width: 767px) {
+  .actions-table,
+  .actions-table tbody,
+  .actions-table tr,
+  .actions-table td {
+    display: block;
+    width: 100%;
+  }
+  .actions-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .actions-table tr {
+    border-bottom: 2px solid var(--border);
+    padding: 0.75rem;
+  }
+  .actions-table td {
+    padding: 0.5rem;
+    border: 0;
+  }
+  .actions-table td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.75rem;
+    color: var(--muted-foreground);
+    margin-bottom: 0.2rem;
+  }
+}
