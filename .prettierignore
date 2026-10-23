@@ -5,5 +5,6 @@ pnpm-lock.yaml
 apps/api/src/generated
 playwright-report
 test-results
+tmp
 docs/PRD.md
 docs/README.md

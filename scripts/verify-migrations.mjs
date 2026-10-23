@@ -53,14 +53,35 @@ try {
   await pnpm(['db:deploy']);
   await pnpm(['db:deploy']);
   await pnpm(['db:seed']);
+  const actionSnapshot = async () =>
+    JSON.stringify(
+      (
+        await testPool.query(`SELECT
+    (SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM actions t) AS actions,
+    (SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM action_revisions t) AS revisions`)
+      ).rows,
+    );
+  const actionsBefore = await actionSnapshot();
   await pnpm(['db:seed']);
+  if ((await actionSnapshot()) !== actionsBefore)
+    throw new Error('Seed alterou ações ou histórico existentes.');
   const counts = await testPool.query(`SELECT
     (SELECT count(*) FROM "users") AS users,
     (SELECT count(*) FROM "organizations") AS organizations,
     (SELECT count(*) FROM "memberships") AS memberships,
     (SELECT count(*) FROM "units") AS units,
-    (SELECT count(*) FROM "sectors") AS sectors`);
-  const expected = { users: '3', organizations: '2', memberships: '3', units: '2', sectors: '2' };
+    (SELECT count(*) FROM "sectors") AS sectors,
+    (SELECT count(*) FROM "actions") AS actions,
+    (SELECT count(*) FROM "action_revisions") AS revisions`);
+  const expected = {
+    users: '3',
+    organizations: '2',
+    memberships: '3',
+    units: '2',
+    sectors: '2',
+    actions: '8',
+    revisions: '16',
+  };
   for (const [key, value] of Object.entries(expected)) {
     if (counts.rows[0][key] !== value) throw new Error(`Contagem sintética inesperada: ${key}.`);
   }
