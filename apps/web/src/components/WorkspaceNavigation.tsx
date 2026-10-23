@@ -28,6 +28,7 @@ export function WorkspaceNavigation({
           ['unidades', 'Unidades'],
           ['diagnostico', 'Diagnóstico'],
           ['inventario', 'Inventário'],
+          ['acoes', 'Ações'],
           ...(unitId ? [[`setores/${unitId}`, 'Setores']] : []),
         ].map(([path, label]) => (
           <a

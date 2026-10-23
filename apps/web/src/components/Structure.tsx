@@ -19,16 +19,23 @@ import { StructureEditor } from './StructureEditor';
 const RiskWorkspace = lazy(() =>
   import('./risks/RiskWorkspace').then((module) => ({ default: module.RiskWorkspace })),
 );
+const ActionsWorkspace = lazy(() =>
+  import('./actions/ActionsWorkspace').then((module) => ({ default: module.ActionsWorkspace })),
+);
 const ManagementDashboard = lazy(() =>
   import('./ManagementDashboard').then((module) => ({ default: module.ManagementDashboard })),
 );
 
 type Kind = 'empresas' | 'unidades' | 'setores';
 type RecordItem = Organization | Unit | Sector;
-type Route = { kind: Kind | 'painel' | 'diagnostico' | 'inventario'; unitId: string | null };
+type Route = {
+  kind: Kind | 'painel' | 'diagnostico' | 'inventario' | 'acoes';
+  unitId: string | null;
+};
 function readRoute(): Route {
   const parts = window.location.hash.replace(/^#\/?/, '').split('?')[0]?.split('/') ?? [];
   if (parts[0] === 'inventario') return { kind: 'inventario', unitId: null };
+  if (parts[0] === 'acoes') return { kind: 'acoes', unitId: null };
   if (parts[0] === 'diagnostico') return { kind: 'diagnostico', unitId: null };
   if (parts[0] === 'painel') return { kind: 'painel', unitId: null };
   if (parts[0] === 'unidades') return { kind: 'unidades', unitId: null };
@@ -40,6 +47,7 @@ const titles: Record<Route['kind'], string> = {
   painel: 'Painel',
   diagnostico: 'Diagnóstico',
   inventario: 'Inventário',
+  acoes: 'Ações',
   empresas: 'Empresas',
   unidades: 'Unidades',
   setores: 'Setores',
@@ -198,24 +206,27 @@ export function Structure({
                 {titles[route.kind]}
               </h1>
               <p className="muted">
-                {route.kind === 'painel'
-                  ? 'Conecte estrutura, registros e próximos passos da empresa selecionada.'
-                  : route.kind === 'inventario'
-                    ? 'Documente fatores, preserve a origem e acompanhe cada versão.'
-                    : route.kind === 'diagnostico'
-                      ? 'Aplique ciclos demonstrativos e consulte a consolidação coletiva.'
-                      : route.kind === 'empresas'
-                        ? 'Escolha a empresa em que você deseja trabalhar.'
-                        : route.kind === 'unidades'
-                          ? 'Organize os locais de trabalho da empresa.'
-                          : 'Organize as equipes e áreas da unidade selecionada.'}
+                {route.kind === 'acoes'
+                  ? 'Organize medidas preventivas e preserve o histórico de acompanhamento.'
+                  : route.kind === 'painel'
+                    ? 'Conecte estrutura, registros e próximos passos da empresa selecionada.'
+                    : route.kind === 'inventario'
+                      ? 'Documente fatores, preserve a origem e acompanhe cada versão.'
+                      : route.kind === 'diagnostico'
+                        ? 'Aplique ciclos demonstrativos e consulte a consolidação coletiva.'
+                        : route.kind === 'empresas'
+                          ? 'Escolha a empresa em que você deseja trabalhar.'
+                          : route.kind === 'unidades'
+                            ? 'Organize os locais de trabalho da empresa.'
+                            : 'Organize as equipes e áreas da unidade selecionada.'}
               </p>
             </div>
             {canWrite &&
               listPath &&
               route.kind !== 'painel' &&
               route.kind !== 'diagnostico' &&
-              route.kind !== 'inventario' && (
+              route.kind !== 'inventario' &&
+              route.kind !== 'acoes' && (
                 <Button
                   disabled={pending}
                   onClick={() => {
@@ -237,7 +248,21 @@ export function Structure({
               )}
             </div>
           )}
-          {route.kind === 'inventario' ? (
+          {route.kind === 'acoes' ? (
+            <Suspense
+              fallback={
+                <p role="status" className="surface">
+                  Carregando ações…
+                </p>
+              }
+            >
+              <ActionsWorkspace
+                key={session.activeOrganizationId ?? 'no-organization'}
+                session={session}
+                onExpire={onExpire}
+              />
+            </Suspense>
+          ) : route.kind === 'inventario' ? (
             <Suspense
               fallback={
                 <p role="status" className="surface">
@@ -349,7 +374,8 @@ export function Structure({
                                 {writable &&
                                   route.kind !== 'painel' &&
                                   route.kind !== 'diagnostico' &&
-                                  route.kind !== 'inventario' && (
+                                  route.kind !== 'inventario' &&
+                                  route.kind !== 'acoes' && (
                                     <Button
                                       variant="outline"
                                       disabled={pending}

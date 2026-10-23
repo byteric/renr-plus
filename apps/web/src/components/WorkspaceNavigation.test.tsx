@@ -38,3 +38,17 @@ it('oferece acesso direto ao inventário e identifica a etapa atual', () => {
     '#/diagnostico',
   );
 });
+
+it('oferece ações como etapa operacional e identifica a rota atual', () => {
+  render(
+    <WorkspaceNavigation
+      session={session}
+      route="acoes"
+      unitId={null}
+      pending={false}
+      onSelect={() => undefined}
+    />,
+  );
+  expect(screen.getByRole('link', { name: 'Ações' })).toHaveAttribute('href', '#/acoes');
+  expect(screen.getByRole('link', { name: 'Ações' })).toHaveAttribute('aria-current', 'page');
+});
