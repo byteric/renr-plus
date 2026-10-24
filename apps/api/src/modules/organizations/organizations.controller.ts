@@ -3,7 +3,9 @@ import {
   createOrganizationSchema,
   createSectorSchema,
   createUnitSchema,
-  paginationSchema,
+  organizationQuerySchema,
+  unitQuerySchema,
+  sectorQuerySchema,
   updateOrganizationSchema,
   updateSectorSchema,
   updateUnitSchema,
@@ -30,7 +32,7 @@ export class OrganizationsController {
   async list(@Req() request: Request, @Query() query: unknown) {
     return this.organizations.organizations(
       (await this.identity.authenticate(request)).userId,
-      parse(paginationSchema, query),
+      parse(organizationQuerySchema, query),
     );
   }
   @Post('organizations')
@@ -55,7 +57,7 @@ export class OrganizationsController {
   async units(@Req() request: Request, @Param('id') id: string, @Query() query: unknown) {
     return this.organizations.units(
       await this.identity.scope(request, parse(z.uuid(), id), false),
-      parse(paginationSchema, query),
+      parse(unitQuerySchema, query),
     );
   }
   @Post('organizations/:id/units')
@@ -80,7 +82,7 @@ export class OrganizationsController {
     return this.organizations.sectors(
       await this.identity.scope(request, undefined, false),
       parse(z.uuid(), id),
-      parse(paginationSchema, query),
+      parse(sectorQuerySchema, query),
     );
   }
   @Post('units/:id/sectors')

@@ -1,5 +1,6 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import type {
+  OrganizationQuery,
   CreateOrganization,
   CreateSector,
   CreateUnit,
@@ -10,7 +11,7 @@ import type {
 import { PrismaService } from '../../database/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
 
-type Page = { page: number; pageSize: number };
+type Page = OrganizationQuery;
 type Scope = { userId: string; organizationId: string };
 const normalized = (name: string): string => name.toLowerCase();
 
@@ -47,7 +48,13 @@ export class OrganizationsService {
     });
   }
   async organizations(userId: string, pagination: Page) {
-    const where = { memberships: { some: { userId } } };
+    const where = {
+      memberships: { some: { userId, isActive: true } },
+      isActive: pagination.isActive,
+      ...(pagination.search
+        ? { name: { contains: pagination.search, mode: 'insensitive' as const } }
+        : {}),
+    };
     const [items, total] = await this.database.client.$transaction([
       this.database.client.organization.findMany({
         where,
@@ -57,7 +64,7 @@ export class OrganizationsService {
       }),
       this.database.client.organization.count({ where }),
     ]);
-    return { items, total, ...pagination };
+    return { items, total, page: pagination.page, pageSize: pagination.pageSize };
   }
   async createOrganization(userId: string, input: CreateOrganization) {
     return this.write(async (tx) => {
@@ -107,7 +114,13 @@ export class OrganizationsService {
     });
   }
   async units(scope: Scope, pagination: Page) {
-    const where = { organizationId: scope.organizationId };
+    const where = {
+      organizationId: scope.organizationId,
+      isActive: pagination.isActive,
+      ...(pagination.search
+        ? { name: { contains: pagination.search, mode: 'insensitive' as const } }
+        : {}),
+    };
     const [items, total] = await this.database.client.$transaction([
       this.database.client.unit.findMany({
         where,
@@ -118,7 +131,7 @@ export class OrganizationsService {
       }),
       this.database.client.unit.count({ where }),
     ]);
-    return { items, total, ...pagination };
+    return { items, total, page: pagination.page, pageSize: pagination.pageSize };
   }
   async createUnit(scope: Scope, input: CreateUnit) {
     return this.write(async (tx) => {
@@ -157,7 +170,14 @@ export class OrganizationsService {
   async sectors(scope: Scope, unitId: string, pagination: Page) {
     return this.database.client.$transaction(async (tx) => {
       await this.unit(tx, scope, unitId);
-      const where = { unitId, organizationId: scope.organizationId };
+      const where = {
+        unitId,
+        organizationId: scope.organizationId,
+        isActive: pagination.isActive,
+        ...(pagination.search
+          ? { name: { contains: pagination.search, mode: 'insensitive' as const } }
+          : {}),
+      };
       const [items, total] = await Promise.all([
         tx.sector.findMany({
           where,
@@ -168,7 +188,7 @@ export class OrganizationsService {
         }),
         tx.sector.count({ where }),
       ]);
-      return { items, total, ...pagination };
+      return { items, total, page: pagination.page, pageSize: pagination.pageSize };
     });
   }
   async createSector(scope: Scope, unitId: string, input: CreateSector) {

@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
   HttpCode,
   Inject,
   Post,
@@ -10,7 +11,9 @@ import {
   Req,
   Res,
 } from '@nestjs/common';
-import { activeOrganizationSchema, loginSchema } from '@renr/contracts';
+import { activeOrganizationSchema, loginSchema, sessionCapabilitiesSchema } from '@renr/contracts';
+import { ApiResponse } from '@nestjs/swagger';
+import { documentation } from '../risks/risks.controller';
 import type { Request, Response } from 'express';
 import { ENVIRONMENT, type Environment } from '../../config/env';
 import { parse } from '../../http/parse';
@@ -42,6 +45,12 @@ export class IdentityController {
   }
   @Get('session') current(@Req() request: Request) {
     return this.identity.current(request);
+  }
+  @Get('session-capabilities')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiResponse({ status: 200, schema: documentation(sessionCapabilitiesSchema) })
+  capabilities(@Req() request: Request) {
+    return this.identity.capabilities(request);
   }
   @Delete('session')
   @HttpCode(204)

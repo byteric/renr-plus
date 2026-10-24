@@ -2,6 +2,7 @@ import { type INestApplication, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import type { Environment } from './config/env';
 import { ApiExceptionFilter } from './http/api-exception.filter';
@@ -12,6 +13,8 @@ export function configureApplication(app: INestApplication, environment: Environ
   app.setGlobalPrefix('api/v1');
   app.use(requestIdMiddleware);
   app.use(helmet());
+  // Fits the bounded 100 × 20 instrument even when clients escape Unicode in JSON.
+  (app as NestExpressApplication).useBodyParser('json', { limit: '4mb' });
   app.enableCors({ origin: environment.CORS_ORIGIN, credentials: true });
   app.useGlobalPipes(
     new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),

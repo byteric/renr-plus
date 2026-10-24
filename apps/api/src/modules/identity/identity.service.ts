@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { createHash, randomBytes } from 'node:crypto';
 import type { Request } from 'express';
-import type { SessionResponse } from '@renr/contracts';
+import type { Capability, SessionCapabilities, SessionResponse } from '@renr/contracts';
 import { ENVIRONMENT, type Environment } from '../../config/env';
 import { PrismaService } from '../../database/prisma.service';
 import { verifyPassword } from './password';
@@ -65,7 +65,8 @@ export class IdentityService {
         data: {
           userId: user.id,
           tokenHash: tokenHash(token),
-          activeOrganizationId: user.memberships[0]?.organizationId ?? null,
+          activeOrganizationId:
+            user.memberships.find((member) => member.isActive !== false)?.organizationId ?? null,
           expiresAt: new Date(now + sessionDuration),
         },
         include: includeUser,
@@ -108,7 +109,11 @@ export class IdentityService {
   }
   async activate(request: Request, organizationId: string): Promise<SessionResponse> {
     const session = await this.authenticate(request);
-    if (!session.user.memberships.some((member) => member.organizationId === organizationId))
+    if (
+      !session.user.memberships.some(
+        (member) => member.organizationId === organizationId && member.isActive !== false,
+      )
+    )
       throw new ForbiddenException();
     const updated = await this.database.client.session.update({
       where: { id: session.id },
@@ -125,23 +130,62 @@ export class IdentityService {
     const session = await this.authenticate(request);
     const active = session.activeOrganizationId;
     const member = session.user.memberships.find((item) => item.organizationId === active);
-    if (!active || !member || (organizationId !== undefined && active !== organizationId))
+    if (
+      !active ||
+      !member ||
+      member.isActive === false ||
+      (organizationId !== undefined && active !== organizationId)
+    )
       throw new HttpException('Not found', 404);
     if (write && member.role !== 'ADMIN') throw new ForbiddenException();
     return { userId: session.userId, organizationId: active };
+  }
+
+  async capabilities(request: Request): Promise<SessionCapabilities> {
+    const session = await this.authenticate(request);
+    const member = session.user.memberships.find(
+      (item) => item.organizationId === session.activeOrganizationId && item.isActive !== false,
+    );
+    return {
+      organizationId: member?.organizationId ?? null,
+      capabilities: member?.capabilities ?? [],
+      canManageAccess: member?.role === 'ADMIN',
+    };
+  }
+
+  async requireCapability(request: Request, organizationId: string, capability: Capability) {
+    const scope = await this.scope(request, organizationId, false);
+    const current = await this.capabilities(request);
+    if (current.organizationId !== organizationId || !current.capabilities.includes(capability))
+      throw new ForbiddenException();
+    return scope;
+  }
+
+  /** The caller must load assignment from persisted action data in ID13, never from request JSON. */
+  async assignedActionScope(
+    request: Request,
+    organizationId: string,
+    resource: { organizationId: string; assignedUserId: string | null },
+  ) {
+    const scope = await this.requireCapability(request, organizationId, 'EXECUTE_ASSIGNED_ACTIONS');
+    if (resource.organizationId !== scope.organizationId) throw new HttpException('Not found', 404);
+    if (resource.assignedUserId !== scope.userId) throw new ForbiddenException();
+    return scope;
   }
   private toResponse(
     session: Awaited<ReturnType<IdentityService['authenticate']>>,
   ): SessionResponse {
     return {
       user: { id: session.user.id, name: session.user.name, email: session.user.email },
-      memberships: session.user.memberships.map((item) => ({
-        organizationId: item.organizationId,
-        organizationName: item.organization.name,
-        role: item.role,
-      })),
+      memberships: session.user.memberships
+        .filter((item) => item.isActive !== false)
+        .map((item) => ({
+          organizationId: item.organizationId,
+          organizationName: item.organization.name,
+          role: item.role,
+        })),
       activeOrganizationId: session.user.memberships.some(
-        (item) => item.organizationId === session.activeOrganizationId,
+        (item) => item.organizationId === session.activeOrganizationId && item.isActive !== false,
       )
         ? session.activeOrganizationId
         : null,

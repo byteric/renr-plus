@@ -6,6 +6,7 @@ export * from './risk-registrations';
 export * from './actions';
 export * from './action-overview';
 export * from './evidence';
+export * from './access';
 export { organizationOverviewSchema, type OrganizationOverview } from './overview';
 
 /** Liveness: não implica que PostgreSQL ou armazenamento estejam disponíveis. */
@@ -129,3 +130,6 @@ export type CreateUnit = z.infer<typeof createUnitSchema>;
 export type UpdateUnit = z.infer<typeof updateUnitSchema>;
 export type CreateSector = z.infer<typeof createSectorSchema>;
 export type UpdateSector = z.infer<typeof updateSectorSchema>;
+export * from './workforce';
+export * from './instruments';
+export * from './assessment-cycles';

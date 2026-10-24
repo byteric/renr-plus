@@ -85,6 +85,11 @@ describe('Diagnostic aggregate privacy HTTP', () => {
     organizationId,
     status: 'CLOSED',
     instrumentVersion: {
+      id,
+      organizationId,
+      version: 1,
+      status: 'PUBLISHED',
+      isDemo: true,
       questions: [
         {
           id: questionId,

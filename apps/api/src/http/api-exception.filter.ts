@@ -12,6 +12,7 @@ import type { Response } from 'express';
 import { z } from 'zod';
 import { Prisma } from '../generated/prisma/client';
 import { InviteUnavailableException } from '../modules/diagnostics/diagnostics.service';
+import { AccessInviteUnavailableException } from '../modules/access/access.errors';
 
 const unavailableDatabaseCodes = new Set(['P1001', 'P1002', 'P1008', 'P1017', 'P2024']);
 function isDatabaseUnavailable(exception: unknown): boolean {
@@ -20,6 +21,16 @@ function isDatabaseUnavailable(exception: unknown): boolean {
   if (exception instanceof Prisma.PrismaClientInitializationError)
     return unavailableDatabaseCodes.has(exception.errorCode ?? '');
   return false;
+}
+
+function isJsonPayloadTooLarge(exception: unknown): boolean {
+  return (
+    exception instanceof Error &&
+    'type' in exception &&
+    exception.type === 'entity.too.large' &&
+    'status' in exception &&
+    exception.status === HttpStatus.PAYLOAD_TOO_LARGE
+  );
 }
 
 const publicErrors: Record<number, { code: string; message: string }> = {
@@ -44,9 +55,11 @@ export class ApiExceptionFilter implements ExceptionFilter {
     const statusCode =
       exception instanceof HttpException
         ? exception.getStatus()
-        : isDatabaseUnavailable(exception)
-          ? HttpStatus.SERVICE_UNAVAILABLE
-          : HttpStatus.INTERNAL_SERVER_ERROR;
+        : isJsonPayloadTooLarge(exception)
+          ? HttpStatus.PAYLOAD_TOO_LARGE
+          : isDatabaseUnavailable(exception)
+            ? HttpStatus.SERVICE_UNAVAILABLE
+            : HttpStatus.INTERNAL_SERVER_ERROR;
     const requestId =
       typeof response.locals.requestId === 'string' ? response.locals.requestId : randomUUID();
     const error = publicErrors[statusCode] ?? {
@@ -57,6 +70,10 @@ export class ApiExceptionFilter implements ExceptionFilter {
     if (exception instanceof InviteUnavailableException) {
       body.code = 'INVITE_UNAVAILABLE';
       body.message = 'Invite unavailable';
+    }
+    if (exception instanceof AccessInviteUnavailableException) {
+      body.code = 'ACCESS_INVITE_UNAVAILABLE';
+      body.message = 'Activation invitation unavailable';
     }
     if (exception instanceof HttpException && statusCode === 400) {
       const details = z

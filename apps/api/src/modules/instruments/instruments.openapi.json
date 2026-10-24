@@ -1,0 +1,1419 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Instrument catalog",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/organizations/{orgId}/instruments": {
+      "get": {
+        "operationId": "listInstruments",
+        "summary": "listInstruments",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 160
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success, private no-store",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/instrumentListSchema"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Strict validation/publication fields; active membership; ADMIN editing/demo publish; TECHNICAL_DECISIONS real publish; Origin on mutation; scope or revision conflict"
+          },
+          "401": {
+            "description": "Strict validation/publication fields; active membership; ADMIN editing/demo publish; TECHNICAL_DECISIONS real publish; Origin on mutation; scope or revision conflict"
+          },
+          "403": {
+            "description": "Strict validation/publication fields; active membership; ADMIN editing/demo publish; TECHNICAL_DECISIONS real publish; Origin on mutation; scope or revision conflict"
+          },
+          "404": {
+            "description": "Strict validation/publication fields; active membership; ADMIN editing/demo publish; TECHNICAL_DECISIONS real publish; Origin on mutation; scope or revision conflict"
+          },
+          "409": {
+            "description": "Strict validation/publication fields; active membership; ADMIN editing/demo publish; TECHNICAL_DECISIONS real publish; Origin on mutation; scope or revision conflict"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createInstrument",
+        "summary": "createInstrument",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success, private no-store",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/createdInstrumentSchema"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Strict validation/publication fields; active membership; ADMIN editing/demo publish; TECHNICAL_DECISIONS real publish; Origin on mutation; scope or revision conflict"
+          },
+          "401": {
+            "description": "Strict validation/publication fields; active membership; ADMIN editing/demo publish; TECHNICAL_DECISIONS real publish; Origin on mutation; scope or revision conflict"
+          },
+          "403": {
+            "description": "Strict validation/publication fields; active membership; ADMIN editing/demo publish; TECHNICAL_DECISIONS real publish; Origin on mutation; scope or revision conflict"
+          },
+          "404": {
+            "description": "Strict validation/publication fields; active membership; ADMIN editing/demo publish; TECHNICAL_DECISIONS real publish; Origin on mutation; scope or revision conflict"
+          },
+          "409": {
+            "description": "Strict validation/publication fields; active membership; ADMIN editing/demo publish; TECHNICAL_DECISIONS real publish; Origin on mutation; scope or revision conflict"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/createInstrumentSchema"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{orgId}/instruments/{id}": {
+      "get": {
+        "operationId": "getInstrument",
+        "summary": "getInstrument",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success, private no-store",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/instrumentSchema"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Strict validation/publication fields; active membership; ADMIN editing/demo publish; TECHNICAL_DECISIONS real publish; Origin on mutation; scope or revision conflict"
+          },
+          "401": {
+            "description": "Strict validation/publication fields; active membership; ADMIN editing/demo publish; TECHNICAL_DECISIONS real publish; Origin on mutation; scope or revision conflict"
+          },
+          "403": {
+            "description": "Strict validation/publication fields; active membership; ADMIN editing/demo publish; TECHNICAL_DECISIONS real publish; Origin on mutation; scope or revision conflict"
+          },
+          "404": {
+            "description": "Strict validation/publication fields; active membership; ADMIN editing/demo publish; TECHNICAL_DECISIONS real publish; Origin on mutation; scope or revision conflict"
+          },
+          "409": {
+            "description": "Strict validation/publication fields; active membership; ADMIN editing/demo publish; TECHNICAL_DECISIONS real publish; Origin on mutation; scope or revision conflict"
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{orgId}/instruments/{id}/versions": {
+      "get": {
+        "operationId": "listInstrumentVersions",
+        "summary": "listInstrumentVersions",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success, private no-store",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/instrumentVersionListSchema"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Strict validation/publication fields; active membership; ADMIN editing/demo publish; TECHNICAL_DECISIONS real publish; Origin on mutation; scope or revision conflict"
+          },
+          "401": {
+            "description": "Strict validation/publication fields; active membership; ADMIN editing/demo publish; TECHNICAL_DECISIONS real publish; Origin on mutation; scope or revision conflict"
+          },
+          "403": {
+            "description": "Strict validation/publication fields; active membership; ADMIN editing/demo publish; TECHNICAL_DECISIONS real publish; Origin on mutation; scope or revision conflict"
+          },
+          "404": {
+            "description": "Strict validation/publication fields; active membership; ADMIN editing/demo publish; TECHNICAL_DECISIONS real publish; Origin on mutation; scope or revision conflict"
+          },
+          "409": {
+            "description": "Strict validation/publication fields; active membership; ADMIN editing/demo publish; TECHNICAL_DECISIONS real publish; Origin on mutation; scope or revision conflict"
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{orgId}/instruments/{id}/versions/{versionId}": {
+      "get": {
+        "operationId": "getInstrumentVersion",
+        "summary": "getInstrumentVersion",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "versionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success, private no-store",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/instrumentVersionSchema"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Strict validation/publication fields; active membership; ADMIN editing/demo publish; TECHNICAL_DECISIONS real publish; Origin on mutation; scope or revision conflict"
+          },
+          "401": {
+            "description": "Strict validation/publication fields; active membership; ADMIN editing/demo publish; TECHNICAL_DECISIONS real publish; Origin on mutation; scope or revision conflict"
+          },
+          "403": {
+            "description": "Strict validation/publication fields; active membership; ADMIN editing/demo publish; TECHNICAL_DECISIONS real publish; Origin on mutation; scope or revision conflict"
+          },
+          "404": {
+            "description": "Strict validation/publication fields; active membership; ADMIN editing/demo publish; TECHNICAL_DECISIONS real publish; Origin on mutation; scope or revision conflict"
+          },
+          "409": {
+            "description": "Strict validation/publication fields; active membership; ADMIN editing/demo publish; TECHNICAL_DECISIONS real publish; Origin on mutation; scope or revision conflict"
+          }
+        }
+      },
+      "put": {
+        "operationId": "updateInstrumentDraft",
+        "summary": "updateInstrumentDraft",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "versionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success, private no-store",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/instrumentVersionSchema"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Strict validation/publication fields; active membership; ADMIN editing/demo publish; TECHNICAL_DECISIONS real publish; Origin on mutation; scope or revision conflict"
+          },
+          "401": {
+            "description": "Strict validation/publication fields; active membership; ADMIN editing/demo publish; TECHNICAL_DECISIONS real publish; Origin on mutation; scope or revision conflict"
+          },
+          "403": {
+            "description": "Strict validation/publication fields; active membership; ADMIN editing/demo publish; TECHNICAL_DECISIONS real publish; Origin on mutation; scope or revision conflict"
+          },
+          "404": {
+            "description": "Strict validation/publication fields; active membership; ADMIN editing/demo publish; TECHNICAL_DECISIONS real publish; Origin on mutation; scope or revision conflict"
+          },
+          "409": {
+            "description": "Strict validation/publication fields; active membership; ADMIN editing/demo publish; TECHNICAL_DECISIONS real publish; Origin on mutation; scope or revision conflict"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/updateInstrumentDraftSchema"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{orgId}/instruments/{id}/versions/{versionId}/publish": {
+      "post": {
+        "operationId": "publishInstrumentVersion",
+        "summary": "publishInstrumentVersion",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "versionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success, private no-store",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/instrumentVersionSchema"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Strict validation/publication fields; active membership; ADMIN editing/demo publish; TECHNICAL_DECISIONS real publish; Origin on mutation; scope or revision conflict"
+          },
+          "401": {
+            "description": "Strict validation/publication fields; active membership; ADMIN editing/demo publish; TECHNICAL_DECISIONS real publish; Origin on mutation; scope or revision conflict"
+          },
+          "403": {
+            "description": "Strict validation/publication fields; active membership; ADMIN editing/demo publish; TECHNICAL_DECISIONS real publish; Origin on mutation; scope or revision conflict"
+          },
+          "404": {
+            "description": "Strict validation/publication fields; active membership; ADMIN editing/demo publish; TECHNICAL_DECISIONS real publish; Origin on mutation; scope or revision conflict"
+          },
+          "409": {
+            "description": "Strict validation/publication fields; active membership; ADMIN editing/demo publish; TECHNICAL_DECISIONS real publish; Origin on mutation; scope or revision conflict"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/publishInstrumentSchema"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{orgId}/instruments/{id}/versions/{versionId}/fork": {
+      "post": {
+        "operationId": "forkInstrumentVersion",
+        "summary": "forkInstrumentVersion",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "versionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success, private no-store",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/instrumentVersionSchema"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Strict validation/publication fields; active membership; ADMIN editing/demo publish; TECHNICAL_DECISIONS real publish; Origin on mutation; scope or revision conflict"
+          },
+          "401": {
+            "description": "Strict validation/publication fields; active membership; ADMIN editing/demo publish; TECHNICAL_DECISIONS real publish; Origin on mutation; scope or revision conflict"
+          },
+          "403": {
+            "description": "Strict validation/publication fields; active membership; ADMIN editing/demo publish; TECHNICAL_DECISIONS real publish; Origin on mutation; scope or revision conflict"
+          },
+          "404": {
+            "description": "Strict validation/publication fields; active membership; ADMIN editing/demo publish; TECHNICAL_DECISIONS real publish; Origin on mutation; scope or revision conflict"
+          },
+          "409": {
+            "description": "Strict validation/publication fields; active membership; ADMIN editing/demo publish; TECHNICAL_DECISIONS real publish; Origin on mutation; scope or revision conflict"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/forkInstrumentVersionSchema"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "session": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "renr_session"
+      }
+    },
+    "schemas": {
+      "instrumentSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "organizationId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "isLegacy": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          }
+        },
+        "required": ["id", "organizationId", "name", "isLegacy", "createdAt"],
+        "additionalProperties": false
+      },
+      "instrumentListSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "organizationId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "isLegacy": {
+                  "type": "boolean"
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                }
+              },
+              "required": ["id", "organizationId", "name", "isLegacy", "createdAt"],
+              "additionalProperties": false
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "pageSize": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": ["items", "total", "page", "pageSize"],
+        "additionalProperties": false
+      },
+      "instrumentVersionSummarySchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "organizationId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "instrumentId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "title": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "status": {
+            "type": "string",
+            "enum": ["DRAFT", "PUBLISHED"]
+          },
+          "usageMode": {
+            "type": "string",
+            "enum": ["DEMONSTRATION", "REAL"]
+          },
+          "questionCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "approvalReference": {
+            "type": ["string", "null"]
+          },
+          "publishedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "publishedById": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "cycleCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "id",
+          "organizationId",
+          "instrumentId",
+          "title",
+          "version",
+          "revision",
+          "status",
+          "usageMode",
+          "questionCount",
+          "approvalReference",
+          "publishedAt",
+          "publishedById",
+          "createdAt",
+          "updatedAt",
+          "cycleCount"
+        ],
+        "additionalProperties": false
+      },
+      "instrumentVersionListSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "organizationId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "instrumentId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "version": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                "revision": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                "status": {
+                  "type": "string",
+                  "enum": ["DRAFT", "PUBLISHED"]
+                },
+                "usageMode": {
+                  "type": "string",
+                  "enum": ["DEMONSTRATION", "REAL"]
+                },
+                "questionCount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 100
+                },
+                "approvalReference": {
+                  "type": ["string", "null"]
+                },
+                "publishedAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "publishedById": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                },
+                "updatedAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                },
+                "cycleCount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "id",
+                "organizationId",
+                "instrumentId",
+                "title",
+                "version",
+                "revision",
+                "status",
+                "usageMode",
+                "questionCount",
+                "approvalReference",
+                "publishedAt",
+                "publishedById",
+                "createdAt",
+                "updatedAt",
+                "cycleCount"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "pageSize": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": ["items", "total", "page", "pageSize"],
+        "additionalProperties": false
+      },
+      "instrumentVersionSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "organizationId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "instrumentId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "title": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "status": {
+            "type": "string",
+            "enum": ["DRAFT", "PUBLISHED"]
+          },
+          "usageMode": {
+            "type": "string",
+            "enum": ["DEMONSTRATION", "REAL"]
+          },
+          "questionCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "approvalReference": {
+            "type": ["string", "null"]
+          },
+          "publishedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "publishedById": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "cycleCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "description": {
+            "type": "string"
+          },
+          "instructions": {
+            "type": "string"
+          },
+          "questions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "label": {
+                  "type": "string",
+                  "maxLength": 400
+                },
+                "type": {
+                  "type": "string",
+                  "enum": ["SINGLE_CHOICE", "MULTIPLE_CHOICE", "ORDINAL_CHOICE"]
+                },
+                "required": {
+                  "type": "boolean"
+                },
+                "position": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 100
+                },
+                "options": {
+                  "maxItems": 20,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "label": {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      "position": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 20
+                      }
+                    },
+                    "required": ["id", "label", "position"],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": ["id", "label", "type", "required", "position", "options"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "id",
+          "organizationId",
+          "instrumentId",
+          "title",
+          "version",
+          "revision",
+          "status",
+          "usageMode",
+          "questionCount",
+          "approvalReference",
+          "publishedAt",
+          "publishedById",
+          "createdAt",
+          "updatedAt",
+          "cycleCount",
+          "description",
+          "instructions",
+          "questions"
+        ],
+        "additionalProperties": false
+      },
+      "createdInstrumentSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "instrument": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "organizationId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "name": {
+                "type": "string"
+              },
+              "isLegacy": {
+                "type": "boolean"
+              },
+              "createdAt": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              }
+            },
+            "required": ["id", "organizationId", "name", "isLegacy", "createdAt"],
+            "additionalProperties": false
+          },
+          "version": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "organizationId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "instrumentId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "title": {
+                "type": "string"
+              },
+              "version": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "revision": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "status": {
+                "type": "string",
+                "enum": ["DRAFT", "PUBLISHED"]
+              },
+              "usageMode": {
+                "type": "string",
+                "enum": ["DEMONSTRATION", "REAL"]
+              },
+              "questionCount": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "approvalReference": {
+                "type": ["string", "null"]
+              },
+              "publishedAt": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "publishedById": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "createdAt": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              "updatedAt": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              "cycleCount": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "description": {
+                "type": "string"
+              },
+              "instructions": {
+                "type": "string"
+              },
+              "questions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "label": {
+                      "type": "string",
+                      "maxLength": 400
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": ["SINGLE_CHOICE", "MULTIPLE_CHOICE", "ORDINAL_CHOICE"]
+                    },
+                    "required": {
+                      "type": "boolean"
+                    },
+                    "position": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 100
+                    },
+                    "options": {
+                      "maxItems": 20,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "label": {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          "position": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 20
+                          }
+                        },
+                        "required": ["id", "label", "position"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["id", "label", "type", "required", "position", "options"],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "id",
+              "organizationId",
+              "instrumentId",
+              "title",
+              "version",
+              "revision",
+              "status",
+              "usageMode",
+              "questionCount",
+              "approvalReference",
+              "publishedAt",
+              "publishedById",
+              "createdAt",
+              "updatedAt",
+              "cycleCount",
+              "description",
+              "instructions",
+              "questions"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": ["instrument", "version"],
+        "additionalProperties": false
+      },
+      "createInstrumentSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 160
+          }
+        },
+        "required": ["name"],
+        "additionalProperties": false
+      },
+      "updateInstrumentDraftSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "expectedRevision": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "instructions": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "usageMode": {
+            "type": "string",
+            "enum": ["DEMONSTRATION", "REAL"]
+          },
+          "questions": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "label": {
+                  "type": "string",
+                  "maxLength": 400
+                },
+                "type": {
+                  "type": "string",
+                  "enum": ["SINGLE_CHOICE", "MULTIPLE_CHOICE", "ORDINAL_CHOICE"]
+                },
+                "required": {
+                  "type": "boolean"
+                },
+                "position": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 100
+                },
+                "options": {
+                  "maxItems": 20,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "label": {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      "position": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 20
+                      }
+                    },
+                    "required": ["id", "label", "position"],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": ["id", "label", "type", "required", "position", "options"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "expectedRevision",
+          "title",
+          "description",
+          "instructions",
+          "usageMode",
+          "questions"
+        ],
+        "additionalProperties": false
+      },
+      "publishInstrumentSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "expectedRevision": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "approvalReference": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        },
+        "required": ["expectedRevision"],
+        "additionalProperties": false
+      },
+      "forkInstrumentVersionSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "expectedRevision": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          }
+        },
+        "required": ["expectedRevision"],
+        "additionalProperties": false
+      }
+    }
+  }
+}

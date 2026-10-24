@@ -1,3 +1,9 @@
+import { AssessmentsController } from './modules/assessments/assessments.controller';
+import { AssessmentsService } from './modules/assessments/assessments.service';
+import { WorkforceController } from './modules/workforce/workforce.controller';
+import { WorkforceService } from './modules/workforce/workforce.service';
+import { InstrumentsController } from './modules/instruments/instruments.controller';
+import { InstrumentsService } from './modules/instruments/instruments.service';
 import { DynamicModule, Module } from '@nestjs/common';
 import { ENVIRONMENT, type Environment } from './config/env';
 import { PrismaService } from './database/prisma.service';
@@ -26,6 +32,9 @@ import { ActionsRepository } from './modules/actions/actions.repository';
 import { EvidenceController, EvidenceGuard } from './modules/evidence/evidence.controller';
 import { EvidenceService } from './modules/evidence/evidence.service';
 import { EvidenceStorage } from './modules/evidence/evidence.storage';
+import { AccessController, AccessInvitationController } from './modules/access/access.controller';
+import { AccessRepository } from './modules/access/access.repository';
+import { AccessService } from './modules/access/access.service';
 
 @Module({})
 export class AppModule {
@@ -33,6 +42,9 @@ export class AppModule {
     return {
       module: AppModule,
       controllers: [
+        AssessmentsController,
+        WorkforceController,
+        InstrumentsController,
         HealthController,
         IdentityController,
         OrganizationsController,
@@ -43,9 +55,14 @@ export class AppModule {
         RiskRegistrationsController,
         ActionsController,
         EvidenceController,
+        AccessController,
+        AccessInvitationController,
       ],
       providers: [
+        AssessmentsService,
         { provide: ENVIRONMENT, useValue: environment },
+        WorkforceService,
+        InstrumentsService,
         PrismaService,
         IdentityService,
         OrganizationsService,
@@ -63,6 +80,8 @@ export class AppModule {
         EvidenceGuard,
         EvidenceService,
         EvidenceStorage,
+        AccessRepository,
+        AccessService,
       ],
     };
   }

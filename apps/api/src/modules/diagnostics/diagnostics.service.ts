@@ -58,6 +58,7 @@ export class DiagnosticsService {
   }
 
   private toInstrument(instrument: Instrument): DiagnosticInstrument {
+    this.legacyInstrument(instrument);
     return diagnosticInstrumentSchema.parse({
       id: instrument.id,
       organizationId: instrument.organizationId,
@@ -68,7 +69,7 @@ export class DiagnosticsService {
       questions: instrument.questions.map((question) => ({
         id: question.id,
         label: question.label,
-        type: question.type,
+        type: this.legacyQuestionType(question.type),
         required: question.required,
         position: question.position,
         options: question.options.map((option) => ({
@@ -78,6 +79,33 @@ export class DiagnosticsService {
         })),
       })),
     });
+  }
+
+  private legacyQuestionType(type: string): 'SINGLE_CHOICE' | 'MULTIPLE_CHOICE' {
+    if (type !== 'SINGLE_CHOICE' && type !== 'MULTIPLE_CHOICE')
+      throw new BadRequestException({
+        details: [
+          {
+            field: 'instrumentVersionId',
+            message: 'This instrument is unavailable in the legacy diagnostic flow',
+          },
+        ],
+      });
+    return type;
+  }
+
+  private legacyInstrument(instrument: Instrument): void {
+    if (!instrument.isDemo || instrument.version !== 1 || instrument.status !== 'PUBLISHED')
+      throw new BadRequestException({
+        details: [
+          {
+            field: 'instrumentVersionId',
+            message:
+              'Use the reserved legacy demonstration instrument until catalog cycles are supported',
+          },
+        ],
+      });
+    for (const question of instrument.questions) this.legacyQuestionType(question.type);
   }
 
   private toCycle(cycle: Cycle): DiagnosticCycle {
@@ -111,6 +139,7 @@ export class DiagnosticsService {
       include: cycleInclude,
     });
     if (!cycle) throw new NotFoundException();
+    this.legacyInstrument(cycle.instrumentVersion);
     return cycle;
   }
   private active(cycle: Cycle): boolean {
@@ -170,6 +199,7 @@ export class DiagnosticsService {
   }
   async create(scope: Scope, input: CreateDiagnosticCycle): Promise<DiagnosticCycle> {
     return this.database.client.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${scope.organizationId}))::text`;
       const sector = await tx.sector.findFirst({
         where: { id: input.sectorId, organizationId: scope.organizationId },
         include: { organization: true, unit: true },
@@ -186,9 +216,6 @@ export class DiagnosticsService {
         where: {
           id: input.instrumentVersionId,
           organizationId: scope.organizationId,
-          version: 1,
-          status: 'PUBLISHED',
-          isDemo: true,
         },
         include: instrumentInclude,
       });
@@ -201,9 +228,10 @@ export class DiagnosticsService {
         where: {
           organizationId_sectorId: { organizationId: scope.organizationId, sectorId: sector.id },
         },
-        create: { organizationId: scope.organizationId, sectorId: sector.id },
+        create: { organizationId: scope.organizationId, sectorId: sector.id, name: sector.name },
         update: {},
       });
+      if (group.isActive === false) throw new ConflictException('Inactive assessment group');
       const cycle = await tx.diagnosticCycle.create({
         data: {
           organizationId: scope.organizationId,
@@ -409,7 +437,7 @@ export class DiagnosticsService {
             return {
               id: question.id,
               label: question.label,
-              type: question.type,
+              type: this.legacyQuestionType(question.type),
               suppressed,
               options: suppressed ? [] : options,
             };

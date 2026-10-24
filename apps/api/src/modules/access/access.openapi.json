@@ -1,0 +1,2064 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "ReNR+ organization access",
+    "version": "1.0.0",
+    "description": "Additive ID03 contract. Legacy sessions keep ADMIN/READER and their existing DTO. TECHNICAL_DECISIONS is explicit authorization, not professional qualification. EXECUTE_ASSIGNED_ACTIONS requires server-loaded persistent assignment from ID13; it grants no global write. Tokens appear once in create/reissue bodies and are never placed in URLs, lists or logs."
+  },
+  "paths": {
+    "/api/v1/organizations/{orgId}/access-memberships": {
+      "parameters": [
+        {
+          "name": "orgId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "name": "page",
+          "in": "query",
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000000,
+            "default": 1
+          }
+        },
+        {
+          "name": "pageSize",
+          "in": "query",
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          }
+        }
+      ],
+      "get": {
+        "operationId": "listAccessMemberships",
+        "tags": ["Organization access"],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; private, no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/accessMembershipListSchema"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Strict input invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session required for existing identities and administrative operations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin, identity or administrator denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource unavailable in active organization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version, last administrator, consumed/expired/revoked invite or active membership",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Invitation acceptance rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{orgId}/access-memberships/{userId}": {
+      "parameters": [
+        {
+          "name": "orgId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "name": "userId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "getAccessMembership",
+        "tags": ["Organization access"],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; private, no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/accessMembershipSchema"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Strict input invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session required for existing identities and administrative operations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin, identity or administrator denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource unavailable in active organization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version, last administrator, consumed/expired/revoked invite or active membership",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Invitation acceptance rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateAccessMembership",
+        "tags": ["Organization access"],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            },
+            "description": "Must exactly match the configured application origin."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/updateAccessMembershipSchema"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success; private, no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/accessMembershipSchema"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Strict input invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session required for existing identities and administrative operations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin, identity or administrator denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource unavailable in active organization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version, last administrator, consumed/expired/revoked invite or active membership",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Invitation acceptance rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{orgId}/access-memberships/{userId}/capabilities": {
+      "parameters": [
+        {
+          "name": "orgId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "name": "userId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "put": {
+        "operationId": "updateAccessCapabilities",
+        "tags": ["Organization access"],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            },
+            "description": "Must exactly match the configured application origin."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/updateAccessCapabilitiesSchema"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success; private, no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/accessMembershipSchema"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Strict input invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session required for existing identities and administrative operations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin, identity or administrator denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource unavailable in active organization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version, last administrator, consumed/expired/revoked invite or active membership",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Invitation acceptance rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{orgId}/access-history": {
+      "parameters": [
+        {
+          "name": "orgId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "name": "page",
+          "in": "query",
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000000,
+            "default": 1
+          }
+        },
+        {
+          "name": "pageSize",
+          "in": "query",
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          }
+        }
+      ],
+      "get": {
+        "operationId": "listAccessHistory",
+        "tags": ["Organization access"],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; private, no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/accessHistoryListSchema"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Strict input invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session required for existing identities and administrative operations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin, identity or administrator denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource unavailable in active organization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version, last administrator, consumed/expired/revoked invite or active membership",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Invitation acceptance rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{orgId}/access-invites": {
+      "parameters": [
+        {
+          "name": "orgId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "name": "page",
+          "in": "query",
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000000,
+            "default": 1
+          }
+        },
+        {
+          "name": "pageSize",
+          "in": "query",
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          }
+        }
+      ],
+      "get": {
+        "operationId": "listAccessInvites",
+        "tags": ["Organization access"],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; private, no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/accessInviteListSchema"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Strict input invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session required for existing identities and administrative operations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin, identity or administrator denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource unavailable in active organization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version, last administrator, consumed/expired/revoked invite or active membership",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Invitation acceptance rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createAccessInvite",
+        "tags": ["Organization access"],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            },
+            "description": "Must exactly match the configured application origin."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/createAccessInviteSchema"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success; private, no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/accessInviteSecretSchema"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Strict input invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session required for existing identities and administrative operations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin, identity or administrator denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource unavailable in active organization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version, last administrator, consumed/expired/revoked invite or active membership",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Invitation acceptance rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{orgId}/access-invites/{id}/revoke": {
+      "parameters": [
+        {
+          "name": "orgId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "revokeAccessInvite",
+        "tags": ["Organization access"],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            },
+            "description": "Must exactly match the configured application origin."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/mutateAccessInviteSchema"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success; private, no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/accessInviteSchema"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Strict input invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session required for existing identities and administrative operations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin, identity or administrator denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource unavailable in active organization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version, last administrator, consumed/expired/revoked invite or active membership",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Invitation acceptance rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{orgId}/access-invites/{id}/reissue": {
+      "parameters": [
+        {
+          "name": "orgId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      ],
+      "post": {
+        "operationId": "reissueAccessInvite",
+        "tags": ["Organization access"],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            },
+            "description": "Must exactly match the configured application origin."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/mutateAccessInviteSchema"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success; private, no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/accessInviteSecretSchema"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Strict input invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session required for existing identities and administrative operations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin, identity or administrator denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource unavailable in active organization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version, last administrator, consumed/expired/revoked invite or active membership",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Invitation acceptance rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/access-invites/accept": {
+      "post": {
+        "operationId": "acceptAccessInvite",
+        "tags": ["Organization access"],
+        "security": [],
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            },
+            "description": "Must exactly match the configured application origin."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/acceptAccessInviteSchema"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success; private, no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/accessInviteAcceptanceSchema"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Strict input invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session required for existing identities and administrative operations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin, identity or administrator denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource unavailable in active organization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "ACCESS_INVITE_UNAVAILABLE: absent, expired, revoked or consumed token; CONFLICT: active membership or identity collision.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Invitation acceptance rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/session-capabilities": {
+      "get": {
+        "operationId": "getSessionCapabilities",
+        "tags": ["Organization access"],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; private, no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/sessionCapabilitiesSchema"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Strict input invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Session required for existing identities and administrative operations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin, identity or administrator denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource unavailable in active organization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale version, last administrator, consumed/expired/revoked invite or active membership",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Invitation acceptance rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/apiErrorSchema"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "session": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "renr_session"
+      }
+    },
+    "schemas": {
+      "accessMembershipSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "organizationId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+          },
+          "role": {
+            "type": "string",
+            "enum": ["ADMIN", "READER"]
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "capabilities": {
+            "maxItems": 2,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["EXECUTE_ASSIGNED_ACTIONS", "TECHNICAL_DECISIONS"]
+            }
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          }
+        },
+        "required": [
+          "organizationId",
+          "userId",
+          "name",
+          "email",
+          "role",
+          "isActive",
+          "version",
+          "capabilities",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "accessMembershipListSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "organizationId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "userId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "email": {
+                  "type": "string",
+                  "format": "email",
+                  "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                },
+                "role": {
+                  "type": "string",
+                  "enum": ["ADMIN", "READER"]
+                },
+                "isActive": {
+                  "type": "boolean"
+                },
+                "version": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "capabilities": {
+                  "maxItems": 2,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": ["EXECUTE_ASSIGNED_ACTIONS", "TECHNICAL_DECISIONS"]
+                  }
+                },
+                "updatedAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                }
+              },
+              "required": [
+                "organizationId",
+                "userId",
+                "name",
+                "email",
+                "role",
+                "isActive",
+                "version",
+                "capabilities",
+                "updatedAt"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "page": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "pageSize": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": ["items", "total", "page", "pageSize"],
+        "additionalProperties": false
+      },
+      "updateAccessMembershipSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 1000
+          },
+          "role": {
+            "type": "string",
+            "enum": ["ADMIN", "READER"]
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        },
+        "required": ["expectedVersion", "reason"],
+        "additionalProperties": false
+      },
+      "updateAccessCapabilitiesSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 1000
+          },
+          "capabilities": {
+            "maxItems": 2,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["EXECUTE_ASSIGNED_ACTIONS", "TECHNICAL_DECISIONS"]
+            }
+          }
+        },
+        "required": ["expectedVersion", "reason", "capabilities"],
+        "additionalProperties": false
+      },
+      "sessionCapabilitiesSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "organizationId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "capabilities": {
+            "maxItems": 2,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["EXECUTE_ASSIGNED_ACTIONS", "TECHNICAL_DECISIONS"]
+            }
+          },
+          "canManageAccess": {
+            "type": "boolean"
+          }
+        },
+        "required": ["organizationId", "capabilities", "canManageAccess"],
+        "additionalProperties": false
+      },
+      "accessHistoryListSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "organizationId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "userId": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "actor": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["id", "name"],
+                  "additionalProperties": false
+                },
+                "action": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 3,
+                  "maxLength": 1000
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                }
+              },
+              "required": [
+                "id",
+                "organizationId",
+                "userId",
+                "actor",
+                "action",
+                "reason",
+                "createdAt"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "page": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "pageSize": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": ["items", "total", "page", "pageSize"],
+        "additionalProperties": false
+      },
+      "createAccessInviteSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "format": "email",
+            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 120
+          },
+          "role": {
+            "type": "string",
+            "enum": ["ADMIN", "READER"]
+          },
+          "capabilities": {
+            "maxItems": 2,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["EXECUTE_ASSIGNED_ACTIONS", "TECHNICAL_DECISIONS"]
+            }
+          },
+          "expiresInHours": {
+            "default": 72,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 168
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 1000
+          }
+        },
+        "required": ["email", "name", "role", "capabilities", "expiresInHours", "reason"],
+        "additionalProperties": false
+      },
+      "accessInviteListSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "organizationId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "email": {
+                  "type": "string",
+                  "format": "email",
+                  "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "role": {
+                  "type": "string",
+                  "enum": ["ADMIN", "READER"]
+                },
+                "capabilities": {
+                  "maxItems": 2,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": ["EXECUTE_ASSIGNED_ACTIONS", "TECHNICAL_DECISIONS"]
+                  }
+                },
+                "status": {
+                  "type": "string",
+                  "enum": ["PENDING", "EXPIRED", "REVOKED", "CONSUMED"]
+                },
+                "version": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "expiresAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                },
+                "createdBy": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["id", "name"],
+                  "additionalProperties": false
+                },
+                "revokedAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "consumedAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "organizationId",
+                "email",
+                "name",
+                "role",
+                "capabilities",
+                "status",
+                "version",
+                "expiresAt",
+                "createdAt",
+                "createdBy",
+                "revokedAt",
+                "consumedAt"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "page": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "pageSize": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": ["items", "total", "page", "pageSize"],
+        "additionalProperties": false
+      },
+      "accessInviteSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "organizationId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": ["ADMIN", "READER"]
+          },
+          "capabilities": {
+            "maxItems": 2,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["EXECUTE_ASSIGNED_ACTIONS", "TECHNICAL_DECISIONS"]
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": ["PENDING", "EXPIRED", "REVOKED", "CONSUMED"]
+          },
+          "version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "createdBy": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": ["id", "name"],
+            "additionalProperties": false
+          },
+          "revokedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "consumedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "organizationId",
+          "email",
+          "name",
+          "role",
+          "capabilities",
+          "status",
+          "version",
+          "expiresAt",
+          "createdAt",
+          "createdBy",
+          "revokedAt",
+          "consumedAt"
+        ],
+        "additionalProperties": false
+      },
+      "accessInviteSecretSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "invite": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "organizationId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "email": {
+                "type": "string",
+                "format": "email",
+                "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+              },
+              "name": {
+                "type": "string"
+              },
+              "role": {
+                "type": "string",
+                "enum": ["ADMIN", "READER"]
+              },
+              "capabilities": {
+                "maxItems": 2,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": ["EXECUTE_ASSIGNED_ACTIONS", "TECHNICAL_DECISIONS"]
+                }
+              },
+              "status": {
+                "type": "string",
+                "enum": ["PENDING", "EXPIRED", "REVOKED", "CONSUMED"]
+              },
+              "version": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "expiresAt": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              "createdAt": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              "createdBy": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": ["id", "name"],
+                "additionalProperties": false
+              },
+              "revokedAt": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "consumedAt": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "organizationId",
+              "email",
+              "name",
+              "role",
+              "capabilities",
+              "status",
+              "version",
+              "expiresAt",
+              "createdAt",
+              "createdBy",
+              "revokedAt",
+              "consumedAt"
+            ],
+            "additionalProperties": false
+          },
+          "token": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{43}$"
+          }
+        },
+        "required": ["invite", "token"],
+        "additionalProperties": false
+      },
+      "mutateAccessInviteSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 1000
+          }
+        },
+        "required": ["expectedVersion", "reason"],
+        "additionalProperties": false
+      },
+      "acceptAccessInviteSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{43}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 120
+          },
+          "password": {
+            "type": "string",
+            "minLength": 12,
+            "maxLength": 256
+          }
+        },
+        "required": ["token"],
+        "additionalProperties": false
+      },
+      "accessInviteAcceptanceSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "organizationId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": ["organizationId", "userId"],
+        "additionalProperties": false
+      },
+      "apiErrorSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "details": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": ["field", "message"],
+              "additionalProperties": false
+            }
+          },
+          "statusCode": {
+            "type": "integer",
+            "minimum": 400,
+            "maximum": 599
+          },
+          "code": {
+            "type": "string",
+            "minLength": 1
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          }
+        },
+        "required": ["statusCode", "code", "message", "requestId", "timestamp"],
+        "additionalProperties": false
+      }
+    }
+  }
+}

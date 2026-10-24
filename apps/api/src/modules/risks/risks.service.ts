@@ -127,6 +127,7 @@ export class RisksService {
   }
   async create(scope: RiskScope, input: CreateRisk): Promise<RiskDetail> {
     return this.repository.transaction(async (tx) => {
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${scope.organizationId}))::text`;
       const sector = await tx.sector.findFirst({
         where: { id: input.sectorId, organizationId: scope.organizationId },
         include: { unit: true, organization: true },
@@ -143,9 +144,10 @@ export class RisksService {
         where: {
           organizationId_sectorId: { organizationId: scope.organizationId, sectorId: sector.id },
         },
-        create: { organizationId: scope.organizationId, sectorId: sector.id },
+        create: { organizationId: scope.organizationId, sectorId: sector.id, name: sector.name },
         update: {},
       });
+      if (group.isActive === false) throw new ConflictException('Inactive assessment group');
       await this.validateSource(tx, scope.organizationId, group.id, input);
       const content = riskContentSchema.strip().parse(input);
       const risk = await tx.risk.create({
