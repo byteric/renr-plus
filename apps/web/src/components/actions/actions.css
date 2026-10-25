@@ -5,6 +5,7 @@
   width: 100%;
   border-collapse: collapse;
   text-align: left;
+  font-size: var(--font-label);
 }
 .actions-table caption {
   text-align: left;
@@ -20,7 +21,7 @@
 }
 .actions-table th {
   color: var(--muted-foreground);
-  font-size: 0.85rem;
+  font-size: var(--font-caption);
 }
 .actions-table a {
   display: inline-flex;
@@ -34,7 +35,7 @@
 .actions-overdue {
   display: block;
   color: var(--foreground);
-  font-size: 0.85rem;
+  font-size: var(--font-label);
   margin-top: 0.5rem;
 }
 .actions-overdue::before {

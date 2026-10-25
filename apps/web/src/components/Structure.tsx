@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, type FormEvent } from 'react';
 import {
   organizationListSchema,
   unitListSchema,
@@ -15,6 +15,7 @@ import { Diagnostics } from './Diagnostics';
 import { WorkspaceNavigation } from './WorkspaceNavigation';
 import { RouteMotion } from './RouteMotion';
 import { StructureEditor } from './StructureEditor';
+import './workforce/workforce.css';
 
 const RiskWorkspace = lazy(() =>
   import('./risks/RiskWorkspace').then((module) => ({ default: module.RiskWorkspace })),
@@ -25,15 +26,48 @@ const ActionsWorkspace = lazy(() =>
 const ManagementDashboard = lazy(() =>
   import('./ManagementDashboard').then((module) => ({ default: module.ManagementDashboard })),
 );
+const AccessWorkspace = lazy(() =>
+  import('./access/AccessWorkspace').then((module) => ({ default: module.AccessWorkspace })),
+);
+const WorkforceWorkspace = lazy(() =>
+  import('./workforce/WorkforceWorkspace').then((module) => ({
+    default: module.WorkforceWorkspace,
+  })),
+);
+const InstrumentsWorkspace = lazy(() =>
+  import('./instruments/InstrumentsWorkspace').then((module) => ({
+    default: module.InstrumentsWorkspace,
+  })),
+);
+const AssessmentWorkspace = lazy(() =>
+  import('./assessments/AssessmentWorkspace').then((module) => ({
+    default: module.AssessmentWorkspace,
+  })),
+);
 
 type Kind = 'empresas' | 'unidades' | 'setores';
 type RecordItem = Organization | Unit | Sector;
 type Route = {
-  kind: Kind | 'painel' | 'diagnostico' | 'inventario' | 'acoes';
+  kind:
+    | Kind
+    | 'painel'
+    | 'diagnostico'
+    | 'inventario'
+    | 'acoes'
+    | 'acessos'
+    | 'instrumentos'
+    | 'coletas'
+    | 'colaboradores'
+    | 'grupos';
   unitId: string | null;
 };
 function readRoute(): Route {
   const parts = window.location.hash.replace(/^#\/?/, '').split('?')[0]?.split('/') ?? [];
+  if (parts[0] === 'coletas') return { kind: 'coletas', unitId: null };
+  if (parts[0] === 'instrumentos') return { kind: 'instrumentos', unitId: null };
+  if (parts[0] === 'colaboradores' || parts[0] === 'grupos')
+    return { kind: parts[0], unitId: null };
+  if (parts[0] === 'acessos') return { kind: 'acessos', unitId: null };
   if (parts[0] === 'inventario') return { kind: 'inventario', unitId: null };
   if (parts[0] === 'acoes') return { kind: 'acoes', unitId: null };
   if (parts[0] === 'diagnostico') return { kind: 'diagnostico', unitId: null };
@@ -44,10 +78,15 @@ function readRoute(): Route {
   return { kind: 'empresas', unitId: null };
 }
 const titles: Record<Route['kind'], string> = {
+  coletas: 'Coletas',
+  instrumentos: 'Instrumentos',
+  colaboradores: 'Colaboradores',
+  grupos: 'Grupos de avaliação',
   painel: 'Painel',
   diagnostico: 'Diagnóstico',
   inventario: 'Inventário',
   acoes: 'Ações',
+  acessos: 'Acessos',
   empresas: 'Empresas',
   unidades: 'Unidades',
   setores: 'Setores',
@@ -58,6 +97,16 @@ const singular: Record<Kind, string> = {
   setores: 'setor',
 };
 type Listing = { items: RecordItem[]; total: number; page: number; pageSize: number };
+function readFilters() {
+  const query = new URLSearchParams(window.location.hash.split('?')[1]);
+  const rawPage = Number(query.get('page') ?? 1);
+  const isActive = query.get('isActive');
+  return {
+    search: (query.get('search') ?? '').slice(0, 120),
+    isActive: isActive === 'true' || isActive === 'false' ? isActive : '',
+    page: Number.isSafeInteger(rawPage) && rawPage > 0 && rawPage <= 100000 ? rawPage : 1,
+  };
+}
 
 export function Structure({
   session,
@@ -69,7 +118,10 @@ export function Structure({
   onExpire: () => void;
 }) {
   const [route, setRoute] = useState<Route>(readRoute);
-  const [page, setPage] = useState(1);
+  const [filters, setFilters] = useState(readFilters);
+  const [searchDraft, setSearchDraft] = useState(filters.search);
+  const [statusDraft, setStatusDraft] = useState(filters.isActive);
+  const page = filters.page;
   const [attempt, setAttempt] = useState(0);
   const [loadedListing, setListing] = useState<Listing | null>(null);
   const [loadedKey, setLoadedKey] = useState('');
@@ -83,6 +135,10 @@ export function Structure({
     (value) => value.organizationId === session.activeOrganizationId,
   );
   const canWrite = membership?.role === 'ADMIN';
+  const isRegistration =
+    route.kind === 'empresas' || route.kind === 'unidades' || route.kind === 'setores';
+  const registrationSingular =
+    route.kind === 'unidades' ? 'unidade' : route.kind === 'setores' ? 'setor' : 'empresa';
   const listPath =
     route.kind === 'empresas'
       ? '/organizations'
@@ -91,15 +147,18 @@ export function Structure({
         : route.kind === 'setores' && session.activeOrganizationId && route.unitId
           ? `/units/${encodeURIComponent(route.unitId)}/sectors`
           : null;
-  const loadKey = `${session.activeOrganizationId}-${listPath}-${page}-${attempt}`;
+  const loadKey = `${session.activeOrganizationId}-${listPath}-${JSON.stringify(filters)}-${attempt}`;
   const loading = !!listPath && loadedKey !== loadKey;
   const listing = loadedKey === loadKey ? loadedListing : null;
   useEffect(() => {
     const change = () => {
       const next = readRoute();
+      const nextFilters = readFilters();
+      setFilters(nextFilters);
+      setSearchDraft(nextFilters.search);
+      setStatusDraft(nextFilters.isActive);
       if (next.kind === route.kind && next.unitId === route.unitId) return;
       setRoute(next);
-      setPage(1);
       setEditor(null);
       setConfirmation('');
       setError('');
@@ -119,7 +178,10 @@ export function Structure({
     const controller = new AbortController();
     let active = true;
     if (!listPath) return;
-    const path = `${listPath}?page=${page}&pageSize=50`;
+    const query = new URLSearchParams({ page: String(page), pageSize: '50' });
+    if (filters.search) query.set('search', filters.search);
+    if (filters.isActive) query.set('isActive', filters.isActive);
+    const path = `${listPath}?${query}`;
     const load =
       route.kind === 'empresas'
         ? request(path, organizationListSchema, { signal: controller.signal })
@@ -149,7 +211,20 @@ export function Structure({
       active = false;
       controller.abort();
     };
-  }, [listPath, route.kind, page, loadKey, onExpire]);
+  }, [listPath, route.kind, page, filters.search, filters.isActive, loadKey, onExpire]);
+  function setPage(nextPage: number, nextSearch = filters.search, nextStatus = filters.isActive) {
+    const next = { page: nextPage, search: nextSearch.trim(), isActive: nextStatus };
+    const query = new URLSearchParams();
+    if (next.search) query.set('search', next.search);
+    if (next.isActive) query.set('isActive', next.isActive);
+    if (next.page > 1) query.set('page', String(next.page));
+    setFilters(next);
+    window.location.hash = `${window.location.hash.split('?')[0]}${query.size ? `?${query}` : ''}`;
+  }
+  function applyFilters(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPage(1, searchDraft, statusDraft);
+  }
   async function select(item: { id: string }) {
     if (pending) return;
     setPending(true);
@@ -194,39 +269,51 @@ export function Structure({
           <div className="page-heading">
             <div>
               <p className="eyebrow">
-                {route.kind === 'inventario'
-                  ? 'DA IDENTIFICAÇÃO AO REGISTRO'
-                  : route.kind === 'painel'
-                    ? 'SEU CONTEXTO, EM PERSPECTIVA'
-                    : route.kind === 'diagnostico'
-                      ? 'ESCUTA COLETIVA · DADOS DEMONSTRATIVOS'
-                      : 'ESTRUTURA ORGANIZACIONAL'}
+                {route.kind === 'coletas'
+                  ? 'COLETAS · CONTEXTO E RESULTADOS PROTEGIDOS'
+                  : route.kind === 'instrumentos'
+                    ? 'INSTRUMENTOS · CONTEÚDO VERSIONADO'
+                    : route.kind === 'inventario'
+                      ? 'DA IDENTIFICAÇÃO AO REGISTRO'
+                      : route.kind === 'painel'
+                        ? 'SEU CONTEXTO, EM PERSPECTIVA'
+                        : route.kind === 'diagnostico'
+                          ? 'ESCUTA COLETIVA · DADOS DEMONSTRATIVOS'
+                          : 'ESTRUTURA ORGANIZACIONAL'}
               </p>
               <h1 ref={heading} tabIndex={-1}>
                 {titles[route.kind]}
               </h1>
               <p className="muted">
-                {route.kind === 'acoes'
-                  ? 'Organize medidas preventivas e preserve o histórico de acompanhamento.'
-                  : route.kind === 'painel'
-                    ? 'Conecte estrutura, registros e próximos passos da empresa selecionada.'
-                    : route.kind === 'inventario'
-                      ? 'Documente fatores, preserve a origem e acompanhe cada versão.'
-                      : route.kind === 'diagnostico'
-                        ? 'Aplique ciclos demonstrativos e consulte a consolidação coletiva.'
-                        : route.kind === 'empresas'
-                          ? 'Escolha a empresa em que você deseja trabalhar.'
-                          : route.kind === 'unidades'
-                            ? 'Organize os locais de trabalho da empresa.'
-                            : 'Organize as equipes e áreas da unidade selecionada.'}
+                {route.kind === 'coletas'
+                  ? 'Aplique instrumentos publicados e acompanhe cada coleta no contexto da empresa.'
+                  : route.kind === 'instrumentos'
+                    ? 'Crie instrumentos, confira a prévia e preserve cada versão publicada.'
+                    : route.kind === 'acessos'
+                      ? 'Gerencie vínculos e conceda somente as capacidades necessárias.'
+                      : route.kind === 'acoes'
+                        ? 'Organize medidas preventivas e preserve o histórico de acompanhamento.'
+                        : route.kind === 'painel'
+                          ? 'Conecte estrutura, registros e próximos passos da empresa selecionada.'
+                          : route.kind === 'inventario'
+                            ? 'Documente fatores, preserve a origem e acompanhe cada versão.'
+                            : route.kind === 'diagnostico'
+                              ? 'Aplique ciclos demonstrativos e consulte a consolidação coletiva.'
+                              : route.kind === 'empresas'
+                                ? 'Escolha a empresa em que você deseja trabalhar.'
+                                : route.kind === 'unidades'
+                                  ? 'Organize os locais de trabalho da empresa.'
+                                  : 'Organize as equipes e áreas da unidade selecionada.'}
               </p>
             </div>
             {canWrite &&
+              isRegistration &&
               listPath &&
               route.kind !== 'painel' &&
               route.kind !== 'diagnostico' &&
               route.kind !== 'inventario' &&
-              route.kind !== 'acoes' && (
+              route.kind !== 'acoes' &&
+              route.kind !== 'acessos' && (
                 <Button
                   disabled={pending}
                   onClick={() => {
@@ -234,7 +321,7 @@ export function Structure({
                     setEditor({ item: null });
                   }}
                 >
-                  {route.kind === 'setores' ? 'Novo setor' : `Nova ${singular[route.kind]}`}
+                  {route.kind === 'setores' ? 'Novo setor' : `Nova ${registrationSingular}`}
                 </Button>
               )}
           </div>
@@ -248,7 +335,24 @@ export function Structure({
               )}
             </div>
           )}
-          {route.kind === 'acoes' ? (
+          {route.kind === 'coletas' ? (
+            <Suspense fallback={<p role="status">Carregando coletas…</p>}>
+              <AssessmentWorkspace session={session} onExpire={onExpire} />
+            </Suspense>
+          ) : route.kind === 'colaboradores' || route.kind === 'grupos' ? (
+            <Suspense fallback={<p role="status">Carregando cadastros…</p>}>
+              <WorkforceWorkspace
+                key={`${session.activeOrganizationId}-${route.kind}`}
+                kind={route.kind}
+                session={session}
+                onExpire={onExpire}
+              />
+            </Suspense>
+          ) : route.kind === 'acessos' ? (
+            <Suspense fallback={<p role="status">Verificando permissões de acesso…</p>}>
+              <AccessWorkspace session={session} onSession={onSession} onExpire={onExpire} />
+            </Suspense>
+          ) : route.kind === 'acoes' ? (
             <Suspense
               fallback={
                 <p role="status" className="surface">
@@ -276,6 +380,16 @@ export function Structure({
                 onExpire={onExpire}
               />
             </Suspense>
+          ) : route.kind === 'instrumentos' ? (
+            <Suspense
+              fallback={
+                <p role="status" className="surface">
+                  Carregando instrumentos…
+                </p>
+              }
+            >
+              <InstrumentsWorkspace session={session} onExpire={onExpire} />
+            </Suspense>
           ) : route.kind === 'diagnostico' ? (
             <Diagnostics key={session.activeOrganizationId} session={session} onExpire={onExpire} />
           ) : route.kind === 'painel' ? (
@@ -294,6 +408,37 @@ export function Structure({
             </Suspense>
           ) : (
             <>
+              {listPath && (
+                <form
+                  className="surface registration-filters"
+                  aria-label="Filtros de cadastros"
+                  onSubmit={applyFilters}
+                >
+                  <div>
+                    <label htmlFor="registration-search">Buscar cadastros</label>
+                    <input
+                      id="registration-search"
+                      type="search"
+                      maxLength={120}
+                      value={searchDraft}
+                      onChange={(event) => setSearchDraft(event.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="registration-status">Situação dos cadastros</label>
+                    <select
+                      id="registration-status"
+                      value={statusDraft}
+                      onChange={(event) => setStatusDraft(event.target.value)}
+                    >
+                      <option value="">Todos</option>
+                      <option value="true">Ativos</option>
+                      <option value="false">Inativos</option>
+                    </select>
+                  </div>
+                  <Button type="submit">Aplicar filtros</Button>
+                </form>
+              )}
               {confirmation && (
                 <p role="status" className="feedback success">
                   {confirmation}
@@ -372,14 +517,16 @@ export function Structure({
                                   </a>
                                 )}
                                 {writable &&
+                                  isRegistration &&
                                   route.kind !== 'painel' &&
                                   route.kind !== 'diagnostico' &&
                                   route.kind !== 'inventario' &&
-                                  route.kind !== 'acoes' && (
+                                  route.kind !== 'acoes' &&
+                                  route.kind !== 'acessos' && (
                                     <Button
                                       variant="outline"
                                       disabled={pending}
-                                      aria-label={`Editar ${singular[route.kind]} ${item.name}`}
+                                      aria-label={`Editar ${registrationSingular} ${item.name}`}
                                       onClick={() => {
                                         setConfirmation('');
                                         setEditor({ item });

@@ -1,0 +1,101 @@
+.assessment-cycle-form,
+.assessment-cycle-detail,
+.assessment-sources,
+.assessment-source-form,
+.assessment-cycle-confirm,
+.assessment-cycle-invites {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.assessment-cycle-form label,
+.assessment-source-form label,
+.assessment-cycle-confirm label,
+.assessment-cycle-invites label {
+  display: grid;
+  gap: var(--space-2);
+  font-weight: 650;
+}
+.assessment-cycle-form input,
+.assessment-cycle-form select,
+.assessment-source-form input,
+.assessment-source-form select,
+.assessment-source-form textarea,
+.assessment-cycle-confirm input,
+.assessment-cycle-invites input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: var(--space-2);
+  border: 1px solid var(--input);
+  border-radius: var(--radius-control);
+  background: var(--background);
+  color: var(--foreground);
+}
+.assessment-source-form textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+.assessment-cycle-form input:focus-visible,
+.assessment-cycle-form select:focus-visible,
+.assessment-source-form :is(input, select, textarea):focus-visible,
+.assessment-cycle-confirm input:focus-visible,
+.assessment-cycle-invites input:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.assessment-cycle-actions {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.assessment-cycle-dates,
+.assessment-cycle-facts {
+  display: grid;
+  gap: var(--space-4);
+}
+.assessment-cycle-facts {
+  margin: 0;
+}
+.assessment-cycle-facts dt {
+  font-weight: 650;
+}
+.assessment-cycle-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.assessment-cycle-confirm {
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  background: var(--muted);
+}
+.assessment-cycle-invites ul,
+.assessment-source-list {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: var(--space-4);
+}
+.assessment-cycle-invites li,
+.assessment-source-list li {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  min-width: 0;
+}
+.assessment-invite-code,
+.assessment-source-list p {
+  overflow-wrap: anywhere;
+}
+.assessment-source-summary {
+  white-space: pre-wrap;
+}
+@media (min-width: 800px) {
+  .assessment-cycle-dates,
+  .assessment-cycle-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

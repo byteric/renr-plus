@@ -13,7 +13,7 @@
   padding: 4px 0 24px;
 }
 .dashboard-context h2 {
-  font-size: clamp(1.65rem, 2.5vw, 2.25rem);
+  font-size: var(--font-section);
   font-weight: 650;
   line-height: 1.16;
   letter-spacing: -0.035em;
@@ -22,7 +22,7 @@
 .dashboard-context p:not(.panel-label) {
   color: var(--muted-foreground);
   max-width: 540px;
-  font-size: 15px;
+  font-size: var(--font-body);
   margin: 0;
 }
 .dashboard-inventory-link {
@@ -52,7 +52,8 @@
 .metric-card {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-surface);
+  box-shadow: var(--shadow-low);
   min-width: 0;
 }
 .metric-card a {
@@ -71,12 +72,12 @@
   outline-offset: 3px;
 }
 .metric-label {
-  font-size: 13px;
+  font-size: var(--font-label);
   line-height: 1.4;
 }
 .metric-value {
   display: block;
-  font-size: clamp(2rem, 3vw, 3rem);
+  font-size: var(--font-metric);
   font-weight: 650;
   letter-spacing: -0.055em;
   font-variant-numeric: tabular-nums;
@@ -85,7 +86,7 @@
 }
 .metric-detail {
   color: var(--muted-foreground);
-  font-size: 11px;
+  font-size: var(--font-caption);
   line-height: 1.4;
   margin-top: auto;
   display: flex;
@@ -126,12 +127,12 @@
   gap: 16px;
 }
 .dashboard-section-heading h2 {
-  font-size: 19px;
+  font-size: var(--font-subtitle);
   font-weight: 650;
   margin: 6px 0 0;
 }
 .dashboard-section-heading .panel-label {
-  font-size: 10px;
+  font-size: var(--font-caption);
   letter-spacing: 0.09em;
   margin: 0;
 }
@@ -151,7 +152,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 16px;
-  font-size: 11px;
+  font-size: var(--font-caption);
   margin: 20px 0;
   color: var(--muted-foreground);
 }

@@ -20,6 +20,23 @@ test('synthetic provisioning is idempotent and preserves all existing records', 
     Object.entries(stores).map(([model, store]) => [
       model,
       {
+        async findFirst({ where }) {
+          return (
+            [...store.values()].find((record) =>
+              Object.entries(where).every(([field, value]) => record[field] === value),
+            ) ?? null
+          );
+        },
+        async create({ data }) {
+          const key = JSON.stringify({ id: data.id });
+          assert.equal(
+            store.has(key),
+            false,
+            'Provisioning must reuse the existing legacy version',
+          );
+          store.set(key, globalThis.structuredClone(data));
+          return store.get(key);
+        },
         async upsert({ where, update, create }) {
           assert.deepEqual(update, {});
           const key = JSON.stringify(where);

@@ -9,6 +9,9 @@ import {
 } from '@renr/contracts';
 import { request, RequestError } from '../../lib/api';
 import { Button } from '../ui/button';
+import { Pagination } from '../ui/pagination';
+import { StatusMessage } from '../ui/status-message';
+import { StatusBadge } from '../ui/status-badge';
 import { riskDate, scrollToField } from '../risks/useRiskData';
 import { ActionForm } from './ActionForm';
 import { ActionEvidence } from './ActionEvidence';
@@ -140,19 +143,19 @@ export function ActionDetail({
   }
   if (detail.loading && !item)
     return (
-      <p className="surface" role="status">
+      <StatusMessage className="surface" tone="loading">
         Carregando ação…
-      </p>
+      </StatusMessage>
     );
   if (!item)
     return (
-      <div className="feedback error" role="alert">
+      <StatusMessage className="feedback error" tone="error">
         <p>{detail.error || 'Ação indisponível.'}</p>
         <Button variant="outline" onClick={() => setAttempt(attempt + 1)}>
           Atualizar ação
         </Button>
         <a href={returnTo}>Voltar às ações</a>
-      </div>
+      </StatusMessage>
     );
   if (editing)
     return (
@@ -195,7 +198,11 @@ export function ActionDetail({
           <h2 ref={heading} tabIndex={-1}>
             {item.title}
           </h2>
-          <span className="risk-status">{actionLabels[item.status]}</span>
+          <StatusBadge
+            className="risk-status"
+            label={actionLabels[item.status]}
+            tone={item.status === 'IN_PROGRESS' ? 'info' : 'neutral'}
+          />
           {item.isOverdue && <strong className="actions-overdue">Atrasada</strong>}
         </div>
         <div className="record-actions">
@@ -214,9 +221,9 @@ export function ActionDetail({
         </div>
       </header>
       {success && (
-        <p role="status" className="feedback success">
+        <StatusMessage tone="success" className="feedback success">
           {success}
-        </p>
+        </StatusMessage>
       )}
       {inactive && (
         <p className="feedback">
@@ -490,22 +497,16 @@ export function ActionDetail({
           ))}
         </ol>
         {history.data && history.data.total > 50 && (
-          <nav className="pagination" aria-label="Paginação de revisões">
-            <Button
-              variant="outline"
-              disabled={revisionPage === 1}
-              onClick={() => setRevisionPage(revisionPage - 1)}
-            >
-              Revisões anteriores
-            </Button>
-            <Button
-              variant="outline"
-              disabled={revisionPage * 50 >= history.data.total}
-              onClick={() => setRevisionPage(revisionPage + 1)}
-            >
-              Mais revisões
-            </Button>
-          </nav>
+          <Pagination
+            label="Paginação de revisões"
+            page={revisionPage}
+            pageSize={history.data.pageSize}
+            total={history.data.total}
+            pending={history.loading}
+            onPageChange={setRevisionPage}
+            previousLabel="Revisões anteriores"
+            nextLabel="Mais revisões"
+          />
         )}
       </section>
     </div>

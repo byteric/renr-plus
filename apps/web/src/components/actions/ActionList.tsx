@@ -6,6 +6,9 @@ import {
   sectorListSchema,
 } from '@renr/contracts';
 import { Button } from '../ui/button';
+import { Pagination } from '../ui/pagination';
+import { StatusMessage } from '../ui/status-message';
+import { StatusBadge } from '../ui/status-badge';
 import { actionLabels, civilDate, useActionData } from './useActionData';
 
 export function ActionList({
@@ -156,11 +159,19 @@ export function ActionList({
           Filtros inválidos. <a href="#/acoes?page=1">Limpar filtros</a>
         </p>
       )}
-      {data.loading && <p role="status">Carregando ações…</p>}
+      {data.loading && <StatusMessage tone="loading">Carregando ações…</StatusMessage>}
       {data.error && (
-        <div className="feedback error" role="alert">
+        <StatusMessage
+          tone="error"
+          className="feedback error"
+          action={
+            <Button variant="outline" onClick={() => setAttempt(attempt + 1)}>
+              Atualizar ações
+            </Button>
+          }
+        >
           <p>{data.error}</p>
-        </div>
+        </StatusMessage>
       )}
       {data.data && (
         <>
@@ -204,7 +215,11 @@ export function ActionList({
                       {item.isOverdue && <strong className="actions-overdue">Atrasada</strong>}
                     </td>
                     <td data-label="Estado">
-                      <span className="risk-status">{actionLabels[item.status]}</span>
+                      <StatusBadge
+                        className="risk-status"
+                        label={actionLabels[item.status]}
+                        tone={item.status === 'IN_PROGRESS' ? 'info' : 'neutral'}
+                      />
                     </td>
                   </tr>
                 ))}
@@ -212,22 +227,14 @@ export function ActionList({
             </table>
           )}
           {data.data.total > data.data.pageSize && (
-            <nav className="pagination" aria-label="Paginação de ações">
-              <Button
-                variant="outline"
-                disabled={data.data.page <= 1}
-                onClick={() => page(data.data!.page - 1)}
-              >
-                Página anterior
-              </Button>
-              <Button
-                variant="outline"
-                disabled={data.data.page * data.data.pageSize >= data.data.total}
-                onClick={() => page(data.data!.page + 1)}
-              >
-                Próxima página
-              </Button>
-            </nav>
+            <Pagination
+              label="Paginação de ações"
+              page={data.data.page}
+              pageSize={data.data.pageSize}
+              total={data.data.total}
+              pending={data.loading}
+              onPageChange={page}
+            />
           )}
         </>
       )}

@@ -195,6 +195,12 @@ export function StructureEditor({
             Cadastro ativo
           </label>
         )}
+        {item && !isActive && (
+          <p className="input-hint">
+            Os registros vinculados e seus históricos serão preservados. A desativação não apaga
+            cadastros filhos nem substitui a revisão dos acessos da empresa.
+          </p>
+        )}
         {error && (
           <p role="alert" className="feedback error">
             {error}

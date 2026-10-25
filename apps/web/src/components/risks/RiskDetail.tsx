@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import { preliminaryEvaluationListSchema, riskDetailSchema } from '@renr/contracts';
 import { Button } from '../ui/button';
+import { Pagination } from '../ui/pagination';
+import { StatusMessage } from '../ui/status-message';
+import { StatusBadge } from '../ui/status-badge';
 import { request, RequestError } from '../../lib/api';
 import { RiskForm } from './RiskForm';
 import { PreliminaryEvaluationForm } from './PreliminaryEvaluationForm';
@@ -142,19 +145,19 @@ export function RiskDetail({
   }
   if (detail.loading)
     return (
-      <p className="surface" role="status">
+      <StatusMessage className="surface" tone="loading">
         Carregando registro…
-      </p>
+      </StatusMessage>
     );
   if (detail.error || !item)
     return (
-      <div role="alert" className="feedback error">
+      <StatusMessage tone="error" className="feedback error">
         <p>{detail.error || 'Registro indisponível.'}</p>
         <Button variant="outline" onClick={() => setAttempt(attempt + 1)}>
           Atualizar registro
         </Button>
         <a href={returnTo}>Voltar ao inventário</a>
-      </div>
+      </StatusMessage>
     );
   if (editing)
     return (
@@ -187,9 +190,11 @@ export function RiskDetail({
           <p className="muted">
             {item.unit.name} <span aria-hidden="true">/</span> {item.sector.name}
           </p>
-          <span className={`risk-status risk-status-${item.status.toLowerCase()}`}>
-            {statusLabels[item.status]}
-          </span>
+          <StatusBadge
+            className={`risk-status risk-status-${item.status.toLowerCase()}`}
+            label={statusLabels[item.status]}
+            tone={item.status === 'REGISTERED' ? 'info' : 'neutral'}
+          />
         </div>
         <div className="record-actions">
           <a className="action-link" href={`#/acoes?riskId=${id}&page=1`}>
@@ -395,7 +400,7 @@ export function RiskDetail({
           <article key={evaluation.id} className="surface evaluation-card">
             <div className="risk-section-heading">
               <h4>Ficha {evaluation.sequence}</h4>
-              <span className="risk-status">Preliminar</span>
+              <StatusBadge className="risk-status" label="Preliminar" />
             </div>
             <p className="evaluation-method">{evaluation.methodReference}</p>
             <p className="muted">
@@ -452,23 +457,16 @@ export function RiskDetail({
           </article>
         ))}
         {history.data && history.data.total > 50 && (
-          <nav className="pagination" aria-label="Paginação de fichas">
-            <Button
-              variant="outline"
-              disabled={evaluationPage === 1}
-              onClick={() => setEvaluationPage(evaluationPage - 1)}
-            >
-              Fichas anteriores
-            </Button>
-            <span>Página {evaluationPage}</span>
-            <Button
-              variant="outline"
-              disabled={evaluationPage * 50 >= history.data.total}
-              onClick={() => setEvaluationPage(evaluationPage + 1)}
-            >
-              Mais fichas
-            </Button>
-          </nav>
+          <Pagination
+            label="Paginação de fichas"
+            page={evaluationPage}
+            pageSize={history.data.pageSize}
+            total={history.data.total}
+            pending={history.loading}
+            onPageChange={setEvaluationPage}
+            previousLabel="Fichas anteriores"
+            nextLabel="Mais fichas"
+          />
         )}
       </section>
       <section id="risk-historico" className="surface risk-content-section" tabIndex={-1}>

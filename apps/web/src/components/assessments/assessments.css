@@ -1,0 +1,161 @@
+.assessment-workspace,
+.assessment-detail,
+.assessment-form,
+.assessment-sources,
+.assessment-policies {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.assessment-participation {
+  max-width: 840px;
+  margin: var(--space-6) auto;
+  min-width: 0;
+}
+.assessment-participation h1,
+.assessment-workspace :is(h2, h3, h4, p, legend),
+.assessment-participation :is(h2, p, legend, li) {
+  overflow-wrap: anywhere;
+}
+.assessment-participation form,
+.assessment-form fieldset {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.assessment-participation .choice {
+  min-width: 0;
+  min-height: 44px;
+}
+.assessment-participation .choice span {
+  min-width: 0;
+}
+.assessment-participation > button {
+  margin-top: var(--space-4);
+}
+.assessment-notice {
+  padding: var(--space-3);
+  border-inline-start: 3px solid var(--info);
+  background: var(--info-surface);
+}
+.assessment-preserve-text {
+  white-space: pre-wrap;
+}
+.assessment-review {
+  padding-inline-start: var(--space-5);
+}
+.assessment-review > li {
+  padding-block: var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+.assessment-review h2 {
+  font-size: var(--font-body);
+  font-weight: 650;
+}
+.assessment-tabs,
+.assessment-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+.assessment-toolbar {
+  justify-content: space-between;
+}
+.assessment-workspace :is(h2, h3),
+.assessment-result-question h4 {
+  font-weight: 700;
+  line-height: var(--line-heading);
+}
+.assessment-workspace h2 {
+  font-size: var(--font-section);
+}
+.assessment-workspace h3 {
+  font-size: var(--font-subtitle);
+}
+.assessment-cycle-list,
+.assessment-result-options {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: var(--space-4);
+}
+.assessment-cycle-list > li {
+  display: grid;
+  gap: var(--space-4);
+}
+.assessment-cycle-list > li p {
+  margin-top: var(--space-2);
+}
+.assessment-results,
+.assessment-result-node,
+.assessment-result-question {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-3);
+}
+.assessment-result-node {
+  padding: var(--space-4);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+}
+.assessment-result-question {
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-4);
+}
+.assessment-result-count {
+  font-weight: 700;
+  font-size: var(--font-subtitle);
+}
+.assessment-result-scope {
+  color: var(--muted-foreground);
+}
+.assessment-result-options > li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+  padding-block: var(--space-2);
+  min-width: 0;
+}
+.assessment-result-options > li > span:nth-child(2) {
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.assessment-result-options meter {
+  width: 100%;
+  height: 0.75rem;
+  accent-color: var(--primary);
+}
+.assessment-result-options meter::-webkit-meter-bar {
+  background: var(--muted);
+  border: 0;
+}
+.assessment-result-options meter::-webkit-meter-optimum-value {
+  background: var(--primary);
+}
+.assessment-result-options meter::-moz-meter-bar {
+  background: var(--primary);
+}
+.assessment-result-children {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.assessment-workspace > select {
+  min-height: 44px;
+  width: 100%;
+}
+@media (min-width: 800px) {
+  .assessment-cycle-list > li {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+  .assessment-result-options > li {
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: var(--space-4);
+  }
+  .assessment-result-options meter {
+    grid-column: 1 / -1;
+  }
+}

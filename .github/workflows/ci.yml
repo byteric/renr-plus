@@ -29,6 +29,8 @@ jobs:
       STORAGE_ENABLED: 'true'
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
         with:
           version: 11.25.0
@@ -48,7 +50,9 @@ jobs:
       - run: pnpm db:seed
       - run: pnpm test:integration
       - run: pnpm test:migrations
+      - run: pnpm test:compatibility
       - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:ui
       - run: pnpm test:e2e
       - uses: actions/upload-artifact@v4
         if: failure()

@@ -26,10 +26,19 @@ export function WorkspaceNavigation({
           ['painel', 'Painel'],
           ['empresas', 'Empresas'],
           ['unidades', 'Unidades'],
+          ...(unitId ? [[`setores/${unitId}`, 'Setores']] : []),
+          ...(membership?.role === 'ADMIN'
+            ? [
+                ['colaboradores', 'Colaboradores'],
+                ['grupos', 'Grupos de avaliação'],
+              ]
+            : []),
+          ['instrumentos', 'Instrumentos'],
+          ['coletas', 'Coletas'],
           ['diagnostico', 'Diagnóstico'],
           ['inventario', 'Inventário'],
           ['acoes', 'Ações'],
-          ...(unitId ? [[`setores/${unitId}`, 'Setores']] : []),
+          ...(membership?.role === 'ADMIN' ? [['acessos', 'Acessos']] : []),
         ].map(([path, label]) => (
           <a
             key={path}
