@@ -15,7 +15,7 @@ import {
 } from '@renr/contracts';
 const describeDatabase = process.env.RUN_DB_TESTS === '1' ? describe : describe.skip;
 describeDatabase('Assessment HTTP contract', () => {
-  const env = parseEnvironment({ ...process.env, NODE_ENV: 'test' });
+  let env: ReturnType<typeof parseEnvironment>;
   let app: INestApplication;
   let db: PrismaService;
   let org: string;
@@ -37,6 +37,7 @@ describeDatabase('Assessment HTTP contract', () => {
   const publicPost = (route: string, body: object) =>
     request(app.getHttpServer()).post(`/api/v1/assessment-participation/${route}`).send(body);
   beforeAll(async () => {
+    env = parseEnvironment({ ...process.env, NODE_ENV: 'test' });
     localDatabaseUrl(env.DATABASE_URL);
     const module = await Test.createTestingModule({
       imports: [AppModule.configure(env)],

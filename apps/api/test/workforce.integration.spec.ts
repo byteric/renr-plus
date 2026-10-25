@@ -9,8 +9,7 @@ import { PrismaService } from '../src/database/prisma.service';
 import { localDatabaseUrl } from './local-database-url';
 const describeDatabase = process.env.RUN_DB_TESTS === '1' ? describe : describe.skip;
 describeDatabase('Workforce PostgreSQL isolation and history', () => {
-  const env = parseEnvironment({ ...process.env, NODE_ENV: 'test' });
-  localDatabaseUrl(env.DATABASE_URL);
+  let env: ReturnType<typeof parseEnvironment>;
   let app: INestApplication;
   let db: PrismaService;
   let org: string;
@@ -38,6 +37,8 @@ describeDatabase('Workforce PostgreSQL isolation and history', () => {
   const get = (resource: string) =>
     request(app.getHttpServer()).get(path(resource)).set('Cookie', cookie);
   beforeAll(async () => {
+    env = parseEnvironment({ ...process.env, NODE_ENV: 'test' });
+    localDatabaseUrl(env.DATABASE_URL);
     const module = await Test.createTestingModule({
       imports: [AppModule.configure(env)],
     }).compile();
