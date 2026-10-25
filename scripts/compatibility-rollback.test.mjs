@@ -20,13 +20,32 @@ const pnpm = path.join(root, 'node_modules/pnpm/bin/pnpm.cjs');
 const organization = '10000000-0000-4000-8000-000000000001';
 const origin = 'http://127.0.0.1:49152';
 
-// Child output is intentionally captured nowhere: API/build errors can contain credentials.
-async function run(command, args, cwd, env, label) {
-  const child = spawn(command, args, { cwd, env, stdio: 'ignore', windowsHide: true });
+// Never log child output: optional install diagnostics retain only pnpm error codes.
+async function run(command, args, cwd, env, label, captureInstallCodes = false) {
+  const child = spawn(command, args, {
+    cwd,
+    env,
+    stdio: captureInstallCodes ? ['ignore', 'pipe', 'pipe'] : 'ignore',
+    windowsHide: true,
+  });
+  const errorCodes = new Set();
+  if (captureInstallCodes) {
+    for (const stream of [child.stdout, child.stderr]) {
+      let tail = '';
+      stream.on('data', (chunk) => {
+        const text = tail + chunk.toString();
+        for (const code of text.match(/\bERR_PNPM_[A-Z0-9_]{1,80}\b/g) ?? []) {
+          if (errorCodes.size < 20) errorCodes.add(code);
+        }
+        tail = text.slice(-96);
+      });
+    }
+  }
   const timeout = setTimeout(() => child.kill(), 180_000);
   try {
-    const [code] = await once(child, 'exit');
-    assert.equal(code, 0, `${label} failed (child output suppressed for privacy)`);
+    const [code] = await once(child, 'close');
+    const diagnostic = errorCodes.size ? `; ${[...errorCodes].join(', ')}` : '';
+    assert.equal(code, 0, `${label} failed (child output suppressed for privacy${diagnostic})`);
   } finally {
     clearTimeout(timeout);
   }
@@ -214,10 +233,11 @@ test(
       }
       await run(
         process.execPath,
-        [pnpm, 'install', '--offline', '--frozen-lockfile', '--ignore-scripts'],
+        [pnpm, 'install', '--prefer-offline', '--frozen-lockfile', '--ignore-scripts'],
         artifact,
         env,
-        'Frozen offline v0.3 install',
+        'Frozen v0.3 install',
+        true,
       );
       for (const args of [
         ['--filter', '@renr/contracts', 'build'],
