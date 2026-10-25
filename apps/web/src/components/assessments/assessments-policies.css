@@ -1,0 +1,66 @@
+.assessment-policies,
+.assessment-policy-editor,
+.assessment-reference-fields,
+.assessment-consolidation {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.assessment-policy-editor {
+  padding: var(--space-4);
+}
+.assessment-policy-list {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+.assessment-policy-list button {
+  width: 100%;
+  justify-content: flex-start;
+  white-space: normal;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.assessment-policy-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+.assessment-policy-editor label,
+.assessment-reference-fields label,
+.assessment-consolidation > label {
+  display: grid;
+  gap: var(--space-2);
+  font-weight: 650;
+}
+.assessment-policy-editor input,
+.assessment-policy-editor select,
+.assessment-reference-fields select,
+.assessment-consolidation > label select {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: var(--space-2);
+  border: 1px solid var(--input);
+  border-radius: var(--radius-control);
+  background: var(--background);
+  color: var(--foreground);
+}
+.assessment-policy-editor input:focus-visible,
+.assessment-policy-editor select:focus-visible,
+.assessment-reference-fields select:focus-visible,
+.assessment-consolidation select:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.assessment-reference-fields > div {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+@media (min-width: 800px) {
+  .assessment-reference-fields {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

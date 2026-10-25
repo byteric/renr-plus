@@ -1,10 +1,20 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { loginSchema, sessionResponseSchema, type SessionResponse } from '@renr/contracts';
 import { Button } from './components/ui/button';
 import { getHealth, request, RequestError, send } from './lib/api';
 import { Structure } from './components/Structure';
 import { Participation } from './components/Participation';
 import { BrandIntro } from './components/BrandIntro';
+const AccessActivation = lazy(() =>
+  import('./components/access/AccessActivation').then((module) => ({
+    default: module.AccessActivation,
+  })),
+);
+const AssessmentParticipation = lazy(() =>
+  import('./components/assessments/AssessmentParticipation').then((module) => ({
+    default: module.AssessmentParticipation,
+  })),
+);
 
 type Theme = 'light' | 'dark';
 function initialTheme(): Theme {
@@ -62,9 +72,11 @@ function Connection() {
 function Login({
   onLogin,
   notice,
+  compact = false,
 }: {
   onLogin: (session: SessionResponse) => void;
   notice: string;
+  compact?: boolean;
 }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -100,10 +112,14 @@ function Login({
     }
   }
   return (
-    <div className="login-layout">
+    <div className={compact ? undefined : 'login-layout'}>
       <section className="surface login-panel" aria-labelledby="login-title">
         <p className="panel-label">SEU ESPAÇO DE TRABALHO</p>
-        <h1 id="login-title">Acesse o ReNR+</h1>
+        {compact ? (
+          <h2 id="login-title">Entre na sua conta</h2>
+        ) : (
+          <h1 id="login-title">Acesse o ReNR+</h1>
+        )}
         <p className="muted">Entre com seu acesso autorizado.</p>
         {notice && (
           <p role="status" className="feedback">
@@ -146,17 +162,18 @@ function Login({
           Se precisar de acesso, fale com o administrador da sua organização.
         </p>
       </section>
-      <BrandIntro />
+      {!compact && <BrandIntro />}
     </div>
   );
 }
+function publicPage() {
+  const path = window.location.hash.replace(/^#\/?/, '').split('/')[0];
+  return path === 'participar' || path === 'responder' || path === 'ativar' ? path : '';
+}
 export function App() {
-  const [publicRoute, setPublicRoute] = useState(
-    () => window.location.hash.replace(/^#\/?/, '').split('/')[0] === 'participar',
-  );
+  const [publicRoute, setPublicRoute] = useState(publicPage);
   useEffect(() => {
-    const change = () =>
-      setPublicRoute(window.location.hash.replace(/^#\/?/, '').split('/')[0] === 'participar');
+    const change = () => setPublicRoute(publicPage());
     window.addEventListener('hashchange', change);
     return () => window.removeEventListener('hashchange', change);
   }, []);
@@ -179,7 +196,7 @@ export function App() {
   useEffect(() => {
     const controller = new AbortController();
     let active = true;
-    if (publicRoute) return;
+    if (publicRoute === 'participar' || publicRoute === 'responder') return;
     void request('/auth/session', sessionResponseSchema, { signal: controller.signal })
       .then((value) => {
         if (active) setSession(value);
@@ -204,7 +221,7 @@ export function App() {
     window.location.hash = '/empresas';
   }, []);
   useEffect(() => {
-    if (!session || publicRoute) return;
+    if (!session || publicRoute === 'participar' || publicRoute === 'responder') return;
     const remaining = new Date(session.expiresAt).getTime() - Date.now();
     const timer = window.setTimeout(expire, Math.max(0, Math.min(remaining, 2_147_483_647)));
     return () => window.clearTimeout(timer);
@@ -252,7 +269,7 @@ export function App() {
           >
             {theme === 'light' ? 'Modo escuro' : 'Modo claro'}
           </Button>
-          {session && !publicRoute && (
+          {session && publicRoute !== 'participar' && publicRoute !== 'responder' && (
             <Button variant="outline" disabled={pending} onClick={() => void logout()}>
               {pending ? 'Saindo…' : 'Sair'}
             </Button>
@@ -260,7 +277,32 @@ export function App() {
         </div>
       </header>
       <main id="conteudo" ref={contentRef} tabIndex={-1}>
-        {publicRoute ? (
+        {publicRoute === 'ativar' ? (
+          <Suspense fallback={<p role="status">Carregando ativação…</p>}>
+            <AccessActivation
+              session={session}
+              loading={loading}
+              login={
+                <Login
+                  compact
+                  notice={notice}
+                  onLogin={(value) => {
+                    setSession(value);
+                    setNotice('');
+                  }}
+                />
+              }
+              onExpire={expire}
+              onAccepted={async () => {
+                setSession(await request('/auth/session', sessionResponseSchema));
+              }}
+            />
+          </Suspense>
+        ) : publicRoute === 'responder' ? (
+          <Suspense fallback={<p role="status">Carregando coleta…</p>}>
+            <AssessmentParticipation />
+          </Suspense>
+        ) : publicRoute === 'participar' ? (
           <Participation />
         ) : loading ? (
           <p role="status" className="surface">

@@ -62,9 +62,10 @@ export function buildDemoInstrument(organizationId) {
 }
 
 export async function provisionDemoInstrument(transaction, organizationId) {
-  return transaction.instrumentVersion.upsert({
-    where: { organizationId_version: { organizationId, version: 1 } },
-    update: {},
-    create: buildDemoInstrument(organizationId),
+  // A new catalog may also have a version 1; only the reserved projection is legacy.
+  const existing = await transaction.instrumentVersion.findFirst({
+    where: { organizationId, version: 1, isDemo: true },
   });
+  if (existing) return existing;
+  return transaction.instrumentVersion.create({ data: buildDemoInstrument(organizationId) });
 }

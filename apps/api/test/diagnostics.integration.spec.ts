@@ -164,6 +164,15 @@ describeDatabase('Diagnostic workflow with PostgreSQL', () => {
         organizationId: foreignOrganizationId,
         title: 'Foreign demo',
         version: 1,
+        questions: {
+          create: questions.map((question) => ({
+            ...question,
+            id: randomUUID(),
+            options: {
+              create: question.options.map((option) => ({ ...option, id: randomUUID() })),
+            },
+          })),
+        },
       },
     });
     app = module.createNestApplication();
@@ -173,7 +182,6 @@ describeDatabase('Diagnostic workflow with PostgreSQL', () => {
   afterAll(async () => {
     if (!database) return;
     const organizations = [organizationId, foreignOrganizationId];
-    const versions = [instrumentId, foreignInstrumentId];
     await database.client.responseAnswer.deleteMany({
       where: { response: { organizationId: { in: organizations } } },
     });
@@ -192,13 +200,10 @@ describeDatabase('Diagnostic workflow with PostgreSQL', () => {
     await database.client.assessmentGroup.deleteMany({
       where: { organizationId: { in: organizations } },
     });
-    await database.client.questionOption.deleteMany({
-      where: { instrumentVersionId: { in: versions } },
-    });
-    await database.client.diagnosticQuestion.deleteMany({
-      where: { instrumentVersionId: { in: versions } },
-    });
     await database.client.instrumentVersion.deleteMany({
+      where: { organizationId: { in: organizations } },
+    });
+    await database.client.instrument.deleteMany({
       where: { organizationId: { in: organizations } },
     });
     await database.client.sector.deleteMany({ where: { organizationId: { in: organizations } } });

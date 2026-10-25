@@ -88,6 +88,15 @@ try {
   console.log(
     'Migrações em banco vazio e repetição do deploy/seed verificadas. Banco principal preservado.',
   );
+  await pnpm([
+    'exec',
+    'node',
+    '--test',
+    'scripts/access-migrations.test.mjs',
+    'scripts/workforce-migrations.test.mjs',
+    'scripts/instrument-migrations.test.mjs',
+    'scripts/assessment-migrations.test.mjs',
+  ]);
 } catch {
   process.exitCode = 1;
   console.error('Verificação de banco vazio falhou. Confira PostgreSQL local, build e migrações.');

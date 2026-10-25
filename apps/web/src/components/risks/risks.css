@@ -56,7 +56,7 @@
   position: relative;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1rem;
+  gap: var(--space-4);
   border-top: 3px solid var(--primary);
 }
 .risk-search {
@@ -109,7 +109,7 @@
   width: 100%;
   border-collapse: collapse;
   text-align: left;
-  font-size: 0.925rem;
+  font-size: var(--font-label);
 }
 .risk-table th {
   position: sticky;
@@ -147,13 +147,15 @@
 }
 .risk-status {
   display: inline-flex;
-  padding: 0.35rem 0.6rem;
+  padding: var(--space-1) var(--space-2);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: var(--muted);
   font-size: 0.75rem;
   font-weight: 650;
-  white-space: nowrap;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .risk-status-registered {
   border-color: var(--ring);
@@ -210,17 +212,17 @@
   margin: 0.5rem 0 0;
 }
 .field-error {
-  color: var(--foreground);
-  border-left: 3px solid #b42318;
+  color: var(--danger);
+  border-left: 3px solid var(--danger);
   padding-left: 0.625rem;
   font-size: 0.875rem;
 }
 .risk-form [aria-invalid='true'] {
-  border-color: #b42318;
-  outline: 1px solid #b42318;
+  border-color: var(--danger);
+  outline: 1px solid var(--danger);
 }
 .risk-detail h2 {
-  font-size: clamp(1.5rem, 3vw, 2.4rem);
+  font-size: var(--font-section);
   max-width: 28ch;
   line-height: 1.2;
   overflow-wrap: anywhere;
@@ -274,7 +276,7 @@
   outline-offset: 4px;
 }
 .risk-content-section h3 {
-  font-size: 1.4rem;
+  font-size: var(--font-subtitle);
   margin: 0.5rem 0 1.25rem;
 }
 .risk-content-section h4 {
@@ -314,11 +316,11 @@
 .risk-timeline {
   list-style: none;
   padding: 0;
-  margin: 1.5rem 0;
+  margin: var(--space-6) 0;
 }
 .risk-timeline li {
   position: relative;
-  padding: 0 0 1.5rem 1.5rem;
+  padding: 0 0 var(--space-6) var(--space-6);
   border-left: 1px solid var(--border);
 }
 .risk-timeline li:before {
@@ -332,7 +334,7 @@
   background: var(--primary);
 }
 .risk-timeline p {
-  font-size: 0.875rem;
+  font-size: var(--font-label);
   color: var(--muted-foreground);
   line-height: 1.6;
   margin: 0.4rem 0;

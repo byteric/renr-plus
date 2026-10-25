@@ -52,3 +52,33 @@ it('oferece ações como etapa operacional e identifica a rota atual', () => {
   expect(screen.getByRole('link', { name: 'Ações' })).toHaveAttribute('href', '#/acoes');
   expect(screen.getByRole('link', { name: 'Ações' })).toHaveAttribute('aria-current', 'page');
 });
+
+it('oferece gestão de acessos ao administrador da empresa ativa', () => {
+  render(
+    <WorkspaceNavigation
+      session={session}
+      route="acessos"
+      unitId={null}
+      pending={false}
+      onSelect={() => undefined}
+    />,
+  );
+  expect(screen.getByRole('link', { name: 'Acessos' })).toHaveAttribute('href', '#/acessos');
+  expect(screen.getByRole('link', { name: 'Acessos' })).toHaveAttribute('aria-current', 'page');
+});
+
+it('não oferece administração de acessos ao leitor', () => {
+  render(
+    <WorkspaceNavigation
+      session={{
+        ...session,
+        memberships: session.memberships.map((item) => ({ ...item, role: 'READER' })),
+      }}
+      route="acessos"
+      unitId={null}
+      pending={false}
+      onSelect={() => undefined}
+    />,
+  );
+  expect(screen.queryByRole('link', { name: 'Acessos' })).not.toBeInTheDocument();
+});

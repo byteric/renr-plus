@@ -16,10 +16,20 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
+    preview: {
+      proxy: {
+        '/api': {
+          target: env.API_PROXY_TARGET || 'http://127.0.0.1:3000',
+          changeOrigin: true,
+        },
+      },
+    },
     test: {
       environment: 'jsdom',
       setupFiles: ['./src/test/setup.ts'],
       clearMocks: true,
+      // Keep isolated jsdom suites within a predictable memory/CPU budget.
+      maxWorkers: 1,
     },
   };
 });

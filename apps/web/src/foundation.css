@@ -1,0 +1,74 @@
+/* Reusable presentation only. Domain state and authorization stay with each feature. */
+.status-message {
+  min-width: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-inline-start: 3px solid var(--info);
+  border-radius: var(--radius-control);
+  background: var(--info-surface);
+  color: var(--foreground);
+  font-size: var(--font-label);
+  overflow-wrap: anywhere;
+}
+.status-message > :first-child {
+  margin-top: 0;
+}
+.status-message > :last-child {
+  margin-bottom: 0;
+}
+.status-message > button {
+  margin-top: var(--space-3);
+}
+.status-message--error {
+  border-inline-start-color: var(--danger);
+  background: var(--danger-surface);
+}
+.status-message--warning {
+  border-inline-start-color: var(--warning);
+  background: var(--warning-surface);
+}
+.status-message--success {
+  border-inline-start-color: var(--success);
+  background: var(--success-surface);
+}
+.status-message--loading {
+  background: var(--muted);
+  border-inline-start-color: var(--muted-foreground);
+}
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  font-size: var(--font-caption);
+  font-weight: 650;
+  line-height: 1.5;
+  color: var(--foreground);
+  background: var(--muted);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.status-badge--info {
+  color: var(--info);
+  background: var(--info-surface);
+}
+.status-badge--success {
+  color: var(--success);
+  background: var(--success-surface);
+}
+.status-badge--warning {
+  color: var(--warning);
+  background: var(--warning-surface);
+}
+.status-badge--error {
+  color: var(--danger);
+  background: var(--danger-surface);
+}
+.pagination-summary {
+  color: var(--muted-foreground);
+  font-size: var(--font-label);
+  font-variant-numeric: tabular-nums;
+  padding: var(--space-2);
+}

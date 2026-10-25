@@ -1,0 +1,87 @@
+/* ReNR+ foundation: existing brand colors, named semantic roles and a 4px rhythm. */
+:root {
+  font-family: 'Manrope Variable', 'Segoe UI', Arial, sans-serif;
+  font-synthesis: none;
+  line-height: 1.5;
+  color-scheme: light;
+
+  --background: #faf9f3;
+  --foreground: #153b40;
+  --card: #ffffff;
+  --card-foreground: #153b40;
+  --primary: #075663;
+  --primary-foreground: #ffffff;
+  --muted: #eef2ed;
+  --muted-foreground: #516569;
+  --border: #dce4df;
+  --input: #6d8883;
+  --ring: #009b3a;
+  --brand-green: #009d37;
+  --brand-orange: #ff8a12;
+
+  --info: #075663;
+  --info-surface: #eaf4f4;
+  --success: #17613b;
+  --success-surface: #e9f6ee;
+  --warning: #7a4905;
+  --warning-surface: #fff3df;
+  --danger: #9f3227;
+  --danger-surface: #fff1ed;
+  --shadow-low: 0 1px 3px #153b400a, 0 4px 16px #153b4005;
+  --shadow-overlay: 8px 0 32px #051e2826;
+
+  --font-caption: 0.75rem;
+  --font-label: 0.875rem;
+  --font-body: 1rem;
+  --font-subtitle: 1.25rem;
+  --font-section: 1.5rem;
+  --font-title: 1.875rem;
+  --font-metric: 2.25rem;
+  --line-body: 1.6;
+  --line-heading: 1.25;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --radius-control: 0.5rem;
+  --radius-surface: 0.75rem;
+  --radius-panel: 1rem;
+  --control-min-height: 2.75rem;
+  --content-max-width: 1440px;
+  --duration-fast: 120ms;
+  --duration-content: 180ms;
+  --duration-panel: 220ms;
+  --duration-chart: 450ms;
+  --ease-out: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.dark {
+  color-scheme: dark;
+  --background: #101f23;
+  --foreground: #f0f5ef;
+  --card: #182c30;
+  --card-foreground: #f0f5ef;
+  --primary: #a0ded8;
+  --primary-foreground: #123136;
+  --muted: #21373b;
+  --muted-foreground: #b0c5c5;
+  --border: #344b4f;
+  --input: #617e82;
+  --ring: #78d391;
+  --info: #a0ded8;
+  --info-surface: #173c42;
+  --success: #9de2b6;
+  --success-surface: #1b382c;
+  --warning: #ffd08a;
+  --warning-surface: #3b3020;
+  --danger: #ffb4a7;
+  --danger-surface: #3a2728;
+  --shadow-low: 0 1px 3px #0003, 0 4px 16px #0001;
+  --shadow-overlay: 8px 0 32px #0005;
+}

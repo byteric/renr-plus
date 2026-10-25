@@ -1,0 +1,140 @@
+.access-workspace {
+  display: grid;
+  gap: var(--space-6);
+  min-width: 0;
+}
+.access-guide {
+  border-top: 3px solid var(--brand-green);
+}
+.access-guide h2,
+.access-editor h2,
+.access-section-heading h2 {
+  font-size: var(--font-subtitle);
+  letter-spacing: -0.025em;
+}
+.access-guide p {
+  max-width: 76ch;
+  margin-bottom: 0;
+}
+.access-tabs,
+.access-actions,
+.access-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+.access-tabs > button {
+  flex: 1 1 auto;
+}
+.access-section-heading {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  justify-content: space-between;
+  align-items: center;
+}
+.access-section-heading h2 {
+  margin: 0;
+}
+.access-list {
+  display: grid;
+  gap: var(--space-3);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.access-record {
+  display: flex;
+  gap: var(--space-4);
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.access-record > div {
+  min-width: 0;
+}
+.access-record h3,
+.access-list h3 {
+  font-size: var(--font-body);
+  margin: 0 0 var(--space-2);
+}
+.access-record p,
+.access-list p {
+  margin: var(--space-2) 0;
+  overflow-wrap: anywhere;
+}
+.access-record > button {
+  flex-shrink: 0;
+}
+.access-editor {
+  min-width: 0;
+}
+.access-editor form {
+  display: grid;
+  gap: var(--space-3);
+}
+.access-editor fieldset {
+  padding: var(--space-4);
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  min-width: 0;
+}
+.access-editor legend {
+  font-weight: 700;
+  padding: 0 var(--space-2);
+}
+.access-check {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  font-size: var(--font-label);
+  margin: var(--space-3) 0;
+}
+.access-check input[type='checkbox'] {
+  appearance: auto;
+  width: 1.25rem;
+  height: 1.25rem;
+  min-height: 1.25rem;
+  padding: 0;
+  margin: 0.1rem 0 0;
+  flex-shrink: 0;
+  accent-color: var(--primary);
+}
+.access-editor input:not([type='checkbox']),
+.access-editor select,
+.access-editor textarea {
+  max-width: 100%;
+  min-width: 0;
+}
+.access-activation {
+  width: min(100%, 42rem);
+  margin: var(--space-8) auto;
+}
+.access-activation form {
+  display: grid;
+  gap: var(--space-3);
+}
+.access-activation h1 {
+  font-size: var(--font-title);
+  letter-spacing: -0.03em;
+}
+@media (max-width: 600px) {
+  .access-record {
+    flex-direction: column;
+  }
+  .access-record > button,
+  .access-actions > button {
+    flex: 1 1 auto;
+  }
+  .access-actions {
+    width: 100%;
+  }
+  .access-tabs {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .access-editor {
+    padding: var(--space-4);
+  }
+}

@@ -7,6 +7,9 @@ import {
   type RiskListQuery,
 } from '@renr/contracts';
 import { Button } from '../ui/button';
+import { Pagination } from '../ui/pagination';
+import { StatusMessage } from '../ui/status-message';
+import { StatusBadge } from '../ui/status-badge';
 import { useRiskData, statusLabels, riskDate } from './useRiskData';
 
 export function RiskInventory({
@@ -229,17 +232,17 @@ export function RiskInventory({
         </p>
       )}
       {list.loading && (
-        <p role="status" className="surface">
+        <StatusMessage tone="loading" className="surface">
           Carregando inventário…
-        </p>
+        </StatusMessage>
       )}
       {list.error && (
-        <div role="alert" className="feedback error">
+        <StatusMessage tone="error" className="feedback error">
           <p>{list.error}</p>
           <Button variant="outline" onClick={() => setAttempt(attempt + 1)}>
             Atualizar inventário
           </Button>
-        </div>
+        </StatusMessage>
       )}
       {data && (
         <>
@@ -291,9 +294,11 @@ export function RiskInventory({
                         </p>
                       </td>
                       <td data-label="Estado">
-                        <span className={`risk-status risk-status-${risk.status.toLowerCase()}`}>
-                          {statusLabels[risk.status]}
-                        </span>
+                        <StatusBadge
+                          className={`risk-status risk-status-${risk.status.toLowerCase()}`}
+                          label={statusLabels[risk.status]}
+                          tone={risk.status === 'REGISTERED' ? 'info' : 'neutral'}
+                        />
                       </td>
                       <td data-label="Ficha preliminar">
                         {risk.latestEvaluation
@@ -311,21 +316,16 @@ export function RiskInventory({
             </div>
           )}
           {data.total > data.pageSize && (
-            <nav className="pagination" aria-label="Paginação do inventário">
-              {data.page > 1 ? (
-                <a href={href(data.page - 1)}>Página anterior</a>
-              ) : (
-                <span>Página anterior</span>
-              )}
-              <span>
-                {data.page} de {Math.ceil(data.total / data.pageSize)}
-              </span>
-              {data.page * data.pageSize < data.total ? (
-                <a href={href(data.page + 1)}>Próxima página</a>
-              ) : (
-                <span>Próxima página</span>
-              )}
-            </nav>
+            <Pagination
+              label="Paginação do inventário"
+              page={data.page}
+              pageSize={data.pageSize}
+              total={data.total}
+              pending={list.loading}
+              onPageChange={(page) => {
+                window.location.hash = href(page);
+              }}
+            />
           )}
         </>
       )}

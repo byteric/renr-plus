@@ -25,7 +25,7 @@ const child = spawn(
     '--experimental-vm-modules',
     'node_modules/jest/bin/jest.js',
     '--runInBand',
-    '--testPathPatterns=integration',
+    '--testPathPatterns=integration|persistence',
   ],
   { cwd: apiDirectory, env: environment, stdio: 'inherit', windowsHide: true },
 );

@@ -227,7 +227,26 @@ describeDatabase('v0.3 inventory against PostgreSQL', () => {
   });
   it('validates origin availability and exact AssessmentGroup, rejects inactive and incoherent scope', async () => {
     const instrument = await database.client.instrumentVersion.create({
-      data: { organizationId: orgId, title: 'Instrumento sintético', version: 1 },
+      data: {
+        organizationId: orgId,
+        title: 'Instrumento sintético',
+        version: 1,
+        questions: {
+          create: [
+            {
+              label: 'Synthetic question',
+              type: 'SINGLE_CHOICE',
+              position: 1,
+              options: {
+                create: [
+                  { label: 'First', position: 1 },
+                  { label: 'Second', position: 2 },
+                ],
+              },
+            },
+          ],
+        },
+      },
     });
     const group = await database.client.assessmentGroup.findUniqueOrThrow({
       where: { organizationId_sectorId: { organizationId: orgId, sectorId } },
