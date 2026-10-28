@@ -7,6 +7,12 @@ export * from './actions';
 export * from './action-overview';
 export * from './evidence';
 export * from './access';
+export * from './evaluation-methods';
+export * from './risk-workspaces';
+export * from './action-workspaces';
+export * from './action-efficacy';
+export * from './risk-reassessments';
+export * from './action-technical-closures';
 export { organizationOverviewSchema, type OrganizationOverview } from './overview';
 
 /** Liveness: não implica que PostgreSQL ou armazenamento estejam disponíveis. */

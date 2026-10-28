@@ -1,2 +1,4 @@
 * text=auto eol=lf
 *.cmd text eol=crlf
+# Keep the original EOF spacing of the locally applied, checksum-bound migration.
+apps/api/prisma/migrations/20261025000000_technical_evaluation_methods/migration.sql whitespace=-blank-at-eof

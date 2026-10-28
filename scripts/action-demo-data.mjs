@@ -159,6 +159,8 @@ export async function provisionDemoActions(tx, { organizationId, sectorId, userI
     ])
       delete data[key];
     await tx.action.create({
+      // Keep the synthetic seed usable before additive assignment migrations.
+      select: { id: true },
       data: {
         ...data,
         dueDate: new Date(`${data.dueDate}T00:00:00.000Z`),
@@ -172,6 +174,7 @@ export async function provisionDemoActions(tx, { organizationId, sectorId, userI
     for (const revision of revisions) {
       const { author, createdAt, ...revisionData } = revision;
       await tx.actionRevision.create({
+        select: { id: true },
         data: { ...revisionData, authorId: author.id, createdAt: new Date(createdAt) },
       });
     }

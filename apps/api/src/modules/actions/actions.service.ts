@@ -19,6 +19,8 @@ import {
   type ActionOverview,
   type ActionRevision,
   type ActionRevisionList,
+  type ActionAssignmentChange,
+  type ActionExecutionInput,
 } from '@renr/contracts';
 import { Prisma } from '../../generated/prisma/client';
 import { riskInclude, toRisk } from '../risks/risks.repository';
@@ -32,6 +34,11 @@ import {
   type ActionScope,
   type ActionRecord,
 } from './actions.repository';
+import {
+  assertOperationalActor,
+  lockOperationalActor,
+  resolveAssignee,
+} from './operational-access';
 
 export function assertActionVersion(record: { version: number }, expected: number): void {
   if (record.version !== expected || record.version === 2147483647)
@@ -44,60 +51,95 @@ export class ActionsService {
     scope: ActionScope,
     riskId: string,
     input: CreateActionInput,
+    assignment?: { assignedUserId: string | null },
   ): Promise<ActionDetail> {
-    return this.repository.transaction(async (tx) => {
-      await tx.$queryRaw`SELECT id FROM risks WHERE organization_id=${scope.organizationId}::uuid AND id=${riskId}::uuid FOR UPDATE`;
-      const risk = await tx.risk.findFirst({
-        where: { id: riskId, organizationId: scope.organizationId },
-        include: riskInclude,
-      });
-      if (!risk) throw new NotFoundException();
-      if (risk.version !== input.expectedRiskVersion)
-        throw new ConflictException('Risk version changed');
-      const sector = risk.assessmentGroup.sector;
-      if (
-        risk.status !== 'REGISTERED' ||
-        !sector.isActive ||
-        !sector.unit.isActive ||
-        !sector.organization.isActive ||
-        sector.unit.organizationId !== scope.organizationId
-      )
-        throw new ConflictException('Registered active source required');
-      if (
-        input.evaluationId &&
-        !(await tx.riskEvaluation.findFirst({
-          where: { id: input.evaluationId, riskId, organizationId: scope.organizationId },
-          select: { id: true },
-        }))
-      )
-        throw new NotFoundException();
-      const current = toRisk(risk);
-      const contextSnapshot = riskContextSnapshotSchema.parse({
-        ...riskContentSchema.strip().parse(current),
-        sectorId: current.sectorId,
-        assessmentGroupId: current.assessmentGroupId,
-        unit: current.unit,
-        sector: current.sector,
-        status: 'REGISTERED',
-      });
-      const content = actionContentSchema.strip().parse(input);
-      const action = await tx.action.create({
-        data: {
-          ...content,
-          dueDate: new Date(`${content.dueDate}T00:00:00Z`),
-          organizationId: scope.organizationId,
-          riskId,
-          evaluationId: input.evaluationId,
-          sourceRiskVersion: risk.version,
-          contextSnapshot,
-          createdById: scope.userId,
-          updatedById: scope.userId,
-        },
-        include: actionInclude,
-      });
-      await this.repository.revision(tx, scope, action, 'CREATED');
-      return toAction(action, referenceDate(action.organization.timezone, new Date()));
+    return this.repository.transaction((tx) =>
+      this.createInTransaction(tx, scope, riskId, input, assignment),
+    );
+  }
+  async createInTransaction(
+    tx: Prisma.TransactionClient,
+    scope: ActionScope,
+    riskId: string,
+    input: CreateActionInput,
+    assignment?: { assignedUserId: string | null },
+  ): Promise<ActionDetail> {
+    await lockOperationalActor(
+      tx,
+      scope,
+      true,
+      assignment?.assignedUserId ? [assignment.assignedUserId] : [],
+    );
+    const assigned = assignment
+      ? await resolveAssignee(tx, scope, assignment.assignedUserId)
+      : { assignedUserId: null, assignedName: null };
+    await tx.$queryRaw`SELECT id FROM risks WHERE organization_id=${scope.organizationId}::uuid AND id=${riskId}::uuid FOR UPDATE`;
+    const risk = await tx.risk.findFirst({
+      where: { id: riskId, organizationId: scope.organizationId },
+      include: riskInclude,
     });
+    if (!risk) throw new NotFoundException();
+    if (risk.version !== input.expectedRiskVersion)
+      throw new ConflictException('Risk version changed');
+    const sector = risk.assessmentGroup.sector;
+    if (
+      risk.status !== 'REGISTERED' ||
+      !sector.isActive ||
+      !sector.unit.isActive ||
+      !sector.organization.isActive ||
+      sector.unit.organizationId !== scope.organizationId
+    )
+      throw new ConflictException('Registered active source required');
+    if (
+      input.evaluationId &&
+      !(await tx.riskEvaluation.findFirst({
+        where: { id: input.evaluationId, riskId, organizationId: scope.organizationId },
+        select: { id: true },
+      }))
+    )
+      throw new NotFoundException();
+    const current = toRisk(risk);
+    const contextSnapshot = riskContextSnapshotSchema.parse({
+      ...riskContentSchema.strip().parse(current),
+      sectorId: current.sectorId,
+      assessmentGroupId: current.assessmentGroupId,
+      unit: current.unit,
+      sector: current.sector,
+      status: 'REGISTERED',
+    });
+    const content = actionContentSchema.strip().parse(input);
+    const action = await tx.action.create({
+      data: {
+        ...content,
+        ...assigned,
+        dueDate: new Date(`${content.dueDate}T00:00:00Z`),
+        organizationId: scope.organizationId,
+        riskId,
+        evaluationId: input.evaluationId,
+        sourceRiskVersion: risk.version,
+        contextSnapshot,
+        createdById: scope.userId,
+        updatedById: scope.userId,
+      },
+      include: actionInclude,
+    });
+    const assignmentChange: ActionAssignmentChange | undefined = assigned.assignedUserId
+      ? {
+          previous: null,
+          next: { userId: assigned.assignedUserId, name: assigned.assignedName! },
+        }
+      : undefined;
+    await this.repository.revision(
+      tx,
+      scope,
+      action,
+      'CREATED',
+      assignmentChange ? 'Responsável associado na criação da ação.' : null,
+      null,
+      null,
+      assignmentChange,
+    );
+    return toAction(action, referenceDate(action.organization.timezone, new Date()));
   }
   async get(scope: ActionScope, id: string): Promise<ActionDetail> {
     return this.repository.snapshot(async (tx) => {
@@ -105,9 +147,16 @@ export class ActionsService {
       return toAction(action, referenceDate(action.organization.timezone, new Date()));
     });
   }
-  async update(scope: ActionScope, id: string, input: UpdateActionInput): Promise<ActionDetail> {
+  async update(
+    scope: ActionScope,
+    id: string,
+    input: UpdateActionInput,
+    operation: 'manage' | 'execute' = 'manage',
+  ): Promise<ActionDetail> {
     return this.repository.transaction(async (tx) => {
+      const member = await lockOperationalActor(tx, scope, operation === 'manage');
       const action = await this.repository.lock(tx, scope.organizationId, id);
+      if (operation === 'execute') assertOperationalActor(member, action);
       assertActionVersion(action, input.expectedVersion);
       if (action.status === 'IMPLEMENTED' || action.status === 'CANCELLED')
         throw new ConflictException('Terminal action');
@@ -142,9 +191,29 @@ export class ActionsService {
       return toAction(updated, referenceDate(updated.organization.timezone, new Date()));
     });
   }
-  async note(scope: ActionScope, id: string, input: AddActionNoteInput): Promise<ActionRevision> {
+  async execute(
+    scope: ActionScope,
+    id: string,
+    input: ActionExecutionInput,
+  ): Promise<ActionDetail> {
+    return this.update(scope, id, input, 'execute');
+  }
+  async assignmentResource(scope: ActionScope, id: string) {
+    return this.repository.snapshot(async (tx) => {
+      const action = await this.repository.get(tx, scope.organizationId, id);
+      return { organizationId: action.organizationId, assignedUserId: action.assignedUserId };
+    });
+  }
+  async note(
+    scope: ActionScope,
+    id: string,
+    input: AddActionNoteInput,
+    operation: 'manage' | 'execute' = 'manage',
+  ): Promise<ActionRevision> {
     return this.repository.transaction(async (tx) => {
+      const member = await lockOperationalActor(tx, scope, operation === 'manage');
       const action = await this.repository.lock(tx, scope.organizationId, id);
+      if (operation === 'execute') assertOperationalActor(member, action);
       assertActionVersion(action, input.expectedVersion);
       const updated = await tx.action.update({
         where: { id },

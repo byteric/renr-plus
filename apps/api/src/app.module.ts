@@ -29,12 +29,28 @@ import { RiskRegistrationsRepository } from './modules/risks/risk-registrations.
 import { ActionsController } from './modules/actions/actions.controller';
 import { ActionsService } from './modules/actions/actions.service';
 import { ActionsRepository } from './modules/actions/actions.repository';
+import { ActionWorkspacesController } from './modules/actions/action-workspaces.controller';
+import { ActionWorkspacesService } from './modules/actions/action-workspaces.service';
 import { EvidenceController, EvidenceGuard } from './modules/evidence/evidence.controller';
 import { EvidenceService } from './modules/evidence/evidence.service';
 import { EvidenceStorage } from './modules/evidence/evidence.storage';
 import { AccessController, AccessInvitationController } from './modules/access/access.controller';
 import { AccessRepository } from './modules/access/access.repository';
 import { AccessService } from './modules/access/access.service';
+import {
+  EvaluationMethodsController,
+  EvaluationMethodVersionsController,
+} from './modules/technical-evaluations/evaluation-methods.controller';
+import { EvaluationMethodsService } from './modules/technical-evaluations/evaluation-methods.service';
+import { RiskWorkspacesController } from './modules/technical-evaluations/risk-workspaces.controller';
+import { RiskWorkspacesService } from './modules/technical-evaluations/risk-workspaces.service';
+import { ActionEfficacyController } from './modules/action-efficacy/action-efficacy.controller';
+import { ActionEfficacyService } from './modules/action-efficacy/action-efficacy.service';
+import { RiskContinuityService } from './modules/risk-continuity/risk-continuity.service';
+import {
+  ActionTechnicalClosuresController,
+  RiskReassessmentsController,
+} from './modules/risk-continuity/risk-continuity.controller';
 
 @Module({})
 export class AppModule {
@@ -42,6 +58,12 @@ export class AppModule {
     return {
       module: AppModule,
       controllers: [
+        ActionTechnicalClosuresController,
+        RiskReassessmentsController,
+        ActionEfficacyController,
+        EvaluationMethodsController,
+        EvaluationMethodVersionsController,
+        RiskWorkspacesController,
         AssessmentsController,
         WorkforceController,
         InstrumentsController,
@@ -54,11 +76,16 @@ export class AppModule {
         RiskOverviewController,
         RiskRegistrationsController,
         ActionsController,
+        ActionWorkspacesController,
         EvidenceController,
         AccessController,
         AccessInvitationController,
       ],
       providers: [
+        RiskContinuityService,
+        ActionEfficacyService,
+        EvaluationMethodsService,
+        RiskWorkspacesService,
         AssessmentsService,
         { provide: ENVIRONMENT, useValue: environment },
         WorkforceService,
@@ -77,6 +104,7 @@ export class AppModule {
         RiskRegistrationsRepository,
         ActionsRepository,
         ActionsService,
+        ActionWorkspacesService,
         EvidenceGuard,
         EvidenceService,
         EvidenceStorage,

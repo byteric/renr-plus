@@ -8,9 +8,11 @@ import {
 import {
   S3Client,
   GetObjectCommand,
+  HeadObjectCommand,
   PutObjectCommand,
   DeleteObjectCommand,
 } from '@aws-sdk/client-s3';
+import { createHash } from 'node:crypto';
 import { Readable } from 'node:stream';
 import { ENVIRONMENT, type Environment } from '../../config/env';
 
@@ -37,6 +39,67 @@ export class EvidenceStorage implements OnApplicationShutdown {
   assertEnabled(): void {
     if (!this.client) throw new ServiceUnavailableException();
   }
+  private report(operation: 'PUT' | 'GET' | 'PROBE' | 'DELETE', error: unknown): void {
+    const metadata =
+      error && typeof error === 'object' && '$metadata' in error
+        ? (error as { $metadata?: { httpStatusCode?: number } }).$metadata
+        : undefined;
+    const status = metadata?.httpStatusCode;
+    this.logger.warn({
+      message: 'Private storage operation failed',
+      operation,
+      status:
+        typeof status === 'number' && Number.isInteger(status) && status >= 100 && status <= 599
+          ? status
+          : null,
+    });
+  }
+  async probe(
+    key: string,
+    expected: { mimeType: string; size: number; sha256: string },
+  ): Promise<'PRESENT' | 'ABSENT' | 'UNKNOWN'> {
+    if (!this.client || expected.size < 1 || expected.size > 5 * 1024 * 1024) return 'UNKNOWN';
+    let body: Readable | undefined;
+    let stage: 'HEAD' | 'GET' = 'HEAD';
+    try {
+      const head = await this.client.send(
+        new HeadObjectCommand({ Bucket: this.environment.S3_BUCKET, Key: key }),
+      );
+      if (
+        head.ContentLength !== expected.size ||
+        head.ContentType !== expected.mimeType ||
+        head.Metadata?.sha256 !== expected.sha256
+      )
+        return 'UNKNOWN';
+      stage = 'GET';
+      const object = await this.client.send(
+        new GetObjectCommand({ Bucket: this.environment.S3_BUCKET, Key: key }),
+      );
+      if (!(object.Body instanceof Readable)) return 'UNKNOWN';
+      body = object.Body;
+      const digest = createHash('sha256');
+      let size = 0;
+      for await (const chunk of body) {
+        const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+        size += bytes.length;
+        if (size > expected.size) return 'UNKNOWN';
+        digest.update(bytes);
+      }
+      return size === expected.size && digest.digest('hex') === expected.sha256
+        ? 'PRESENT'
+        : 'UNKNOWN';
+    } catch (error) {
+      const status =
+        error && typeof error === 'object' && '$metadata' in error
+          ? (error as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode
+          : undefined;
+      if (stage === 'HEAD' && status === 404) return 'ABSENT';
+      this.report('PROBE', error);
+      return 'UNKNOWN';
+    } finally {
+      body?.destroy();
+    }
+  }
   async put(key: string, body: Buffer, mimeType: string, sha256: string): Promise<void> {
     this.assertEnabled();
     if (!this.client) throw new ServiceUnavailableException();
@@ -50,7 +113,8 @@ export class EvidenceStorage implements OnApplicationShutdown {
           Metadata: { sha256 },
         }),
       );
-    } catch {
+    } catch (error) {
+      this.report('PUT', error);
       throw new ServiceUnavailableException();
     }
   }
@@ -63,7 +127,8 @@ export class EvidenceStorage implements OnApplicationShutdown {
       );
       if (!(object.Body instanceof Readable)) throw new ServiceUnavailableException();
       return object.Body;
-    } catch {
+    } catch (error) {
+      this.report('GET', error);
       throw new ServiceUnavailableException();
     }
   }
@@ -73,8 +138,8 @@ export class EvidenceStorage implements OnApplicationShutdown {
       await this.client.send(
         new DeleteObjectCommand({ Bucket: this.environment.S3_BUCKET, Key: key }),
       );
-    } catch {
-      this.logger.error({ message: 'New evidence object cleanup failed' });
+    } catch (error) {
+      this.report('DELETE', error);
     }
   }
   onApplicationShutdown(): void {
