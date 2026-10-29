@@ -1,7 +1,7 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import {
-  actionListSchema,
-  actionListQuerySchema,
+  actionWorkspaceListSchema,
+  actionWorkspaceQuerySchema,
   unitListSchema,
   sectorListSchema,
 } from '@renr/contracts';
@@ -10,6 +10,7 @@ import { Pagination } from '../ui/pagination';
 import { StatusMessage } from '../ui/status-message';
 import { StatusBadge } from '../ui/status-badge';
 import { actionLabels, civilDate, useActionData } from './useActionData';
+import { ActionPending, ActionPriority } from './ActionContext';
 
 export function ActionList({
   organizationId,
@@ -21,15 +22,15 @@ export function ActionList({
   onExpire: () => void;
 }) {
   const params = new URLSearchParams(query);
-  const parsed = actionListQuerySchema.safeParse(Object.fromEntries(params));
+  const parsed = actionWorkspaceQuerySchema.safeParse(Object.fromEntries(params));
   const duplicates = [...params.keys()].some((key) => params.getAll(key).length > 1);
   const [attempt, setAttempt] = useState(0);
   const [unitId, setUnitId] = useState(params.get('unitId') ?? '');
   const data = useActionData(
     parsed.success && !duplicates
-      ? `/organizations/${organizationId}/actions?${query || 'page=1'}`
+      ? `/organizations/${organizationId}/action-workspaces?${query || 'page=1'}`
       : null,
-    actionListSchema,
+    actionWorkspaceListSchema,
     organizationId,
     onExpire,
     attempt,
@@ -60,6 +61,14 @@ export function ActionList({
     window.location.hash = `/acoes?${next}`;
   }
   const returnTo = `#/acoes${query ? `?${query}` : ''}`;
+  useEffect(() => {
+    if (!data.data) return;
+    const id = sessionStorage.getItem('action-return-focus');
+    if (id) {
+      document.getElementById(`action-${id}`)?.focus();
+      sessionStorage.removeItem('action-return-focus');
+    }
+  }, [data.data]);
   return (
     <div className="risk-stack actions-workspace">
       <div className="risk-toolbar">
@@ -132,6 +141,15 @@ export function ActionList({
         <div className="actions-checks">
           <label>
             <input
+              name="assignedTo"
+              type="checkbox"
+              value="me"
+              defaultChecked={params.get('assignedTo') === 'me'}
+            />
+            Minhas ações
+          </label>
+          <label>
+            <input
               name="openOnly"
               type="checkbox"
               value="true"
@@ -197,6 +215,7 @@ export function ActionList({
                   <th>Ação / risco</th>
                   <th>Responsável</th>
                   <th>Prazo</th>
+                  <th>Contexto / pendências</th>
                   <th>Estado</th>
                 </tr>
               </thead>
@@ -204,15 +223,28 @@ export function ActionList({
                 {data.data.items.map((item) => (
                   <tr key={item.id}>
                     <td data-label="Ação / risco">
-                      <a href={`#/acoes/${item.id}?returnTo=${encodeURIComponent(returnTo)}`}>
+                      <a
+                        id={`action-${item.id}`}
+                        href={`#/acoes/${item.id}?returnTo=${encodeURIComponent(returnTo)}&returnFocus=${item.id}`}
+                      >
                         {item.title}
                       </a>
                       <p className="muted">{item.risk.factor}</p>
                     </td>
-                    <td data-label="Responsável">{item.responsibleName}</td>
+                    <td data-label="Responsável">
+                      {item.responsibleName}
+                      <p className="muted">Membro: {item.assignedUser?.name ?? 'Sem atribuição'}</p>
+                    </td>
                     <td data-label="Prazo">
                       <time dateTime={item.dueDate}>{civilDate(item.dueDate)}</time>
                       {item.isOverdue && <strong className="actions-overdue">Atrasada</strong>}
+                    </td>
+                    <td data-label="Contexto / pendências">
+                      <p>
+                        {item.riskContext.unit.name} / {item.riskContext.sector.name}
+                      </p>
+                      <ActionPriority context={item.riskContext} />
+                      <ActionPending reasons={item.pendingReasons} />
                     </td>
                     <td data-label="Estado">
                       <StatusBadge

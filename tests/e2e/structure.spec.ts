@@ -30,6 +30,16 @@ async function login(page: Page, email = 'admin1@renr.example') {
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Empresas', exact: true })).toBeVisible();
 }
+async function findCompany(page: Page, name: string) {
+  await expect(page.getByRole('heading', { name: 'Empresas', exact: true })).toBeVisible();
+  // A saved company can be outside the first 50 alphabetically ordered records.
+  await page.getByLabel('Buscar cadastros', { exact: true }).fill(name);
+  await page.getByRole('button', { name: 'Aplicar filtros', exact: true }).click();
+  await expect(page).toHaveURL(
+    (url) => new URLSearchParams(url.hash.split('?')[1]).get('search') === name,
+  );
+  await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
+}
 async function selectDemo(page: Page) {
   const orgId = '10000000-0000-4000-8000-000000000001';
   const select = page.getByRole('combobox', { name: 'Empresa ativa', exact: true });
@@ -58,6 +68,7 @@ test('estrutura completa persiste após recarga e permite editar e inativar seto
   expect(response.status()).toBe(201);
   const organization = organizationSchema.parse(await response.json());
   createdOrganizations.push({ id: organization.id, name });
+  await findCompany(page, name);
   await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
   await page.getByRole('button', { name: `Selecionar empresa ${name}`, exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Unidades', exact: true })).toBeVisible();
@@ -90,14 +101,17 @@ test('estrutura completa persiste após recarga e permite editar e inativar seto
   await expect(page.getByText('Inativo', { exact: true })).toBeVisible();
   // An inactive company must remain selectable so an administrator can reactivate it.
   await navigateWorkspace(page, 'Empresas');
+  await findCompany(page, name);
   await page.getByRole('button', { name: `Editar empresa ${name}`, exact: true }).click();
   await page.getByLabel('Cadastro ativo', { exact: true }).uncheck();
   await page.getByRole('button', { name: 'Salvar empresa', exact: true }).click();
   await selectDemo(page);
   await navigateWorkspace(page, 'Empresas');
+  await findCompany(page, name);
   await page.getByRole('button', { name: `Selecionar empresa ${name}`, exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Unidades', exact: true })).toBeVisible();
   await navigateWorkspace(page, 'Empresas');
+  await findCompany(page, name);
   await page.getByRole('button', { name: `Editar empresa ${name}`, exact: true }).click();
   await page.getByLabel('Cadastro ativo', { exact: true }).check();
   await page.getByRole('button', { name: 'Salvar empresa', exact: true }).click();

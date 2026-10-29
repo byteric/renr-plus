@@ -1,8 +1,34 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { StrictMode } from 'react';
 import { afterEach, expect, it, vi } from 'vitest';
-import { actionDetailSchema, updateActionSchema, type SessionResponse } from '@renr/contracts';
+import {
+  actionDetailSchema,
+  actionWorkspaceSchema,
+  updateActionSchema,
+  type SessionResponse,
+} from '@renr/contracts';
+import { operationalEfficacyContext } from './components/actions/ActionEfficacy.fixtures';
+import { operationalClosureContext } from './components/actions/technical-closure.fixtures';
 import { Structure } from './components/Structure';
+import { ActionAssignment } from './components/actions/ActionAssignment';
+
+vi.mock('./lib/evidence-upload', async () => {
+  const { request } = await import('./lib/api');
+  return {
+    sendEvidenceFile: (
+      ...[path, schema, body, options]: Parameters<
+        typeof import('./lib/evidence-upload').sendEvidenceFile
+      >
+    ) =>
+      request(path, schema, {
+        method: 'POST',
+        body,
+        signal: options.signal,
+        headers: { 'Idempotency-Key': options.key },
+      }),
+  };
+});
 
 const org = '10000000-0000-4000-8000-000000000001';
 const id = '40000000-0000-4000-8000-000000000001';
@@ -75,25 +101,92 @@ const session: SessionResponse = {
 };
 const page = (items: unknown[]) => ({ items, total: items.length, page: 1, pageSize: 50 });
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status });
+const extras = {
+  assignedUser: {
+    userId: org,
+    name: 'Membro operacional',
+    currentName: 'Membro operacional',
+    isActive: true,
+  },
+  riskContext: {
+    unit: scope,
+    sector: scope,
+    technicalEvaluationState: 'ABSENT',
+    contextMatches: true,
+    priority: null,
+  },
+  evidenceSummary: { active: 0, archived: 0 },
+  pendingReasons: ['NO_EVIDENCE', 'NO_CURRENT_TECHNICAL_EVALUATION'],
+};
+const enriched = (value: unknown) => ({
+  ...extras,
+  ...(value as object),
+  risk: { id, factor: risk.factor },
+  permissions: {
+    canManage: true,
+    canExecute: true,
+    canNote: true,
+    canUploadEvidence: true,
+    canArchiveEvidence: true,
+  },
+});
 function arrange(
   hash: string,
   role: 'ADMIN' | 'READER' = 'ADMIN',
   conflict = false,
   currentAction: unknown = action,
   currentRisk: unknown = risk,
+  executor = false,
 ) {
   window.location.hash = hash;
   const fetcher = vi.fn<typeof fetch>().mockImplementation(async (url, init) => {
     const path = new URL(String(url), 'http://localhost').pathname;
+    if (path.endsWith('/efficacy'))
+      return json(operationalEfficacyContext(currentAction as Record<string, unknown>));
+    if (path.endsWith('/closure-context'))
+      return json(operationalClosureContext(currentAction as Record<string, unknown>));
+    if (path.endsWith('/auth/session-capabilities'))
+      return json({ organizationId: org, capabilities: [] });
+    const workspace = {
+      ...extras,
+      ...(currentAction as object),
+      risk: { id, factor: contextSnapshot.factor },
+      permissions: {
+        canManage: role === 'ADMIN',
+        canExecute: role === 'ADMIN' || executor,
+        canNote: role === 'ADMIN' || executor,
+        canUploadEvidence: role === 'ADMIN' || executor,
+        canArchiveEvidence: role === 'ADMIN',
+      },
+    };
+    if (path.endsWith(`/action-workspaces/${id}`)) return json(workspace);
+    if (path.endsWith('/history')) return json(page([]));
+    if (path.endsWith('/action-assignees'))
+      return json(page([{ userId: org, name: 'Membro operacional', canExecute: true }]));
+    if (path.endsWith(`/risk-workspaces/${id}`))
+      return json({
+        ...(currentRisk as typeof risk),
+        sourceLabel: 'Registro técnico',
+        technicalEvaluationState: 'ABSENT',
+        latestTechnicalEvaluation: null,
+        actionSummary: { total: 1, open: 1, overdue: 1 },
+        pendingReasons: ['NO_TECHNICAL_EVALUATION'],
+      });
+    if (path.endsWith('/technical-evaluations')) return json(page([]));
     if (path.endsWith('/evaluations') || path.endsWith('/evidence') || path.endsWith('/revisions'))
       return json(page([]));
     if (path.endsWith(`/risks/${id}`)) return json(currentRisk);
-    if (path.endsWith('/actions') && init?.method === 'POST')
+    if (
+      (path.endsWith('/actions') || path.endsWith(`/risks/${id}/action-workspaces`)) &&
+      init?.method === 'POST'
+    )
       return conflict ? json({}, 409) : json(action, 201);
-    if (path.endsWith('/actions'))
+    if (path.endsWith('/actions') || path.endsWith('/action-workspaces'))
       return json(
         page([
           {
+            ...extras,
+            permissions: workspace.permissions,
             id,
             organizationId: org,
             riskId: id,
@@ -128,6 +221,113 @@ afterEach(() => {
   window.location.hash = '/empresas';
 });
 
+it('oferece Minhas ações como filtro pessoal persistido no endereço', async () => {
+  arrange('#/acoes');
+  const personal = await screen.findByRole('checkbox', { name: 'Minhas ações' });
+  await userEvent.click(personal);
+  await userEvent.click(screen.getByRole('button', { name: 'Aplicar filtros' }));
+  expect(window.location.hash).toContain('assignedTo=me');
+});
+
+it('cria com atribuição atômica sem substituir o responsável nominal', async () => {
+  const fetcher = arrange(`#/acoes/nova?riskId=${id}`);
+  await screen.findByRole('heading', { name: 'Nova ação' });
+  const assigned = await screen.findByLabelText('Membro atribuído (opcional)');
+  await waitFor(() => expect(assigned).toBeEnabled());
+  await userEvent.selectOptions(assigned, org);
+  for (const [label, value] of [
+    ['Título da medida', 'Reorganizar medidas'],
+    ['Descrição da medida', 'Descrição suficiente da medida'],
+    ['Responsável nominal', 'Responsável externo válido'],
+    ['Prazo', '2026-10-20'],
+    ['Resultado esperado', 'Resultado esperado documentado'],
+    ['Critério de aferição', 'Critério de aferição documentado'],
+  ])
+    fireEvent.change(screen.getByLabelText(label!), { target: { value } });
+  await userEvent.click(screen.getByRole('button', { name: 'Criar ação' }));
+  const call = fetcher.mock.calls.find(([, init]) => init?.method === 'POST');
+  expect(call?.[0]).toContain(`/risks/${id}/action-workspaces`);
+  expect(JSON.parse(String(call?.[1]?.body))).toMatchObject({
+    assignedUserId: org,
+    responsibleName: 'Responsável externo válido',
+  });
+});
+
+it('atribuição conserva o rascunho e a versão inicial ao atualizar o detalhe', async () => {
+  const fetcher = arrange(`#/acoes/${id}`);
+  await screen.findByRole('heading', { name: action.title });
+  await userEvent.click(screen.getByRole('button', { name: 'Atribuir membro' }));
+  await userEvent.selectOptions(screen.getByLabelText('Membro atribuído (opcional)'), '');
+  fireEvent.change(screen.getByLabelText('Justificativa da atribuição'), {
+    target: { value: 'Reorganizar a atribuição da equipe' },
+  });
+  const original = fetcher.getMockImplementation()!;
+  let submitted: unknown;
+  fetcher.mockImplementation(async (url, init) => {
+    if (String(url).endsWith(`/action-workspaces/${id}`))
+      return json(enriched({ ...action, version: 2 }));
+    if (String(url).endsWith('/assignment')) {
+      submitted = JSON.parse(String(init?.body));
+      return json({}, 409);
+    }
+    return original(url, init);
+  });
+  await userEvent.click(screen.getByRole('button', { name: 'Atualizar ação' }));
+  await screen.findByText('MEDIDA PREVENTIVA · VERSÃO 2');
+  expect(screen.getByLabelText('Justificativa da atribuição')).toHaveValue(
+    'Reorganizar a atribuição da equipe',
+  );
+  await userEvent.click(screen.getByRole('button', { name: 'Confirmar atribuição' }));
+  await screen.findByRole('alert');
+  expect(submitted).toMatchObject({ expectedVersion: 1, assignedUserId: null });
+  expect(screen.getByRole('button', { name: 'Confirmar atribuição' })).toBeDisabled();
+});
+
+it('atribui em StrictMode sem reutilizar o sinal abortado pelo primeiro efeito', async () => {
+  const changed = vi.fn();
+  vi.stubGlobal(
+    'fetch',
+    vi.fn<typeof fetch>().mockImplementation(async (_url, init) => {
+      if (init?.signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+      return init?.method === 'PATCH'
+        ? json(action)
+        : json(page([{ userId: org, name: 'Membro operacional', canExecute: true }]));
+    }),
+  );
+  render(
+    <StrictMode>
+      <ActionAssignment
+        item={actionWorkspaceSchema.parse(enriched(action))}
+        organizationId={org}
+        onExpire={() => undefined}
+        onChanged={changed}
+      />
+    </StrictMode>,
+  );
+  await userEvent.click(screen.getByRole('button', { name: 'Atribuir membro' }));
+  fireEvent.change(screen.getByLabelText('Justificativa da atribuição'), {
+    target: { value: 'Justificativa válida da atribuição' },
+  });
+  await userEvent.click(screen.getByRole('button', { name: 'Confirmar atribuição' }));
+  await waitFor(() => expect(changed).toHaveBeenCalledOnce());
+});
+
+it('abre a atribuição usando o membro da versão atual consultada', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json(page([]))));
+  const item = actionWorkspaceSchema.parse(enriched(action));
+  const callbacks = { onExpire: () => undefined, onChanged: () => undefined };
+  const view = render(<ActionAssignment item={item} organizationId={org} {...callbacks} />);
+  view.rerender(
+    <ActionAssignment
+      item={{ ...item, assignedUser: null, version: 2 }}
+      organizationId={org}
+      {...callbacks}
+    />,
+  );
+  await userEvent.click(screen.getByRole('button', { name: 'Atribuir membro' }));
+  expect(screen.getByLabelText('Membro atribuído (opcional)')).toHaveValue('');
+});
+
 it('abre ações com filtros restauráveis, prazo civil e atraso informado pelo servidor', async () => {
   const fetcher = arrange('#/acoes?overdue=true&page=2');
   expect(await screen.findByRole('heading', { name: 'Ações' })).toBeVisible();
@@ -137,8 +337,28 @@ it('abre ações com filtros restauráveis, prazo civil e atraso informado pelo 
   expect(screen.getByRole('button', { name: 'Atualizar ações' })).toBeEnabled();
   expect(screen.getByText(/Referência de prazo: 21\/10\/2026.*America\/Sao_Paulo/)).toBeVisible();
   expect(
-    fetcher.mock.calls.some(([url]) => String(url).includes('/actions?overdue=true&page=2')),
+    fetcher.mock.calls.some(([url]) =>
+      String(url).includes('/action-workspaces?overdue=true&page=2'),
+    ),
   ).toBe(true);
+});
+
+it('separa responsável nominal, membro e contexto técnico no detalhe', async () => {
+  arrange(`#/acoes/${id}`);
+  await screen.findByRole('heading', { name: action.title });
+  expect(screen.getByText('Membro operacional')).toBeVisible();
+  expect(screen.getByRole('complementary', { name: 'Contexto da ação' })).toBeVisible();
+  expect(await screen.findByText('Sem parecer técnico')).toBeVisible();
+});
+
+it('executor explicitamente autorizado informa execução sem controles de gestão', async () => {
+  arrange(`#/acoes/${id}`, 'READER', false, action, risk, true);
+  await screen.findByRole('heading', { name: action.title });
+  expect(screen.getByRole('button', { name: 'Iniciar execução' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: 'Enviar evidência' })).toBeEnabled();
+  expect(screen.queryByRole('button', { name: 'Editar ação' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Cancelar ação' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Atribuir membro' })).not.toBeInTheDocument();
 });
 
 it('criação valida campos e foca o primeiro erro sem enviar POST', async () => {
@@ -216,7 +436,7 @@ it('atualização da ação mantém rascunho de evidência enquanto consulta os 
   const original = fetcher.getMockImplementation()!;
   let resolve!: (response: Response) => void;
   fetcher.mockImplementation((url, init) =>
-    String(url).endsWith(`/actions/${id}`)
+    String(url).endsWith(`/action-workspaces/${id}`)
       ? new Promise((done) => {
           resolve = done;
         })
@@ -226,10 +446,11 @@ it('atualização da ação mantém rascunho de evidência enquanto consulta os 
   expect(screen.getByLabelText('Descrição da evidência')).toHaveValue(
     'Rascunho de documento preservado',
   );
-  await act(async () => resolve(json({ ...action, version: 2 })));
+  await act(async () => resolve(json(enriched({ ...action, version: 2 }))));
   expect(screen.getByLabelText('Descrição da evidência')).toHaveValue(
     'Rascunho de documento preservado',
   );
+  expect(screen.getByRole('button', { name: 'Atualizar ação' })).toHaveFocus();
 });
 
 it('mantém notas e documentos disponíveis após execução informada sem oferecer edição ou transição', async () => {
@@ -306,6 +527,7 @@ it('envia evidências com a versão atual depois do primeiro upload e baixa byte
       return json(page(version > 1 ? [document] : []));
     }
     if (path.endsWith(`/actions/${id}`)) return json({ ...action, version });
+    if (path.endsWith(`/action-workspaces/${id}`)) return json(enriched({ ...action, version }));
     return original(url, init);
   });
   for (let index = 0; index < 2; index += 1) {
@@ -347,7 +569,8 @@ it('passa por execução antes da implementação e valida o relato antes de gra
   const changes: unknown[] = [];
   const original = fetcher.getMockImplementation()!;
   fetcher.mockImplementation(async (url, init) => {
-    if (String(url).endsWith(`/actions/${id}`)) {
+    if (String(url).endsWith(`/action-workspaces/${id}`)) return json(enriched(current));
+    if (String(url).endsWith(`/action-workspaces/${id}/execution`)) {
       if (init?.method === 'PATCH') {
         const body = updateActionSchema.parse(JSON.parse(String(init.body)));
         changes.push(body);
@@ -448,7 +671,7 @@ it('não permite repetir anotação em conflito antes de concluir a consulta atu
   expect(await screen.findByRole('alert')).toHaveTextContent(/alterada.*preservado/i);
   let resolve!: (response: Response) => void;
   fetcher.mockImplementation((url, init) =>
-    String(url).endsWith(`/actions/${id}`)
+    String(url).endsWith(`/action-workspaces/${id}`)
       ? new Promise((done) => {
           resolve = done;
         })
@@ -459,7 +682,12 @@ it('não permite repetir anotação em conflito antes de concluir a consulta atu
   expect(screen.getByLabelText('Texto da anotação')).toHaveValue(
     'Anotação de acompanhamento preservada',
   );
-  await act(async () => resolve(json({ ...action, version: 2 })));
+  await act(async () => resolve(json(enriched({ ...action, version: 2 }))));
+  expect(screen.getByRole('button', { name: 'Registrar acompanhamento' })).toBeDisabled();
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Revisar acompanhamento com a versão consultada' }),
+  );
+  expect(screen.getByRole('button', { name: 'Registrar acompanhamento' })).toBeEnabled();
 });
 
 it('foca o campo recusado pelo servidor e preserva os dados preenchidos', async () => {

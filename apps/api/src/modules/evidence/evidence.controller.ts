@@ -25,6 +25,11 @@ import {
   archiveEvidenceSchema,
   evidenceSchema,
   evidenceListSchema,
+  evidenceUploadAttemptSchema,
+  evidenceUsageSchema,
+  reconcileEvidenceUploadSchema,
+  retryEvidenceUploadSchema,
+  abandonEvidenceUploadSchema,
 } from '@renr/contracts';
 import type { Request, Response } from 'express';
 import type {} from 'multer';
@@ -50,7 +55,20 @@ export class EvidenceGuard implements CanActivate {
     context.switchToHttp().getResponse<Response>().setHeader('Cache-Control', 'private, no-store');
     const write = request.method !== 'GET';
     if (write) this.identity.assertOrigin(request);
-    const scope = await this.identity.scope(request, parse(z.uuid(), request.params.orgId), write);
+    const organizationId = parse(z.uuid(), request.params.orgId);
+    const scope = await this.identity.scope(
+      request,
+      organizationId,
+      write && request.method !== 'POST',
+    );
+    if (request.method === 'POST' && !(await this.identity.capabilities(request)).canManageAccess) {
+      await this.identity.requireCapability(request, organizationId, 'EXECUTE_ASSIGNED_ACTIONS');
+      await this.identity.assignedActionScope(
+        request,
+        organizationId,
+        await this.actions.assignmentResource(scope, parse(z.uuid(), request.params.actionId)),
+      );
+    }
     await this.actions.get(scope, parse(z.uuid(), request.params.actionId));
     request[evidenceScope] = scope;
     return true;
@@ -64,7 +82,11 @@ export class EvidenceGuard implements CanActivate {
   description: 'Invalid attachment fields, extension, MIME or signature.',
 })
 @ApiResponse({ status: 401, description: 'Session required.' })
-@ApiResponse({ status: 403, description: 'ADMIN and exact Origin required for writes.' })
+@ApiResponse({
+  status: 403,
+  description:
+    'Exact Origin and ADMIN required for archive; ADMIN or explicit assigned executor for upload.',
+})
 @ApiResponse({ status: 404, description: 'Action/evidence unavailable in active organization.' })
 @ApiResponse({
   status: 409,
@@ -107,6 +129,88 @@ export class EvidenceController {
       actionId,
       parse(uploadEvidenceSchema, body),
       file,
+      request.headers['idempotency-key'] === undefined
+        ? undefined
+        : parse(z.uuid(), request.headers['idempotency-key']),
+    );
+  }
+  @Get('upload-attempts/:key')
+  @ApiResponse({ status: 200, schema: documentation(evidenceUploadAttemptSchema) })
+  attempt(
+    @Req() request: EvidenceRequest,
+    @Param('actionId') actionId: string,
+    @Param('key') key: string,
+  ) {
+    return this.evidence.getAttempt(request[evidenceScope], actionId, parse(z.uuid(), key));
+  }
+  @Post('upload-attempts/:key/reconcile')
+  @ApiBody({ schema: documentation(reconcileEvidenceUploadSchema) })
+  @ApiResponse({ status: 201, schema: documentation(evidenceUploadAttemptSchema) })
+  reconcile(
+    @Req() request: EvidenceRequest,
+    @Param('actionId') actionId: string,
+    @Param('key') key: string,
+    @Body() body: unknown,
+  ) {
+    return this.evidence.reconcile(
+      request[evidenceScope],
+      actionId,
+      parse(z.uuid(), key),
+      parse(reconcileEvidenceUploadSchema, body),
+    );
+  }
+  @Post('upload-attempts/:key/retry')
+  @ApiConsumes('multipart/form-data')
+  @ApiResponse({ status: 201, schema: documentation(evidenceUploadAttemptSchema) })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 5 * 1024 * 1024, files: 1, fields: 3, fieldSize: 4096, parts: 4 },
+    }),
+  )
+  retry(
+    @Req() request: EvidenceRequest,
+    @Param('actionId') actionId: string,
+    @Param('key') key: string,
+    @Body() body: unknown,
+    @UploadedFile() file: Express.Multer.File | undefined,
+  ) {
+    return this.evidence.retry(
+      request[evidenceScope],
+      actionId,
+      parse(z.uuid(), key),
+      parse(retryEvidenceUploadSchema, body),
+      file,
+    );
+  }
+  @Post('upload-attempts/:key/abandon')
+  @ApiBody({ schema: documentation(abandonEvidenceUploadSchema) })
+  @ApiResponse({ status: 201, schema: documentation(evidenceUploadAttemptSchema) })
+  abandon(
+    @Req() request: EvidenceRequest,
+    @Param('actionId') actionId: string,
+    @Param('key') key: string,
+    @Body() body: unknown,
+  ) {
+    return this.evidence.abandon(
+      request[evidenceScope],
+      actionId,
+      parse(z.uuid(), key),
+      parse(abandonEvidenceUploadSchema, body),
+    );
+  }
+  @Get(':id/usage')
+  @ApiResponse({ status: 200, schema: documentation(evidenceUsageSchema) })
+  usage(
+    @Req() request: EvidenceRequest,
+    @Param('actionId') actionId: string,
+    @Param('id') id: string,
+    @Query() query: unknown,
+  ) {
+    return this.evidence.usage(
+      request[evidenceScope],
+      actionId,
+      parse(z.uuid(), id),
+      parse(actionPaginationQuerySchema, query),
     );
   }
   @Get()

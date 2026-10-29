@@ -191,6 +191,14 @@ test('empresa, unidade e setor são cadastrados percorrendo os formulários por 
   expect(response.status()).toBe(201);
   const company = organizationSchema.parse(await response.json());
   try {
+    // Locate the exact saved company through the real paginated catalog, using only keyboard.
+    await tabTo(page, page.getByLabel('Buscar cadastros', { exact: true }));
+    await page.keyboard.type(name);
+    await activate(page, page.getByRole('button', { name: 'Aplicar filtros', exact: true }));
+    await expect(page).toHaveURL(
+      (url) => new URLSearchParams(url.hash.split('?')[1]).get('search') === name,
+    );
+    await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
     await activate(
       page,
       page.getByRole('button', { name: `Selecionar empresa ${name}`, exact: true }),

@@ -616,9 +616,12 @@ describeDatabase('Actions and private attachments against local PostgreSQL and M
     const repository = app.get(ActionsRepository),
       storage = app.get(EvidenceStorage);
     const original = repository.transaction.bind(repository);
-    const fail = jest.spyOn(repository, 'transaction').mockImplementationOnce(async (operation) => {
-      await original(operation);
-      throw new Error('Synthetic lost commit acknowledgement');
+    let transactions = 0;
+    const fail = jest.spyOn(repository, 'transaction').mockImplementation(async (operation) => {
+      const result = await original(operation);
+      transactions += 1;
+      if (transactions === 2) throw new Error('Synthetic lost commit acknowledgement');
+      return result;
     });
     try {
       await upload(action.body.id, 1).expect(500);
@@ -633,27 +636,498 @@ describeDatabase('Actions and private attachments against local PostgreSQL and M
     for await (const chunk of bytes) chunks.push(Buffer.from(chunk));
     expect(createHash('sha256').update(Buffer.concat(chunks)).digest('hex')).toBe(evidence.sha256);
   });
-  itStorage('compensates only the newly stored object on DB rollback', async () => {
-    const action = await post().send(input).expect(201);
-    const repository = app.get(ActionsRepository),
-      storage = app.get(EvidenceStorage);
-    const cleanup = jest.spyOn(storage, 'compensate');
-    const fail = jest
-      .spyOn(repository, 'revision')
-      .mockRejectedValueOnce(new Error('Synthetic DB failure'));
+  itStorage(
+    'retains the object and durable attempt when evidence transaction rolls back',
+    async () => {
+      const action = await post().send(input).expect(201);
+      const repository = app.get(ActionsRepository),
+        storage = app.get(EvidenceStorage);
+      const cleanup = jest.spyOn(storage, 'compensate');
+      const fail = jest
+        .spyOn(repository, 'revision')
+        .mockRejectedValueOnce(new Error('Synthetic DB failure'));
+      try {
+        await upload(action.body.id, 1).expect(500);
+      } finally {
+        fail.mockRestore();
+      }
+      expect(cleanup).not.toHaveBeenCalled();
+      cleanup.mockRestore();
+      const attempt = await db.client.evidenceUploadAttempt.findFirstOrThrow({
+        where: { actionId: action.body.id },
+      });
+      expect(attempt.state).toBe('UNCERTAIN');
+      const stream = await storage.get(attempt.objectKey);
+      const chunks: Buffer[] = [];
+      for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+      expect(createHash('sha256').update(Buffer.concat(chunks)).digest('hex')).toBe(attempt.sha256);
+      expect(await db.client.actionEvidence.count({ where: { actionId: action.body.id } })).toBe(0);
+      expect(
+        (await db.client.action.findUniqueOrThrow({ where: { id: action.body.id } })).version,
+      ).toBe(1);
+    },
+  );
+  itStorage('replays an upload idempotency key without another revision', async () => {
+    const action = (await post().send(input).expect(201)).body;
+    const key = randomUUID();
+    const first = await upload(action.id, action.version).set('Idempotency-Key', key).expect(201);
+    const unavailable = jest
+      .spyOn(app.get(EvidenceStorage), 'assertEnabled')
+      .mockImplementation(() => {
+        throw new Error('Storage availability is irrelevant to a completed replay');
+      });
     try {
-      await upload(action.body.id, 1).expect(500);
+      const replay = await upload(action.id, action.version)
+        .set('Idempotency-Key', key)
+        .expect(201);
+      expect(replay.body).toEqual(first.body);
+      expect(unavailable).not.toHaveBeenCalled();
     } finally {
-      fail.mockRestore();
+      unavailable.mockRestore();
     }
-    expect(cleanup).toHaveBeenCalledTimes(1);
-    const key = cleanup.mock.calls[0]?.[0];
-    cleanup.mockRestore();
-    if (!key) throw Error('Expected generated key');
-    await expect(storage.get(key)).rejects.toThrow();
-    expect(await db.client.actionEvidence.count({ where: { actionId: action.body.id } })).toBe(0);
-    expect(
-      (await db.client.action.findUniqueOrThrow({ where: { id: action.body.id } })).version,
-    ).toBe(1);
+    expect(await db.client.actionEvidence.count({ where: { actionId: action.id } })).toBe(1);
   });
+  const attemptRoute = (actionId: string, key: string) =>
+    `${base}/actions/${actionId}/evidence/upload-attempts/${key}`;
+  const getAttempt = (actionId: string, key: string) =>
+    api().get(attemptRoute(actionId, key)).set('Cookie', cookie);
+  const recover = (actionId: string, key: string, operation: string, body: object) =>
+    api()
+      .post(`${attemptRoute(actionId, key)}/${operation}`)
+      .set('Cookie', cookie)
+      .set('Origin', environment.CORS_ORIGIN)
+      .send(body);
+  itStorage(
+    'rejects changed content before S3 and validates header UUID without extra multipart fields',
+    async () => {
+      const action = (await post().send(input).expect(201)).body;
+      const key = randomUUID();
+      const first = await upload(action.id, 1).set('Idempotency-Key', key).expect(201);
+      const put = jest.spyOn(app.get(EvidenceStorage), 'put');
+      try {
+        await upload(action.id, 2, Buffer.from('%PDF-1.7\nDifferent'))
+          .set('Idempotency-Key', key)
+          .expect(409);
+        await upload(action.id, 2).set('Idempotency-Key', 'invalid').expect(400);
+        const replay = await upload(action.id, 1, undefined, 'renamed.pdf')
+          .set('Idempotency-Key', key)
+          .expect(201);
+        expect(replay.body.id).toBe(first.body.id);
+        expect(put).not.toHaveBeenCalled();
+        expect((await getAttempt(action.id, key).expect(200)).body).toMatchObject({
+          state: 'COMPLETED',
+          evidence: { id: first.body.id },
+        });
+        await api().get(attemptRoute(action.id, key)).set('Cookie', readerCookie).expect(403);
+      } finally {
+        put.mockRestore();
+      }
+    },
+  );
+  itStorage(
+    'reconciles uploaded bytes after lost PUT response and process restart without another PUT',
+    async () => {
+      const action = (await post().send(input).expect(201)).body;
+      const key = randomUUID(),
+        storage = app.get(EvidenceStorage),
+        putOriginal = storage.put.bind(storage);
+      const put = jest.spyOn(storage, 'put').mockImplementationOnce(async (...args) => {
+        await putOriginal(...args);
+        throw new (await import('@nestjs/common')).ServiceUnavailableException();
+      });
+      try {
+        await upload(action.id, 1).set('Idempotency-Key', key).expect(503);
+      } finally {
+        put.mockRestore();
+      }
+      const attempt = (await getAttempt(action.id, key).expect(200)).body;
+      expect(attempt).toMatchObject({ state: 'UNCERTAIN', retryAllowed: false, evidence: null });
+      expect(JSON.stringify(attempt)).not.toMatch(/objectKey|fingerprint|leaseToken|creatorId/);
+      const module = await Test.createTestingModule({
+        imports: [AppModule.configure(environment)],
+      }).compile();
+      const restarted = module.createNestApplication();
+      configureApplication(restarted, environment);
+      await restarted.init();
+      const restartPut = jest.spyOn(restarted.get(EvidenceStorage), 'put');
+      try {
+        const result = await request(restarted.getHttpServer())
+          .post(`${attemptRoute(action.id, key)}/reconcile`)
+          .set('Cookie', cookie)
+          .set('Origin', environment.CORS_ORIGIN)
+          .send({ expectedVersion: 1, attemptVersion: attempt.attemptVersion })
+          .expect(201);
+        expect(result.body.state).toBe('COMPLETED');
+        expect(restartPut).not.toHaveBeenCalled();
+        const evidence = (await upload(action.id, 1).set('Idempotency-Key', key).expect(201)).body;
+        expect(evidence.id).toBe(result.body.evidence.id);
+        expect(
+          await db.client.actionRevision.count({
+            where: { actionId: action.id, event: 'EVIDENCE_ADDED' },
+          }),
+        ).toBe(1);
+      } finally {
+        restartPut.mockRestore();
+        await restarted.close();
+      }
+    },
+  );
+  itStorage('requires confirmed absence and original content before explicit retry', async () => {
+    const action = (await post().send(input).expect(201)).body;
+    const key = randomUUID(),
+      storage = app.get(EvidenceStorage);
+    const put = jest
+      .spyOn(storage, 'put')
+      .mockRejectedValueOnce(new (await import('@nestjs/common')).ServiceUnavailableException());
+    try {
+      await upload(action.id, 1).set('Idempotency-Key', key).expect(503);
+    } finally {
+      put.mockRestore();
+    }
+    let attempt = (await getAttempt(action.id, key).expect(200)).body;
+    const retry = (bytes: Buffer) =>
+      api()
+        .post(`${attemptRoute(action.id, key)}/retry`)
+        .set('Cookie', cookie)
+        .set('Origin', environment.CORS_ORIGIN)
+        .field('description', 'Documento inteiramente fictício')
+        .field('expectedVersion', '1')
+        .field('attemptVersion', String(attempt.attemptVersion))
+        .attach('file', bytes, { filename: 'new-name.pdf', contentType: 'application/pdf' });
+    await retry(Buffer.from('%PDF-1.7\nSynthetic fixture\n%%EOF')).expect(409);
+    attempt = (
+      await recover(action.id, key, 'reconcile', {
+        expectedVersion: 1,
+        attemptVersion: attempt.attemptVersion,
+      }).expect(201)
+    ).body;
+    expect(attempt).toMatchObject({
+      state: 'RETRYABLE',
+      objectState: 'ABSENT',
+      retryAllowed: true,
+    });
+    await retry(Buffer.from('%PDF-1.7\nDifferent bytes')).expect(409);
+    const complete = await retry(Buffer.from('%PDF-1.7\nSynthetic fixture\n%%EOF')).expect(201);
+    expect(complete.body.state).toBe('COMPLETED');
+  });
+  itStorage('keeps unknown probes uncertain and never retries or deletes bytes', async () => {
+    const action = (await post().send(input).expect(201)).body;
+    const key = randomUUID(),
+      storage = app.get(EvidenceStorage);
+    const failure = jest
+      .spyOn(storage, 'put')
+      .mockRejectedValueOnce(new (await import('@nestjs/common')).ServiceUnavailableException());
+    try {
+      await upload(action.id, 1).set('Idempotency-Key', key).expect(503);
+    } finally {
+      failure.mockRestore();
+    }
+    const attempt = (await getAttempt(action.id, key).expect(200)).body;
+    const probe = jest.spyOn(storage, 'probe').mockResolvedValue('UNKNOWN');
+    const put = jest.spyOn(storage, 'put'),
+      cleanup = jest.spyOn(storage, 'compensate');
+    try {
+      await getAttempt(action.id, key).expect(200);
+      expect(probe).toHaveBeenCalledTimes(1);
+      await recover(action.id, key, 'reconcile', {
+        expectedVersion: 1,
+        attemptVersion: attempt.attemptVersion,
+      }).expect(503);
+      expect((await getAttempt(action.id, key).expect(200)).body).toMatchObject({
+        state: 'UNCERTAIN',
+        objectState: 'UNKNOWN',
+        retryAllowed: false,
+      });
+      expect(put).not.toHaveBeenCalled();
+      expect(cleanup).not.toHaveBeenCalled();
+    } finally {
+      probe.mockRestore();
+      put.mockRestore();
+      cleanup.mockRestore();
+    }
+  });
+  itStorage(
+    'fences finalization after action changes during PUT without holding the action lock',
+    async () => {
+      const action = (await post().send(input).expect(201)).body;
+      const key = randomUUID(),
+        storage = app.get(EvidenceStorage),
+        original = storage.put.bind(storage);
+      const put = jest.spyOn(storage, 'put').mockImplementationOnce(async (...args) => {
+        await original(...args);
+        await note(action.id, 1).expect(201);
+      });
+      try {
+        await upload(action.id, 1).set('Idempotency-Key', key).expect(409);
+      } finally {
+        put.mockRestore();
+      }
+      const attempt = (await getAttempt(action.id, key).expect(200)).body;
+      expect(attempt.state).toBe('UNCERTAIN');
+      expect(await db.client.actionEvidence.count({ where: { actionId: action.id } })).toBe(0);
+      const done = await recover(action.id, key, 'reconcile', {
+        expectedVersion: 2,
+        attemptVersion: attempt.attemptVersion,
+      }).expect(201);
+      expect(done.body.evidence.actionVersion).toBe(3);
+    },
+  );
+  itStorage(
+    'fences revoked permission during PUT and permits explicit recovery after restoration',
+    async () => {
+      const action = (await post().send(input).expect(201)).body;
+      const key = randomUUID(),
+        storage = app.get(EvidenceStorage),
+        original = storage.put.bind(storage);
+      const put = jest.spyOn(storage, 'put').mockImplementationOnce(async (...args) => {
+        await original(...args);
+        await db.client.membership.update({
+          where: { userId_organizationId: { userId, organizationId: orgId } },
+          data: { isActive: false },
+        });
+      });
+      try {
+        await upload(action.id, 1).set('Idempotency-Key', key).expect(403);
+        expect(await db.client.actionEvidence.count({ where: { actionId: action.id } })).toBe(0);
+        await getAttempt(action.id, key).expect(404);
+      } finally {
+        put.mockRestore();
+        await db.client.membership.update({
+          where: { userId_organizationId: { userId, organizationId: orgId } },
+          data: { isActive: true },
+        });
+      }
+      const attempt = (await getAttempt(action.id, key).expect(200)).body;
+      await recover(action.id, key, 'reconcile', {
+        expectedVersion: 1,
+        attemptVersion: attempt.attemptVersion,
+      }).expect(201);
+    },
+  );
+  itStorage(
+    'abandons an active worker and rejects late completion and further recovery',
+    async () => {
+      const action = (await post().send(input).expect(201)).body;
+      const key = randomUUID(),
+        storage = app.get(EvidenceStorage),
+        original = storage.put.bind(storage);
+      const put = jest.spyOn(storage, 'put').mockImplementationOnce(async (...args) => {
+        await original(...args);
+        const attempt = (await getAttempt(action.id, key).expect(200)).body;
+        await recover(action.id, key, 'abandon', {
+          attemptVersion: attempt.attemptVersion,
+          reason: 'Operação explicitamente abandonada',
+        }).expect(201);
+      });
+      const cleanup = jest.spyOn(storage, 'compensate');
+      try {
+        await upload(action.id, 1).set('Idempotency-Key', key).expect(409);
+        const attempt = (await getAttempt(action.id, key).expect(200)).body;
+        expect(attempt.state).toBe('ABANDONED');
+        await recover(action.id, key, 'reconcile', {
+          expectedVersion: 1,
+          attemptVersion: attempt.attemptVersion,
+        }).expect(409);
+        expect(await db.client.actionEvidence.count({ where: { actionId: action.id } })).toBe(0);
+        expect(cleanup).not.toHaveBeenCalled();
+      } finally {
+        put.mockRestore();
+        cleanup.mockRestore();
+      }
+    },
+  );
+  itStorage(
+    'reserves at most twenty concurrent slots and releases abandoned reservations',
+    async () => {
+      const action = (await post().send(input).expect(201)).body;
+      const storage = app.get(EvidenceStorage),
+        put = jest
+          .spyOn(storage, 'put')
+          .mockRejectedValue(new (await import('@nestjs/common')).ServiceUnavailableException());
+      const keys = Array.from({ length: 21 }, () => randomUUID());
+      try {
+        const results = await Promise.all(
+          keys.map((key) => upload(action.id, 1).set('Idempotency-Key', key)),
+        );
+        expect(results.filter((result) => result.status === 503)).toHaveLength(20);
+        expect(results.filter((result) => result.status === 409)).toHaveLength(1);
+        expect(
+          await db.client.evidenceUploadAttempt.count({ where: { actionId: action.id } }),
+        ).toBe(20);
+        const saved = await db.client.evidenceUploadAttempt.findFirstOrThrow({
+          where: { actionId: action.id },
+        });
+        await recover(action.id, saved.key, 'abandon', {
+          attemptVersion: saved.attemptVersion,
+          reason: 'Liberação explícita da reserva',
+        }).expect(201);
+        await upload(action.id, 1).set('Idempotency-Key', randomUUID()).expect(503);
+      } finally {
+        put.mockRestore();
+      }
+    },
+    30000,
+  );
+  itStorage(
+    'serializes the same key during PUT and enforces durable database constraints',
+    async () => {
+      const action = (await post().send(input).expect(201)).body;
+      const key = randomUUID(),
+        storage = app.get(EvidenceStorage),
+        original = storage.put.bind(storage);
+      const put = jest.spyOn(storage, 'put').mockImplementationOnce(async (...args) => {
+        await upload(action.id, 1).set('Idempotency-Key', key).expect(409);
+        await original(...args);
+      });
+      try {
+        await upload(action.id, 1).set('Idempotency-Key', key).expect(201);
+        expect(put).toHaveBeenCalledTimes(1);
+      } finally {
+        put.mockRestore();
+      }
+      const attempt = await db.client.evidenceUploadAttempt.findFirstOrThrow({
+        where: { actionId: action.id },
+      });
+      await expect(
+        db.client.evidenceUploadAttempt.update({
+          where: { id: attempt.id },
+          data: { state: 'UNCERTAIN', attemptVersion: { increment: 1 } },
+        }),
+      ).rejects.toThrow();
+      await expect(
+        db.client.evidenceUploadAttempt.create({
+          data: {
+            ...attempt,
+            id: randomUUID(),
+            key: randomUUID(),
+            objectKey: randomUUID(),
+            organizationId: foreignOrg,
+          },
+        }),
+      ).rejects.toThrow();
+      await expect(
+        db.client.evidenceUploadAttempt.create({
+          data: {
+            ...attempt,
+            id: randomUUID(),
+            key: randomUUID(),
+            objectKey: randomUUID(),
+            evidenceId: null,
+            state: 'RETRYABLE',
+            objectState: 'UNKNOWN',
+          },
+        }),
+      ).rejects.toThrow();
+    },
+  );
+  itStorage('fences an expired worker after reconciliation takes over its lease', async () => {
+    const action = (await post().send(input).expect(201)).body;
+    const key = randomUUID(),
+      storage = app.get(EvidenceStorage),
+      original = storage.put.bind(storage);
+    const put = jest.spyOn(storage, 'put').mockImplementationOnce(async (...args) => {
+      await original(...args);
+      const current = await db.client.evidenceUploadAttempt.findFirstOrThrow({
+        where: { actionId: action.id, key },
+      });
+      await db.client.evidenceUploadAttempt.update({
+        where: { id: current.id },
+        data: { leaseExpiresAt: new Date(Date.now() - 1), attemptVersion: { increment: 1 } },
+      });
+      const before = await db.client.evidenceUploadAttempt.findUniqueOrThrow({
+        where: { id: current.id },
+      });
+      const probe = jest.spyOn(storage, 'probe');
+      try {
+        const queried = (await getAttempt(action.id, key).expect(200)).body;
+        expect(queried).toMatchObject({
+          state: 'UPLOADING',
+          objectState: 'PRESENT',
+          retryAllowed: false,
+        });
+        expect(probe).toHaveBeenCalledTimes(1);
+        expect(
+          await db.client.evidenceUploadAttempt.findUniqueOrThrow({ where: { id: current.id } }),
+        ).toEqual(before);
+        await recover(action.id, key, 'reconcile', {
+          expectedVersion: 1,
+          attemptVersion: queried.attemptVersion,
+        }).expect(201);
+      } finally {
+        probe.mockRestore();
+      }
+    });
+    try {
+      await upload(action.id, 1).set('Idempotency-Key', key).expect(409);
+      expect((await getAttempt(action.id, key).expect(200)).body.state).toBe('COMPLETED');
+      expect(await db.client.actionEvidence.count({ where: { actionId: action.id } })).toBe(1);
+      expect(
+        await db.client.actionRevision.count({
+          where: { actionId: action.id, event: 'EVIDENCE_ADDED' },
+        }),
+      ).toBe(1);
+    } finally {
+      put.mockRestore();
+    }
+  });
+  itStorage.each(['PRESENT', 'UNKNOWN'] as const)(
+    'probes again before retry and performs no PUT when the object is %s',
+    async (objectState) => {
+      const action = (await post().send(input).expect(201)).body;
+      const key = randomUUID(),
+        storage = app.get(EvidenceStorage);
+      const failure = jest
+        .spyOn(storage, 'put')
+        .mockRejectedValueOnce(new (await import('@nestjs/common')).ServiceUnavailableException());
+      try {
+        await upload(action.id, 1).set('Idempotency-Key', key).expect(503);
+      } finally {
+        failure.mockRestore();
+      }
+      let attempt = (await getAttempt(action.id, key).expect(200)).body;
+      attempt = (
+        await recover(action.id, key, 'reconcile', {
+          expectedVersion: 1,
+          attemptVersion: attempt.attemptVersion,
+        }).expect(201)
+      ).body;
+      expect(attempt.state).toBe('RETRYABLE');
+      const stored = await db.client.evidenceUploadAttempt.findFirstOrThrow({
+        where: { actionId: action.id, key },
+      });
+      if (objectState === 'PRESENT')
+        await storage.put(
+          stored.objectKey,
+          Buffer.from('%PDF-1.7\nSynthetic fixture\n%%EOF'),
+          stored.mimeType,
+          stored.sha256,
+        );
+      const probe =
+        objectState === 'UNKNOWN'
+          ? jest.spyOn(storage, 'probe').mockResolvedValue('UNKNOWN')
+          : jest.spyOn(storage, 'probe');
+      const put = jest.spyOn(storage, 'put');
+      try {
+        const response = await api()
+          .post(`${attemptRoute(action.id, key)}/retry`)
+          .set('Cookie', cookie)
+          .set('Origin', environment.CORS_ORIGIN)
+          .field('description', 'Documento inteiramente fictício')
+          .field('expectedVersion', '1')
+          .field('attemptVersion', String(attempt.attemptVersion))
+          .attach('file', Buffer.from('%PDF-1.7\nSynthetic fixture\n%%EOF'), {
+            filename: 'fixture.pdf',
+            contentType: 'application/pdf',
+          })
+          .expect(objectState === 'PRESENT' ? 201 : 503);
+        if (objectState === 'PRESENT') expect(response.body.state).toBe('COMPLETED');
+        else expect((await getAttempt(action.id, key).expect(200)).body.state).toBe('UNCERTAIN');
+        expect(probe).toHaveBeenCalled();
+        expect(put).not.toHaveBeenCalled();
+      } finally {
+        probe.mockRestore();
+        put.mockRestore();
+      }
+    },
+  );
 });

@@ -231,7 +231,7 @@ test('assessment additive migration preserves populated legacy tables and enforc
       [randomUUID(), response, version, question, JSON.stringify([option])],
     );
     await db.query(
-      "INSERT INTO assessment_sources(id,organization_id,cycle_id,kind,context,occurred_on,summary,created_by_id) VALUES($1,$2,$3,'OBSERVATION','Collective context',CURRENT_DATE,'Collective source',$4)",
+      "INSERT INTO assessment_sources(id,organization_id,cycle_id,kind,context,occurred_on,summary,created_by_id) VALUES($1,$2,$3,'OBSERVATION','Collective context',(SELECT (now() AT TIME ZONE timezone)::date FROM organizations WHERE id=$2),'Collective source',$4)",
       [randomUUID(), org, cycle, user],
     );
     await assert.rejects(
@@ -240,7 +240,7 @@ test('assessment additive migration preserves populated legacy tables and enforc
     await assert.rejects(db.query('DELETE FROM assessment_sources WHERE cycle_id=$1', [cycle]));
     await assert.rejects(
       db.query(
-        "INSERT INTO assessment_sources(id,organization_id,cycle_id,kind,context,occurred_on,summary,created_by_id) VALUES($1,$2,$3,'OBSERVATION','Collective context',CURRENT_DATE+2,'Future source',$4)",
+        "INSERT INTO assessment_sources(id,organization_id,cycle_id,kind,context,occurred_on,summary,created_by_id) VALUES($1,$2,$3,'OBSERVATION','Collective context',(SELECT (now() AT TIME ZONE timezone)::date FROM organizations WHERE id=$2)+2,'Future source',$4)",
         [randomUUID(), org, cycle, user],
       ),
     );

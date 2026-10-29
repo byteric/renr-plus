@@ -1,6 +1,61 @@
 .actions-workspace {
   min-width: 0;
 }
+.action-detail-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2.4fr) minmax(15rem, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+.action-main,
+.action-context {
+  min-width: 0;
+}
+.action-context .surface {
+  border-top: 3px solid var(--primary);
+}
+.action-pending {
+  padding-left: 1.2rem;
+  font-size: var(--font-label);
+  margin-block: 0.5rem;
+}
+.action-pending li + li {
+  margin-top: 0.4rem;
+}
+.action-priority {
+  display: grid;
+  gap: 0.25rem;
+}
+.action-priority span,
+.action-technical-states dd {
+  font-size: var(--font-label);
+  color: var(--muted-foreground);
+}
+.action-technical-states {
+  display: grid;
+  gap: 1rem;
+  margin: 0;
+}
+.action-technical-states dd {
+  margin: 0.3rem 0 0;
+}
+.actions-workspace summary {
+  cursor: pointer;
+  min-height: 44px;
+  align-content: center;
+  font-weight: 650;
+}
+@media (max-width: 1100px) {
+  .action-detail-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .actions-workspace * {
+    transition-duration: 0s;
+    animation: none;
+  }
+}
 .actions-table {
   width: 100%;
   border-collapse: collapse;

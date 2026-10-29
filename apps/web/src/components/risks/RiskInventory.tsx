@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import {
   riskListQuerySchema,
-  riskListSchema,
+  riskWorkspaceListSchema,
   sectorListSchema,
   unitListSchema,
   type RiskListQuery,
@@ -11,6 +11,8 @@ import { Pagination } from '../ui/pagination';
 import { StatusMessage } from '../ui/status-message';
 import { StatusBadge } from '../ui/status-badge';
 import { useRiskData, statusLabels, riskDate } from './useRiskData';
+import { RiskMatrix } from './RiskMatrix';
+import { technicalStateLabel, pendingLabels } from './technical-labels';
 
 export function RiskInventory({
   organizationId,
@@ -19,6 +21,8 @@ export function RiskInventory({
   restoreScrollY,
   onOpenDetail,
   onExpire,
+  selectedId,
+  revision = 0,
 }: {
   organizationId: string;
   canWrite: boolean;
@@ -26,11 +30,17 @@ export function RiskInventory({
   restoreScrollY?: number;
   onOpenDetail: () => void;
   onExpire: () => void;
+  selectedId?: string;
+  revision?: number;
 }) {
   const params = new URLSearchParams(query);
   const keys = [...params.keys()];
   const parsed = riskListQuerySchema.safeParse(
-    new Set(keys).size === keys.length ? Object.fromEntries(params) : null,
+    new Set(keys).size === keys.length
+      ? Object.fromEntries(
+          [...params].filter(([key]) => !['view', 'methodVersionId'].includes(key)),
+        )
+      : null,
   );
   const [attempt, setAttempt] = useState(0);
   const [unitPage, setUnitPage] = useState(1);
@@ -53,10 +63,10 @@ export function RiskInventory({
       ).toString()
     : '';
   const list = useRiskData(
-    parsed.success ? `/organizations/${organizationId}/risks?${encoded}` : null,
-    riskListSchema,
+    parsed.success ? `/organizations/${organizationId}/risk-workspaces?${encoded}` : null,
+    riskWorkspaceListSchema,
     onExpire,
-    attempt,
+    attempt + revision,
   );
   const restored = useRef(false);
   useEffect(() => {
@@ -79,7 +89,9 @@ export function RiskInventory({
       if (typeof value === 'string' && value.trim()) next.set(key, value.trim());
     });
     next.set('page', '1');
-    window.location.hash = `/inventario?${next}`;
+    if (params.get('view') === 'matrix') next.set('view', 'matrix');
+    if (params.get('methodVersionId')) next.set('methodVersionId', params.get('methodVersionId')!);
+    window.location.assign(`#/inventario?${next}`);
   }
   const data = list.data;
   const filters: RiskListQuery | null = parsed.success ? parsed.data : null;
@@ -101,6 +113,24 @@ export function RiskInventory({
         <a href="#/inventario?page=1&status=DRAFT">Rascunhos</a>
         <a href="#/inventario?page=1&evaluationPresence=WITHOUT">Sem ficha preliminar</a>
         <a href="#/inventario?page=1&status=ARCHIVED">Arquivados</a>
+      </nav>
+      <nav className="risk-view-tabs" aria-label="Visualização do inventário">
+        {['list', 'matrix'].map((view) => {
+          const next = new URLSearchParams(query);
+          if (view === 'list') next.delete('view');
+          else next.set('view', view);
+          return (
+            <a
+              key={view}
+              href={`#/inventario?${next}`}
+              aria-current={
+                (params.get('view') === 'matrix' ? 'matrix' : 'list') === view ? 'page' : undefined
+              }
+            >
+              {view === 'list' ? 'Lista' : 'Matriz'}
+            </a>
+          );
+        })}
       </nav>
       <form className="surface risk-filters" onSubmit={filter} aria-label="Filtros do inventário">
         <div className="risk-search">
@@ -231,101 +261,144 @@ export function RiskInventory({
           Os filtros desta URL são inválidos. <a href="#/inventario">Limpar filtros</a>
         </p>
       )}
-      {list.loading && (
-        <StatusMessage tone="loading" className="surface">
-          Carregando inventário…
-        </StatusMessage>
-      )}
-      {list.error && (
-        <StatusMessage tone="error" className="feedback error">
-          <p>{list.error}</p>
-          <Button variant="outline" onClick={() => setAttempt(attempt + 1)}>
-            Atualizar inventário
-          </Button>
-        </StatusMessage>
-      )}
-      {data && (
+      {params.get('view') === 'matrix' && filters ? (
+        <RiskMatrix organizationId={organizationId} query={query} onExpire={onExpire} />
+      ) : (
         <>
-          <div className="risk-list-heading">
-            <h2>Registros de risco</h2>
-            <p className="muted">
-              {data.total} {data.total === 1 ? 'registro' : 'registros'} · Página {data.page}
-            </p>
-          </div>
-          {data.items.length === 0 ? (
-            <section className="surface empty-state">
-              <h3>Nenhum registro neste recorte</h3>
-              <p>
-                Revise os filtros ou cadastre o primeiro fator identificado. Ausência de registros
-                não significa ausência de risco.
-              </p>
-              {canWrite && <a href="#/inventario/novo">Cadastrar um risco →</a>}
-            </section>
-          ) : (
-            <div
-              className="risk-table-scroll"
-              role="region"
-              aria-label="Registros do inventário"
-              tabIndex={0}
-            >
-              <table className="risk-table">
-                <thead>
-                  <tr>
-                    <th scope="col">Fator / contexto</th>
-                    <th scope="col">Estado</th>
-                    <th scope="col">Ficha preliminar</th>
-                    <th scope="col">Atualização</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.items.map((risk) => (
-                    <tr key={risk.id}>
-                      <td data-label="Fator / contexto">
-                        <a
-                          className="risk-factor-link"
-                          onClick={onOpenDetail}
-                          href={`#/inventario/${risk.id}?returnTo=${encodeURIComponent(`#/inventario${query ? `?${query}` : ''}`)}`}
-                        >
-                          {risk.factor}
-                        </a>
-                        <p>
-                          {risk.unit.name} <span aria-hidden="true">/</span> {risk.sector.name}
-                          {!risk.unit.isActive || !risk.sector.isActive ? ' · Escopo inativo' : ''}
-                        </p>
-                      </td>
-                      <td data-label="Estado">
-                        <StatusBadge
-                          className={`risk-status risk-status-${risk.status.toLowerCase()}`}
-                          label={statusLabels[risk.status]}
-                          tone={risk.status === 'REGISTERED' ? 'info' : 'neutral'}
-                        />
-                      </td>
-                      <td data-label="Ficha preliminar">
-                        {risk.latestEvaluation
-                          ? `Ficha ${risk.latestEvaluation.sequence} · Preliminar`
-                          : 'Sem ficha'}
-                      </td>
-                      <td data-label="Atualização">
-                        <time dateTime={risk.updatedAt}>{riskDate(risk.updatedAt)}</time>
-                        <span className="risk-version">Versão {risk.version}</span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          {list.loading && (
+            <StatusMessage tone="loading" className="surface">
+              Carregando inventário…
+            </StatusMessage>
           )}
-          {data.total > data.pageSize && (
-            <Pagination
-              label="Paginação do inventário"
-              page={data.page}
-              pageSize={data.pageSize}
-              total={data.total}
-              pending={list.loading}
-              onPageChange={(page) => {
-                window.location.hash = href(page);
-              }}
-            />
+          {list.error && (
+            <StatusMessage tone="error" className="feedback error">
+              <p>{list.error}</p>
+              <Button variant="outline" onClick={() => setAttempt(attempt + 1)}>
+                Atualizar inventário
+              </Button>
+            </StatusMessage>
+          )}
+          {data && (
+            <>
+              <div className="risk-list-heading">
+                <h2 id="risk-list-heading" tabIndex={-1}>
+                  Registros de risco
+                </h2>
+                <p className="muted">
+                  {data.total} {data.total === 1 ? 'registro' : 'registros'} · Página {data.page}
+                </p>
+              </div>
+              {data.items.length === 0 ? (
+                <section className="surface empty-state">
+                  <h3>Nenhum registro neste recorte</h3>
+                  <p>
+                    Revise os filtros ou cadastre o primeiro fator identificado. Ausência de
+                    registros não significa ausência de risco.
+                  </p>
+                  {canWrite && <a href="#/inventario/novo">Cadastrar um risco →</a>}
+                </section>
+              ) : (
+                <div
+                  className="risk-table-scroll"
+                  role="region"
+                  aria-label="Registros do inventário"
+                  tabIndex={0}
+                >
+                  <table className="risk-table">
+                    <thead>
+                      <tr>
+                        <th scope="col">Fator / contexto</th>
+                        <th scope="col">Fonte</th>
+                        <th scope="col">Avaliação técnica / prioridade</th>
+                        <th scope="col">Ações / pendências</th>
+                        <th scope="col">Estado</th>
+                        <th scope="col">Ficha preliminar</th>
+                        <th scope="col">Atualização</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.items.map((risk) => (
+                        <tr
+                          key={risk.id}
+                          className={selectedId === risk.id ? 'risk-selected' : undefined}
+                        >
+                          <td data-label="Fator / contexto">
+                            <a
+                              className="risk-factor-link"
+                              id={`risk-open-${risk.id}`}
+                              aria-current={selectedId === risk.id ? 'true' : undefined}
+                              onClick={onOpenDetail}
+                              href={`#/inventario/${risk.id}?returnTo=${encodeURIComponent(`#/inventario${query ? `?${query}` : ''}`)}`}
+                            >
+                              {risk.factor}
+                            </a>
+                            <p>
+                              {risk.unit.name} <span aria-hidden="true">/</span> {risk.sector.name}
+                              {!risk.unit.isActive || !risk.sector.isActive
+                                ? ' · Escopo inativo'
+                                : ''}
+                            </p>
+                          </td>
+                          <td data-label="Fonte">{risk.sourceLabel}</td>
+                          <td data-label="Avaliação técnica / prioridade">
+                            <strong>{technicalStateLabel(risk)}</strong>
+                            {risk.technicalEvaluationState === 'CURRENT' &&
+                              risk.latestTechnicalEvaluation && (
+                                <p>
+                                  {risk.latestTechnicalEvaluation.priority.label} ·{' '}
+                                  {risk.latestTechnicalEvaluation.method.name} v
+                                  {risk.latestTechnicalEvaluation.method.version}
+                                </p>
+                              )}
+                          </td>
+                          <td data-label="Ações / pendências">
+                            <a href={`#/acoes?riskId=${risk.id}&page=1`}>
+                              {risk.actionSummary.open}{' '}
+                              {risk.actionSummary.open === 1 ? 'aberta' : 'abertas'} ·{' '}
+                              {risk.actionSummary.overdue}{' '}
+                              {risk.actionSummary.overdue === 1 ? 'atrasada' : 'atrasadas'}
+                            </a>
+                            <p>
+                              {risk.pendingReasons
+                                .map((reason) => pendingLabels[reason])
+                                .join(' · ') || 'Sem pendências sinalizadas'}
+                            </p>
+                          </td>
+                          <td data-label="Estado">
+                            <StatusBadge
+                              className={`risk-status risk-status-${risk.status.toLowerCase()}`}
+                              label={statusLabels[risk.status]}
+                              tone={risk.status === 'REGISTERED' ? 'info' : 'neutral'}
+                            />
+                          </td>
+                          <td data-label="Ficha preliminar">
+                            {risk.latestEvaluation
+                              ? `Ficha ${risk.latestEvaluation.sequence} · Preliminar`
+                              : 'Sem ficha'}
+                          </td>
+                          <td data-label="Atualização">
+                            <time dateTime={risk.updatedAt}>{riskDate(risk.updatedAt)}</time>
+                            <span className="risk-version">Versão {risk.version}</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {data.total > data.pageSize && (
+                <Pagination
+                  label="Paginação do inventário"
+                  page={data.page}
+                  pageSize={data.pageSize}
+                  total={data.total}
+                  pending={list.loading}
+                  onPageChange={(page) => {
+                    window.location.hash = href(page);
+                  }}
+                />
+              )}
+            </>
           )}
         </>
       )}

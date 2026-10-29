@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import {
   actionDetailSchema,
   evidenceSchema,
+  evidenceUploadAttemptSchema,
   riskDetailSchema,
   sectorListSchema,
   unitListSchema,
@@ -22,6 +23,14 @@ async function login(page: Page, email = 'admin1@renr.example') {
   await page.getByLabel('E-mail', { exact: true }).fill(email);
   await page.getByLabel('Senha', { exact: true }).fill(demoPassword());
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Empresas', exact: true })).toBeVisible();
+  // These fixtures target a known company; login may choose another existing membership.
+  const activation = await page.request.put('/api/v1/auth/session/organization', {
+    headers,
+    data: { organizationId: email === 'admin2@renr.example' ? foreign : org },
+  });
+  expect(activation.status()).toBe(200);
+  await page.reload();
   await expect(page.getByRole('heading', { name: 'Empresas', exact: true })).toBeVisible();
 }
 const test = base.extend<{ risk: { id: string; version: number; label: string } }>({
@@ -133,7 +142,7 @@ test('cria pela origem, persiste, transita e mantém notas em execução informa
   ])
     await page.getByLabel(label, { exact: true }).fill(value);
   const saved = page.waitForResponse(
-    (r) => r.request().method() === 'POST' && r.url().endsWith('/actions'),
+    (r) => r.request().method() === 'POST' && r.url().endsWith('/action-workspaces'),
   );
   await page.getByRole('button', { name: 'Criar ação', exact: true }).click();
   const response = await saved;
@@ -229,6 +238,81 @@ test('envia, baixa bytes privados e arquiva sem apagar evidência ou histórico'
     await anonymous.close();
   }
 });
+
+for (const committed of [true, false])
+  test(
+    committed
+      ? 'recupera upload confirmado com resposta perdida sem novo envio'
+      : 'repete tentativa ainda não registrada com a mesma chave e sem duplicação',
+    async ({ page, risk }) => {
+      const action = await createAction(page, risk);
+      const endpoint = `${api}/actions/${action.id}/evidence`;
+      const keys: string[] = [];
+      await page.route(`**${endpoint}`, async (route) => {
+        if (route.request().method() !== 'POST') return route.continue();
+        keys.push(route.request().headers()['idempotency-key'] ?? '');
+        if (keys.length > 1) return route.continue();
+        if (committed) {
+          const response = await route.fetch();
+          expect(response.status()).toBe(201);
+          evidenceSchema.parse(await response.json());
+        }
+        await route.fulfill({
+          status: 503,
+          contentType: 'application/json',
+          body: JSON.stringify({ code: 'SERVICE_UNAVAILABLE', statusCode: 503 }),
+        });
+      });
+      await page.goto(`/#/acoes/${action.id}`);
+      await expect(page.getByRole('heading', { name: action.title, exact: true })).toBeVisible();
+      const bytes = Buffer.from('%PDF-1.7\nSynthetic recoverable evidence fixture\n%%EOF');
+      const description = 'Documento fictício preservado durante recuperação explícita.';
+      const input = page.getByLabel('Arquivo da evidência', { exact: true });
+      await input.setInputFiles({
+        name: 'recoverable.pdf',
+        mimeType: 'application/pdf',
+        buffer: bytes,
+      });
+      await page.getByLabel('Descrição da evidência', { exact: true }).fill(description);
+      await page.getByRole('button', { name: 'Enviar evidência', exact: true }).click();
+      await expect(page.getByRole('alert').filter({ hasText: 'Resultado incerto' })).toBeVisible();
+      await expect(page.getByLabel('Descrição da evidência', { exact: true })).toHaveValue(
+        description,
+      );
+      expect(await input.evaluate((element: HTMLInputElement) => element.files?.length)).toBe(1);
+      await expect(
+        page.getByRole('button', { name: 'Enviar evidência', exact: true }),
+      ).toBeDisabled();
+      await page.getByRole('button', { name: 'Consultar tentativa de envio', exact: true }).click();
+      if (!committed)
+        await page.getByRole('button', { name: 'Repetir tentativa original', exact: true }).click();
+      await expect(
+        page.getByText(
+          committed
+            ? 'Evidência recuperada; envio confirmado no histórico.'
+            : 'Evidência adicionada ao histórico.',
+          { exact: true },
+        ),
+      ).toBeVisible();
+      expect(keys.length).toBe(committed ? 1 : 2);
+      expect(new Set(keys).size).toBe(1);
+      const attempt = evidenceUploadAttemptSchema.parse(
+        await (await page.request.get(`${endpoint}/upload-attempts/${keys[0]}`)).json(),
+      );
+      expect(attempt.state).toBe('COMPLETED');
+      const list = await (await page.request.get(endpoint)).json();
+      expect(list.total).toBe(1);
+      const evidence = evidenceSchema.parse(list.items[0]);
+      expect(evidence.id).toBe(attempt.evidence?.id);
+      expect(await (await page.request.get(`${endpoint}/${evidence.id}/download`)).body()).toEqual(
+        bytes,
+      );
+      const current = actionDetailSchema.parse(
+        await (await page.request.get(`${api}/actions/${action.id}`)).json(),
+      );
+      expect(current.version).toBe(action.version + 1);
+    },
+  );
 
 test('leitor consulta sem escrita e outra empresa não acessa ação/anexo', async ({
   page,

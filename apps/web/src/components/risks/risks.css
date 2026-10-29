@@ -3,6 +3,109 @@
   gap: 1.5rem;
   min-width: 0;
 }
+.risk-context-layout,
+.risk-context-list,
+.risk-context-panel {
+  min-width: 0;
+}
+.risk-context-list {
+  display: none;
+}
+.risk-view-tabs {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+.risk-view-tabs a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0.5rem 1rem;
+  color: var(--muted-foreground);
+  text-decoration: none;
+  border-bottom: 3px solid transparent;
+}
+.risk-view-tabs a[aria-current] {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+  font-weight: 700;
+}
+.risk-selected {
+  background: var(--muted);
+  box-shadow: inset 3px 0 var(--primary);
+}
+.risk-technical-state {
+  border-inline-start: 3px solid var(--primary);
+  padding-inline-start: 0.75rem;
+}
+.risk-source-choice {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  min-height: 44px;
+}
+.risk-source-choice input {
+  width: 1.25rem;
+  min-height: 1.25rem;
+}
+.risk-snapshot {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+}
+.risk-matrix caption {
+  text-align: start;
+  padding-block: 0.75rem;
+  color: var(--muted-foreground);
+}
+.risk-table.risk-matrix th {
+  white-space: normal;
+  min-width: 8rem;
+}
+.risk-table.risk-matrix th,
+.risk-table.risk-matrix td {
+  padding: 0.75rem;
+  overflow-wrap: anywhere;
+}
+@media (min-width: 1100px) {
+  .risk-context-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(340px, 1fr);
+    gap: 1.5rem;
+    align-items: start;
+  }
+  .risk-context-list {
+    display: block;
+  }
+  .risk-context-panel {
+    max-height: calc(100dvh - 8rem);
+    overflow: auto;
+    overscroll-behavior: contain;
+    position: sticky;
+    top: 7rem;
+    border-inline-start: 1px solid var(--border);
+    padding-inline-start: 1.5rem;
+    scrollbar-gutter: stable;
+  }
+  .risk-context-panel .risk-detail-header,
+  .risk-context-panel .risk-section-heading {
+    align-items: start;
+    flex-wrap: wrap;
+  }
+  .risk-context-panel .risk-metadata {
+    grid-template-columns: 1fr;
+  }
+  .risk-context-panel .risk-section-nav {
+    top: 0;
+  }
+  .risk-context-panel .record-actions {
+    width: 100%;
+    gap: 0.5rem;
+  }
+  .risk-context-list .risk-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
 .risk-presets {
   display: flex;
   flex-wrap: wrap;
@@ -413,37 +516,37 @@
   .risk-section-nav a {
     padding: 0 0.7rem;
   }
-  .risk-table {
+  .risk-table:not(.risk-matrix) {
     display: block;
   }
-  .risk-table thead {
+  .risk-table:not(.risk-matrix) thead {
     display: none;
   }
-  .risk-table tbody {
+  .risk-table:not(.risk-matrix) tbody {
     display: grid;
     gap: 0;
   }
-  .risk-table tr {
+  .risk-table:not(.risk-matrix) tr {
     display: grid;
     grid-template-columns: 1fr 1fr;
     padding: 1rem;
     gap: 1rem;
     border-bottom: 1px solid var(--border);
   }
-  .risk-table tr:last-child {
+  .risk-table:not(.risk-matrix) tr:last-child {
     border-bottom: 0;
   }
-  .risk-table td {
+  .risk-table:not(.risk-matrix) td {
     display: block;
     border: 0;
     padding: 0;
     min-width: 0;
   }
-  .risk-table td:first-child {
+  .risk-table:not(.risk-matrix) td:first-child {
     grid-column: 1/-1;
     min-width: 0;
   }
-  .risk-table td:not(:first-child):before {
+  .risk-table:not(.risk-matrix) td:not(:first-child):before {
     content: attr(data-label);
     display: block;
     font-size: 0.7rem;
@@ -454,6 +557,10 @@
   }
   .risk-table-scroll {
     overflow: visible;
+  }
+  .risk-matrix-scroll {
+    overflow: auto;
+    max-width: 100%;
   }
   .risk-form-actions {
     flex-direction: column;

@@ -24,6 +24,46 @@ para `main`, CI aprovada, migrações aditivas e deploy manual do commit aprovad
 O [diagnóstico da v0.2](docs/DIAGNOSTICO_V02.md) permanece demonstrativo:
 cinco perguntas fictícias, convites de uso único e consolidação coletiva protegida.
 
+**IDs 11 e 12:** métodos e avaliações técnicas versionadas,
+inventário enriquecido, detalhe contextual responsivo e matriz por versão exata.
+Os métodos precisam ser configurados por responsável com capacidade técnica e referência
+de aprovação; o seed normal não fornece método aprovado. Consulte o
+[contrato de implementação](docs/plans/IMPLEMENTACAO_ID11_ID12.md) e as
+[verificações locais](docs/VERIFICACAO_ID11_ID12.md). A disponibilidade online depende da promoção validada.
+
+**IDs 13 e 14:** atribuição opcional de ações a membros ativos,
+“Minhas ações” pela sessão, execução restrita por capacidade e histórico de atribuição.
+A lista e o detalhe apresentam contexto, pendências, prioridade técnica compatível e
+evidências, preservando responsável nominal externo e os contratos legados.
+Execução informada continua distinta de eficácia e encerramento técnico. Consulte o
+[contrato](docs/plans/IMPLEMENTACAO_ID13_ID14.md) e as
+[verificações locais](docs/VERIFICACAO_ID13_ID14.md); a disponibilidade online depende da promoção validada.
+
+**IDs 15 e 16:** pareceres técnicos de eficácia com autoria, revisão
+operacional, critério e provas preservadas. A interface permite preparar, revisar e
+confirmar a análise; o histórico mantém decisões anteriores e sinaliza quando o
+contexto ou uma prova selecionada exige revisão. Registrar exige capacidade técnica
+explícita. Eficácia não encerra automaticamente a ação; reavaliação e fechamento
+são decisões próprias dos IDs 17/18.
+Consulte o [contrato](docs/plans/IMPLEMENTACAO_ID15_ID16.md) e as
+[verificações locais](docs/VERIFICACAO_ID15_ID16.md); a disponibilidade online depende da promoção validada.
+
+**IDs 17 e 18:** reavaliação ligada à avaliação anterior,
+às medidas consideradas e aos pareceres preservados; comparação por versão exata
+do método e consulta histórica completa. Encerramento técnico exige parecer eficaz
+vigente, reavaliação atual que considere a medida e provas válidas, sem substituir
+o estado operacional. Nova ação corretiva depende de confirmação e fica vinculada
+à anterior. Consulte o [contrato](docs/plans/IMPLEMENTACAO_ID17_ID18.md) e as
+[verificações locais](docs/VERIFICACAO_ID17_ID18.md). A disponibilidade online depende da promoção validada.
+
+**IDs 19 e 20:** evidências com chave idempotente,
+tentativa durável, lease e recuperação explícita, com transferência fora da transação
+e revalidação antes da finalização. A central preserva arquivo e descrição durante
+falhas recuperáveis, distingue transmissão de confirmação e consulta o uso técnico
+antes de arquivar. Consulte o [guia de operação](docs/EVIDENCIAS_RECUPERAVEIS_ID19.md),
+o [contrato](docs/plans/IMPLEMENTACAO_ID19_ID20.md) e a
+[verificação](docs/VERIFICACAO_ID19_ID20.md). A promoção segue o [procedimento de release](docs/RELEASE_IDS11_20.md).
+
 [Acessar a homologação ReNR+](https://renr-plus-homologation.onrender.com).
 O ambiente usa somente dados sintéticos e requer acesso autorizado para gestão.
 A versão disponível corresponde ao commit ativo verificado no Render. Cada funcionalidade só fica disponível online após os checks do novo deploy;
@@ -38,8 +78,9 @@ modos claro e escuro.
 
 Esta base não é o MVP completo. O diagnóstico legado permanece demonstrativo;
 o catálogo/editor e as coletas aplicam versões publicadas com políticas de consolidação próprias.
-Texto livre, eficácia técnica, matriz técnica validada e relatórios regulamentares
-permanecem nos próximos incrementos. O painel mede registros e preenchimento,
+Texto livre e relatórios regulamentares permanecem nos próximos incrementos.
+Métodos configurados e decisões técnicas locais dependem das permissões e das
+referências de validação descritas acima. O painel mede registros e preenchimento,
 não grau de risco. Veja [base v0.1](docs/IMPLEMENTACAO_V01.md).
 
 ReNR+ não realiza diagnóstico clínico nem certifica automaticamente conformidade legal.
@@ -179,8 +220,10 @@ Não existe leitura individual, exportação de respostas ou pontuação de risc
 
 O serviço [ReNR+ em homologação](https://renr-plus-homologation.onrender.com) executa no
 Render Free, com banco persistente no Neon Free, sem depender do computador de desenvolvimento.
-React e API usam a mesma origem. O storage privado foi configurado na base v0.5,
-mas o envio online apresentou HTTP 503 na última verificação; sua correção pertence ao ID 19.
+React e API usam a mesma origem. A falha B03 de upload foi corrigida em 28/10/2026:
+o storage estava desabilitado na configuração do Render. Upload, download privado,
+hash e persistência após republicação do mesmo commit foram verificados no Supabase.
+Isso não publica o protocolo de recuperação dos IDs 19/20, cuja publicação segue a promoção deste incremento.
 Veja [publicação, verificações e limites](docs/DEPLOY_HOMOLOGACAO.md).
 Novos commits e publicações exigem autorização de Ricardo. Atualizações automáticas
 estão desativadas, e nenhuma credencial online faz parte do repositório.
@@ -290,7 +333,8 @@ Resultados e consolidação gerencial distinguem coleta em andamento, ausência 
 resultado disponível e supressão. A mesma política protege ciclos, grupos, unidades e
 totais superiores contra inferência por diferença; contagens representam envios, não
 pessoas únicas. O limiar de demonstração não garante anonimato nem valida uso real.
-Relatórios formais e avaliação técnica permanecem nos incrementos seguintes.
+Relatórios formais permanecem nos incrementos seguintes. O incremento local dos IDs 11 e 12
+acrescenta avaliação técnica versionada, separada da consolidação e das fichas preliminares.
 
 Consulte [contratos, segurança e limites](docs/API_COLETAS_ID09.md) e
 [evidências de verificação](docs/VERIFICACAO_ID09_ID10.md).

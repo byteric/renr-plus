@@ -142,6 +142,9 @@ test('free Blueprint never auto-deploys, previews or provisions database users',
   assert.match(blueprint, /plan: free/);
   assert.match(blueprint, /autoDeployTrigger: off/);
   assert.match(blueprint, /generation: off/);
+  assert.match(blueprint, /key: STORAGE_ENABLED\s+value: 'true'/);
+  for (const key of ['S3_ENDPOINT', 'S3_REGION', 'S3_BUCKET', 'S3_ACCESS_KEY', 'S3_SECRET_KEY'])
+    assert.match(blueprint, new RegExp(`key: ${key}\\s+sync: false`));
   assert.equal((blueprint.match(/type: web/g) ?? []).length, 1);
   assert.doesNotMatch(
     blueprint,

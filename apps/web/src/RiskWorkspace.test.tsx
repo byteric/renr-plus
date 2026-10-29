@@ -41,6 +41,39 @@ const risk: RiskDetail = {
   latestEvaluation: null,
 };
 const list = (items: unknown[]) => ({ items, total: items.length, page: 1, pageSize: 50 });
+const methodId = '50000000-0000-4000-8000-000000000001';
+const methodVersion = {
+  id: methodId,
+  organizationId: org,
+  method: { id: methodId, name: 'Método de teste isolado' },
+  version: 2,
+  revision: 1,
+  status: 'PUBLISHED',
+  title: 'Versão demonstrativa de teste',
+  description: 'Somente fixture de teste',
+  definition: {
+    probability: [
+      {
+        key: 'p1',
+        label: 'Probabilidade observada',
+        description: 'Critério de teste P',
+        position: 1,
+      },
+    ],
+    severity: [
+      { key: 's1', label: 'Severidade observada', description: 'Critério de teste S', position: 1 },
+    ],
+    levels: [{ key: 'l1', label: 'Nível do método' }],
+    priorities: [{ key: 'r1', label: 'Prioridade do método', rank: 1 }],
+    matrix: [{ probabilityKey: 'p1', severityKey: 's1', levelKey: 'l1', priorityKey: 'r1' }],
+  },
+  approvalReference: 'Referência fictícia exclusiva do teste',
+  publishedBy: author,
+  publishedAt: stamp,
+  createdBy: author,
+  createdAt: stamp,
+  updatedAt: stamp,
+};
 function arrange(
   hash: string,
   options: {
@@ -48,6 +81,10 @@ function arrange(
     saveFails?: boolean;
     patchConflicts?: boolean;
     currentRisk?: RiskDetail;
+    technical?: boolean;
+    publishedMethod?: boolean;
+    technicalConflict?: boolean;
+    technicalSuccess?: boolean;
   } = {},
 ) {
   window.location.hash = hash;
@@ -56,6 +93,130 @@ function arrange(
   const fetcher = vi.fn<typeof fetch>().mockImplementation(async (url, init) => {
     const path = new URL(String(url), 'http://localhost').pathname;
     const method = init?.method ?? 'GET';
+    if (path.endsWith('/reassessment-context'))
+      return new Response(
+        JSON.stringify({
+          organizationId: org,
+          riskId: id,
+          riskVersion: currentRisk.version,
+          latestEvaluation: null,
+          latestReassessment: null,
+          permissions: { hasTechnicalCapability: options.technical ?? false, canReassess: false },
+          blockingReasons: ['NO_BASELINE'],
+        }),
+      );
+    if (path.endsWith('/session-capabilities'))
+      return new Response(
+        JSON.stringify({
+          organizationId: org,
+          capabilities: options.technical ? ['TECHNICAL_DECISIONS'] : [],
+          canManageAccess: true,
+        }),
+      );
+    if (path.endsWith('/evaluation-method-versions'))
+      return new Response(JSON.stringify(list(options.publishedMethod ? [methodVersion] : [])));
+    if (path.endsWith('/source-options'))
+      return new Response(
+        JSON.stringify(
+          list([
+            {
+              kind: 'RISK_RECORD',
+              id,
+              label: 'Registro contextual elegível',
+              reference: 'Registro coletivo de teste',
+              isDemonstration: false,
+              eligible: true,
+              unavailableReason: null,
+            },
+          ]),
+        ),
+      );
+    if (path.endsWith('/technical-evaluations')) {
+      if (method === 'POST' && options.technicalSuccess) {
+        const body = JSON.parse(String(init?.body)) as { rationale: string; context: string };
+        return new Response(
+          JSON.stringify({
+            id,
+            organizationId: org,
+            riskId: id,
+            sequence: 1,
+            riskVersion: currentRisk.version,
+            label: 'TECHNICAL',
+            method: {
+              id: methodId,
+              name: methodVersion.method.name,
+              versionId: methodId,
+              version: 2,
+              approvalReference: methodVersion.approvalReference,
+            },
+            probability: { key: 'p1', label: 'Probabilidade observada' },
+            severity: { key: 's1', label: 'Severidade observada' },
+            level: { key: 'l1', label: 'Nível do método' },
+            priority: { key: 'r1', label: 'Prioridade do método', rank: 1 },
+            author,
+            createdAt: stamp,
+            rationale: body.rationale,
+            context: body.context,
+            contextSnapshot: {
+              factor: currentRisk.factor,
+              description: currentRisk.description,
+              exposureDescription: currentRisk.exposureDescription,
+              exposedGroupDescription: currentRisk.exposedGroupDescription,
+              possibleHarms: currentRisk.possibleHarms,
+              existingControls: currentRisk.existingControls,
+              sourceKind: currentRisk.sourceKind,
+              sourceNote: currentRisk.sourceNote,
+              diagnosticCycleId: null,
+              sectorId,
+              assessmentGroupId: org,
+              unit: currentRisk.unit,
+              sector: currentRisk.sector,
+              status: 'REGISTERED',
+            },
+            sources: [
+              {
+                kind: 'RISK_RECORD',
+                id,
+                title: 'Registro contextual',
+                reference: 'Registro coletivo',
+                isDemonstration: false,
+                capturedAt: stamp,
+              },
+            ],
+          }),
+          { status: 201 },
+        );
+      }
+      if (method === 'POST')
+        return new Response('{}', { status: options.technicalConflict ? 409 : 503 });
+      return new Response(JSON.stringify(list([])));
+    }
+    if (path.endsWith('/risk-workspaces/matrix'))
+      return new Response(
+        JSON.stringify({
+          methodVersion,
+          cells: [{ ...methodVersion.definition.matrix[0], count: 4 }],
+          totalMatched: 10,
+          classifiedTotal: 4,
+          excluded: {
+            unclassified: 2,
+            contextChanged: 1,
+            incompatible: 1,
+            inactiveScope: 1,
+            notRegistered: 1,
+          },
+        }),
+      );
+    const workspace = {
+      ...currentRisk,
+      sourceLabel: 'Registro técnico contextual',
+      technicalEvaluationState: 'ABSENT',
+      latestTechnicalEvaluation: null,
+      actionSummary: { total: 2, open: 1, overdue: 1 },
+      pendingReasons: ['NO_TECHNICAL_EVALUATION'],
+    };
+    if (path.endsWith(`/risk-workspaces/${id}`)) return new Response(JSON.stringify(workspace));
+    if (path.endsWith('/risk-workspaces')) return new Response(JSON.stringify(list([workspace])));
     if (path.endsWith('/evaluations')) {
       if (method === 'POST') {
         const body = JSON.parse(String(init?.body)) as {
@@ -156,6 +317,97 @@ function arrange(
 afterEach(() => {
   vi.unstubAllGlobals();
   window.location.hash = '/empresas';
+});
+
+it('mostra fonte, ausência de avaliação técnica e ações sem presumir classificação', async () => {
+  arrange('/inventario');
+  await screen.findByRole('link', { name: risk.factor });
+  expect(screen.getByRole('columnheader', { name: 'Fonte' })).toBeVisible();
+  expect(screen.getByText('Registro técnico contextual')).toBeVisible();
+  expect(screen.getByText('Sem avaliação técnica')).toBeVisible();
+  expect(screen.getByText(/1 aberta.*1 atrasada/)).toBeVisible();
+  expect(screen.getByRole('link', { name: 'Matriz' })).toBeVisible();
+  expect(screen.queryByRole('link', { name: 'Mapa' })).not.toBeInTheDocument();
+});
+
+it('ADMIN sem capacidade técnica não recebe controles de avaliação técnica', async () => {
+  arrange(`/inventario/${id}`, { currentRisk: { ...risk, status: 'REGISTERED' } });
+  await screen.findByRole('heading', { name: risk.factor, level: 2 });
+  expect(
+    screen.queryByRole('button', { name: 'Registrar avaliação técnica' }),
+  ).not.toBeInTheDocument();
+});
+
+it('explica catálogo vazio ao responsável técnico sem criar método presumido', async () => {
+  arrange(`/inventario/${id}`, { technical: true, currentRisk: { ...risk, status: 'REGISTERED' } });
+  await userEvent.click(await screen.findByRole('button', { name: 'Registrar avaliação técnica' }));
+  expect(
+    await screen.findByText(/Solicite um método validado ao responsável técnico/),
+  ).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Confirmar avaliação técnica' })).toBeDisabled();
+});
+
+it.each([false, true])(
+  'confirma sucesso somente após resposta válida ou preserva rascunho no conflito (sucesso=%s)',
+  async (technicalSuccess) => {
+    const fetcher = arrange(`/inventario/${id}`, {
+      technical: true,
+      publishedMethod: true,
+      technicalConflict: true,
+      technicalSuccess,
+      currentRisk: { ...risk, status: 'REGISTERED', version: 3 },
+    });
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Registrar avaliação técnica' }),
+    );
+    await screen.findByRole('option', { name: /Método de teste isolado/ });
+    fireEvent.change(screen.getByLabelText('Método publicado'), { target: { value: methodId } });
+    fireEvent.change(screen.getByLabelText('Probabilidade'), { target: { value: 'p1' } });
+    fireEvent.change(screen.getByLabelText('Severidade'), { target: { value: 's1' } });
+    fireEvent.change(screen.getByLabelText('Justificativa técnica'), {
+      target: { value: 'Fundamentação técnica preservada durante conflito.' },
+    });
+    fireEvent.change(screen.getByLabelText('Contexto da avaliação'), {
+      target: { value: 'Contexto coletivo de trabalho observado nesta avaliação.' },
+    });
+    await userEvent.click(await screen.findByLabelText('Registro contextual elegível'));
+    await userEvent.click(screen.getByRole('button', { name: 'Confirmar avaliação técnica' }));
+    if (technicalSuccess) {
+      expect(
+        await screen.findByText('Avaliação técnica registrada e confirmada pelo serviço.'),
+      ).toBeVisible();
+      expect(
+        screen.queryByRole('form', { name: 'Nova avaliação técnica' }),
+      ).not.toBeInTheDocument();
+      return;
+    }
+    expect(await screen.findByRole('alert')).toHaveTextContent(/rascunho foi preservado/);
+    expect(screen.getByLabelText('Justificativa técnica')).toHaveValue(
+      'Fundamentação técnica preservada durante conflito.',
+    );
+    expect(screen.getByRole('button', { name: 'Confirmar avaliação técnica' })).toBeDisabled();
+    expect(
+      fetcher.mock.calls.filter(
+        ([url, init]) => String(url).includes('technical-evaluations') && init?.method === 'POST',
+      ),
+    ).toHaveLength(1);
+    expect(screen.queryByText(/registrada e confirmada pelo serviço/)).not.toBeInTheDocument();
+  },
+);
+
+it('consulta matriz de versão exata sobre todo o filtro com exclusões explícitas', async () => {
+  const fetcher = arrange(`/inventario?view=matrix&methodVersionId=${methodId}&q=tarefas&page=2`, {
+    publishedMethod: true,
+  });
+  expect(await screen.findByText('4 classificados de 10 registros no recorte.')).toBeVisible();
+  expect(screen.getByRole('table', { name: /Probabilidade × severidade/ })).toBeVisible();
+  expect(screen.getByText('Método ou versão incompatível')).toBeVisible();
+  const request = fetcher.mock.calls.find(([url]) =>
+    String(url).includes('/risk-workspaces/matrix?'),
+  );
+  expect(String(request?.[0])).toContain(`methodVersionId=${methodId}`);
+  expect(String(request?.[0])).toContain('q=tarefas');
+  expect(String(request?.[0])).not.toContain('page=');
 });
 
 it('mantém a seção predominante quando o observador entrega somente mudanças parciais', async () => {
@@ -358,13 +610,13 @@ it('exige releitura antes de repetir arquivamento após conflito de versão', as
   expect(await screen.findByRole('alert')).toHaveTextContent('Atualize os dados');
   expect(screen.queryByRole('button', { name: 'Confirmar arquivamento' })).not.toBeInTheDocument();
   const before = fetcher.mock.calls.filter(
-    ([url, init]) => String(url).endsWith(`/risks/${id}`) && !init?.method,
+    ([url, init]) => String(url).endsWith(`/risk-workspaces/${id}`) && !init?.method,
   ).length;
   await userEvent.click(screen.getByRole('button', { name: 'Atualizar registro' }));
   await screen.findByRole('button', { name: 'Arquivar risco' });
   expect(
     fetcher.mock.calls.filter(
-      ([url, init]) => String(url).endsWith(`/risks/${id}`) && !init?.method,
+      ([url, init]) => String(url).endsWith(`/risk-workspaces/${id}`) && !init?.method,
     ).length,
   ).toBeGreaterThan(before);
 });

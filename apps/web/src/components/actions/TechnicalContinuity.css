@@ -1,0 +1,34 @@
+.technical-continuity,
+.technical-continuity fieldset,
+.continuity-comparison > * {
+  min-width: 0;
+}
+.technical-continuity p,
+.technical-continuity dd,
+.technical-continuity li,
+.technical-continuity code {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.continuity-comparison {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  gap: 1.5rem;
+}
+.continuity-reading,
+.continuity-review {
+  border-inline-start: 3px solid var(--primary);
+  padding-inline-start: 1rem;
+}
+.continuity-measure {
+  padding-block: 1rem;
+  border-block-end: 1px solid var(--border);
+}
+.technical-continuity .record-actions > button {
+  white-space: normal;
+  max-width: 100%;
+}
+
+.technical-continuity [hidden] {
+  display: none;
+}

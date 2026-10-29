@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import {
   actionDetailSchema,
-  createActionSchema,
+  createAssignedActionSchema,
   updateActionSchema,
   riskDetailSchema,
   preliminaryEvaluationListSchema,
@@ -11,6 +11,7 @@ import { request, RequestError } from '../../lib/api';
 import { Button } from '../ui/button';
 import { scrollToField } from '../risks/useRiskData';
 import { actionLabels, useActionData } from './useActionData';
+import { ActionAssigneeSelect } from './ActionAssigneeSelect';
 
 const fields = [
   { name: 'title', label: 'Título da medida', max: 160, min: 3 },
@@ -46,6 +47,7 @@ export function ActionForm({
   const [baseline, setBaseline] = useState(content);
   const [reason, setReason] = useState('');
   const [evaluationId, setEvaluationId] = useState('');
+  const [assignedUserId, setAssignedUserId] = useState('');
   const [evaluationPage, setEvaluationPage] = useState(1);
   const [attempt, setAttempt] = useState(0);
   const [expectedVersion, setExpectedVersion] = useState(item?.version ?? 1);
@@ -100,8 +102,9 @@ export function ActionForm({
     if (pending || blocked || uncertain || terminal) return;
     const parsed = item
       ? updateActionSchema.safeParse({ ...content, expectedVersion, changeReason: reason })
-      : createActionSchema.safeParse({
+      : createAssignedActionSchema.safeParse({
           ...content,
+          assignedUserId: assignedUserId || null,
           expectedRiskVersion: risk.data?.version,
           ...(evaluationId ? { evaluationId } : {}),
         });
@@ -130,7 +133,7 @@ export function ActionForm({
       const saved = await request(
         item
           ? `/organizations/${organizationId}/actions/${item.id}`
-          : `/organizations/${organizationId}/risks/${riskId}/actions`,
+          : `/organizations/${organizationId}/risks/${riskId}/action-workspaces`,
         actionDetailSchema,
         {
           method: item ? 'PATCH' : 'POST',
@@ -360,6 +363,13 @@ export function ActionForm({
         ))}
         {!item && (
           <div>
+            <ActionAssigneeSelect
+              organizationId={organizationId}
+              value={assignedUserId}
+              onChange={setAssignedUserId}
+              onExpire={onExpire}
+              disabled={pending}
+            />
             <label htmlFor="action-evaluation">Ficha preliminar de referência (opcional)</label>
             <select
               id="action-evaluation"

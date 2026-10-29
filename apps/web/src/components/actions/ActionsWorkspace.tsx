@@ -56,7 +56,6 @@ export function ActionsWorkspace({
         key={`${organizationId}-${id}`}
         organizationId={organizationId}
         id={id}
-        canWrite={canWrite}
         query={query}
         onExpire={onExpire}
       />

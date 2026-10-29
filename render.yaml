@@ -22,7 +22,17 @@ services:
       - key: WEB_DIST_PATH
         value: /app/apps/web/dist
       - key: STORAGE_ENABLED
-        value: 'false'
+        value: 'true'
+      - key: S3_ENDPOINT
+        sync: false
+      - key: S3_REGION
+        sync: false
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_ACCESS_KEY
+        sync: false
+      - key: S3_SECRET_KEY
+        sync: false
       - key: RUN_MIGRATIONS
         value: 'false'
       - key: DATABASE_URL

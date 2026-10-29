@@ -1,10 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   actionDetailSchema,
   actionOperationalSnapshotSchema,
   actionRevisionSchema,
   type ActionDetail,
   type ActionRevision,
+  type ActionAssignmentChange,
 } from '@renr/contracts';
 import { PrismaService } from '../../database/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
@@ -89,7 +90,24 @@ export function toRevision(record: RevisionRecord): ActionRevision {
 export class ActionsRepository {
   constructor(private readonly database: PrismaService) {}
   transaction<T>(operation: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
-    return this.database.client.$transaction(operation, { timeout: 15000 });
+    return this.database.client
+      .$transaction(operation, { timeout: 15000 })
+      .catch((error: unknown) => {
+        if (error instanceof Prisma.PrismaClientKnownRequestError) {
+          const cause = (
+            error.meta?.driverAdapterError as
+              { cause?: { originalCode?: string; code?: string } } | undefined
+          )?.cause;
+          if (
+            ['P2002', 'P2003', 'P2004', 'P2034'].includes(error.code) ||
+            (error.code === 'P2039' && (cause?.originalCode === '23514' || cause?.code === '23514'))
+          )
+            throw new ConflictException(
+              'Action changed or protected assignment reference is unavailable',
+            );
+        }
+        throw error;
+      });
   }
   snapshot<T>(operation: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
     return this.database.client.$transaction(operation, {
@@ -125,6 +143,7 @@ export class ActionsRepository {
     changeReason: string | null = null,
     text: string | null = null,
     evidenceId: string | null = null,
+    assignmentChange?: ActionAssignmentChange,
   ): Promise<ActionRevision> {
     const revision = await tx.actionRevision.create({
       data: {
@@ -137,6 +156,9 @@ export class ActionsRepository {
         text,
         evidenceId,
         authorId: scope.userId,
+        ...(assignmentChange
+          ? { assignmentChange: assignmentChange as Prisma.InputJsonValue }
+          : {}),
       },
       include: revisionInclude,
     });

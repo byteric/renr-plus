@@ -15,11 +15,14 @@ afterEach(() => {
 it('pagina o inventário por teclado preservando o recorte da URL', async () => {
   vi.stubGlobal(
     'fetch',
-    vi
-      .fn<typeof fetch>()
-      .mockImplementation(async (url) =>
-        json({ items: [], total: String(url).includes('/risks?') ? 51 : 0, page: 1, pageSize: 50 }),
-      ),
+    vi.fn<typeof fetch>().mockImplementation(async (url) =>
+      json({
+        items: [],
+        total: String(url).includes('/risk-workspaces?') ? 51 : 0,
+        page: 1,
+        pageSize: 50,
+      }),
+    ),
   );
   render(
     <RiskInventory
@@ -42,7 +45,7 @@ it('permite recuperar a consulta de ações dentro da mensagem de erro', async (
   vi.stubGlobal(
     'fetch',
     vi.fn<typeof fetch>().mockImplementation(async (url) => {
-      if (String(url).includes('/actions?') && failed) return json({}, 503);
+      if (String(url).includes('/action-workspaces?') && failed) return json({}, 503);
       return json({ items: [], total: 0, page: 1, pageSize: 50 });
     }),
   );
