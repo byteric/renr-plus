@@ -53,6 +53,72 @@ const action = {
   referenceDate: '2026-10-22',
   timeZone: 'America/Sao_Paulo',
 };
+const workspaceAction = {
+  ...action,
+  assignedUser: null,
+  riskContext: {
+    unit: risk.unit,
+    sector: risk.sector,
+    technicalEvaluationState: 'ABSENT',
+    contextMatches: true,
+    priority: null,
+  },
+  evidenceSummary: { active: 0, archived: 0 },
+  pendingReasons: ['OVERDUE', 'NO_EVIDENCE', 'NO_CURRENT_TECHNICAL_EVALUATION'],
+  permissions: {
+    canManage: true,
+    canExecute: true,
+    canNote: true,
+    canUploadEvidence: true,
+    canArchiveEvidence: true,
+  },
+};
+const workspaceRisk = {
+  ...risk,
+  sourceLabel: 'Origem ainda não informada',
+  technicalEvaluationState: 'ABSENT',
+  latestTechnicalEvaluation: null,
+  actionSummary: { total: 0, open: 0, overdue: 0 },
+  pendingReasons: ['NO_TECHNICAL_EVALUATION', 'NO_ACTIONS'],
+};
+
+const matrixMethod = {
+  id: '60000000-0000-4000-8000-000000000001',
+  organizationId,
+  method: { id: '60000000-0000-4000-8000-000000000002', name: 'Método fictício para teste visual' },
+  version: 1,
+  revision: 1,
+  status: 'PUBLISHED',
+  title: 'Fixture isolada',
+  description: 'Exclusivo de teste automatizado',
+  definition: {
+    probability: [
+      {
+        key: 'p1',
+        label: 'Probabilidade documentada',
+        description: 'Critério demonstrativo',
+        position: 1,
+      },
+    ],
+    severity: [
+      {
+        key: 's1',
+        label: 'Severidade documentada',
+        description: 'Critério demonstrativo',
+        position: 1,
+      },
+    ],
+    levels: [{ key: 'l1', label: 'Classificação do método fictício' }],
+    priorities: [{ key: 'r1', label: 'Prioridade demonstrativa', rank: 1 }],
+    matrix: [{ probabilityKey: 'p1', severityKey: 's1', levelKey: 'l1', priorityKey: 'r1' }],
+  },
+  approvalReference: 'Referência fictícia de teste',
+  publishedBy: risk.createdBy,
+  publishedAt: stamp,
+  createdBy: risk.createdBy,
+  createdAt: stamp,
+  updatedAt: stamp,
+};
 
 async function openWorkspace(
   page: Page,
@@ -84,14 +150,59 @@ async function openWorkspace(
       await route.fulfill({ json: { items: [], total: 0, page: 1, pageSize: 50 } });
     } else if (path === `/api/v1/organizations/${organizationId}/risks`) {
       await route.fulfill({ json: { items: [risk], total: 51, page: 1, pageSize: 50 } });
-    } else if (path === `/api/v1/organizations/${organizationId}/actions`) {
+    } else if (path === '/api/v1/auth/session-capabilities') {
+      await route.fulfill({ json: { organizationId, capabilities: [], canManageAccess: true } });
+    } else if (path === `/api/v1/organizations/${organizationId}/risk-workspaces`) {
+      await route.fulfill({ json: { items: [workspaceRisk], total: 51, page: 1, pageSize: 50 } });
+    } else if (path === `/api/v1/organizations/${organizationId}/evaluation-method-versions`) {
+      await route.fulfill({ json: { items: [matrixMethod], total: 1, page: 1, pageSize: 50 } });
+    } else if (path === `/api/v1/organizations/${organizationId}/risk-workspaces/matrix`) {
+      await route.fulfill({
+        json: {
+          methodVersion: matrixMethod,
+          cells: [{ ...matrixMethod.definition.matrix[0], count: 4 }],
+          totalMatched: 7,
+          classifiedTotal: 4,
+          excluded: {
+            unclassified: 1,
+            contextChanged: 1,
+            incompatible: 1,
+            inactiveScope: 0,
+            notRegistered: 0,
+          },
+        },
+      });
+    } else if (path === `/api/v1/organizations/${organizationId}/risk-workspaces/${risk.id}`) {
+      await route.fulfill({ json: workspaceRisk });
+    } else if (path.endsWith(`/risk-workspaces/${risk.id}/reassessment-context`)) {
+      await route.fulfill({
+        json: {
+          organizationId,
+          riskId: risk.id,
+          riskVersion: risk.version,
+          latestEvaluation: null,
+          latestReassessment: null,
+          permissions: { hasTechnicalCapability: false, canReassess: false },
+          blockingReasons: ['NO_TECHNICAL_CAPABILITY', 'NO_BASELINE', 'ORIGIN_INACTIVE'],
+        },
+      });
+    } else if (path.endsWith(`/risk-workspaces/${risk.id}/reassessments`)) {
+      await route.fulfill({ json: { items: [], total: 0, page: 1, pageSize: 20 } });
+    } else if (
+      path.endsWith(`/risks/${risk.id}/evaluations`) ||
+      path.endsWith(`/risk-workspaces/${risk.id}/technical-evaluations`)
+    ) {
+      await route.fulfill({ json: { items: [], total: 0, page: 1, pageSize: 50 } });
+    } else if (path === `/api/v1/organizations/${organizationId}/action-workspaces`) {
       if (failActions) {
         await route.fulfill({
           status: 503,
           json: { code: 'UNAVAILABLE', message: 'Serviço temporariamente indisponível.' },
         });
       } else {
-        await route.fulfill({ json: { items: [action], total: 51, page: 1, pageSize: 50 } });
+        await route.fulfill({
+          json: { items: [workspaceAction], total: 51, page: 1, pageSize: 50 },
+        });
       }
     } else {
       throw new Error(`Unexpected fixture request: ${route.request().method()} ${path}`);
@@ -129,6 +240,75 @@ async function contrast(locator: Locator) {
 }
 
 for (const theme of ['light', 'dark'] as const) {
+  test(`matriz expõe versão, totais e exclusões em tabela acessível no tema ${theme}`, async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 375, height: 900 });
+    await openWorkspace(page, theme, '/inventario?view=matrix');
+    await page.getByLabel('Método publicado e versão da matriz').selectOption(matrixMethod.id);
+    await expect(page.getByText('4 classificados de 7 registros no recorte.')).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: 'Severidade documentada' })).toBeVisible();
+    await expect(page.getByRole('rowheader', { name: 'Probabilidade documentada' })).toBeVisible();
+    await expect(page.getByText('Método ou versão incompatível', { exact: true })).toBeVisible();
+    expect(
+      await contrast(page.getByText('4 classificados de 7 registros no recorte.')),
+    ).toBeGreaterThanOrEqual(4.5);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(
+      true,
+    );
+    await page.screenshot({
+      path: testInfo.outputPath(`risk-matrix-mobile-${theme}.png`),
+      fullPage: true,
+    });
+  });
+  test(`contexto de risco preserva lista, foco e recorte em desktop e mobile no tema ${theme}`, async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await openWorkspace(page, theme, '/inventario?q=tarefas');
+    const origin = page.getByRole('link', { name: risk.factor, exact: true });
+    await origin.scrollIntoViewIfNeeded();
+    const listScroll = await page.evaluate(() => window.scrollY);
+    await origin.click();
+    const panel = page.getByRole('complementary', { name: 'Contexto do risco selecionado' });
+    await expect(panel.getByRole('heading', { name: risk.factor, exact: true })).toBeVisible();
+    await expect(origin).toBeVisible();
+    expect(await page.evaluate(() => window.scrollY)).toBe(listScroll);
+    await expect(page.getByRole('searchbox', { name: 'Buscar no inventário' })).toHaveValue(
+      'tarefas',
+    );
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(
+      true,
+    );
+    await page.screenshot({
+      path: testInfo.outputPath(`risk-context-desktop-${theme}.png`),
+      fullPage: true,
+    });
+    await panel.getByRole('link', { name: /Voltar ao inventário/ }).click();
+    await expect(origin).toBeFocused();
+    await origin.click();
+    await expect(panel.getByRole('heading', { name: risk.factor, exact: true })).toBeVisible();
+    await page.goBack();
+    await expect(origin).toBeFocused();
+    await origin.click();
+    const selectedUrl = page.url();
+    for (const width of [1024, 640, 375]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await expect(panel.getByRole('heading', { name: risk.factor, exact: true })).toBeVisible();
+      await expect(origin).not.toBeVisible();
+      expect(page.url()).toBe(selectedUrl);
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1),
+      ).toBe(true);
+    }
+    await page.screenshot({
+      path: testInfo.outputPath(`risk-context-mobile-${theme}.png`),
+      fullPage: true,
+    });
+    await panel.getByRole('link', { name: /Voltar ao inventário/ }).click();
+    await expect(origin).toBeFocused();
+    await expect(page).toHaveURL(/inventario\?q=tarefas$/);
+  });
   test(`hierarquia tipográfica e superfícies legíveis no tema ${theme}`, async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 1000 });
     await openWorkspace(page, theme);

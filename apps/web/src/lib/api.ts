@@ -1,6 +1,6 @@
 import { apiErrorSchema, healthResponseSchema } from '@renr/contracts';
 
-const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '/api/v1').replace(/\/+$/, '');
+export const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '/api/v1').replace(/\/+$/, '');
 export class RequestError extends Error {
   constructor(
     public readonly status: number,

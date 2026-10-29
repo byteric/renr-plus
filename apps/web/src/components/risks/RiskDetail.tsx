@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState, type MouseEvent } from 'react';
-import { preliminaryEvaluationListSchema, riskDetailSchema } from '@renr/contracts';
+import {
+  preliminaryEvaluationListSchema,
+  riskDetailSchema,
+  riskWorkspaceSchema,
+  type RiskWorkspace,
+} from '@renr/contracts';
 import { Button } from '../ui/button';
 import { Pagination } from '../ui/pagination';
 import { StatusMessage } from '../ui/status-message';
@@ -8,6 +13,7 @@ import { request, RequestError } from '../../lib/api';
 import { RiskForm } from './RiskForm';
 import { PreliminaryEvaluationForm } from './PreliminaryEvaluationForm';
 import { riskDate, statusLabels, useRiskData } from './useRiskData';
+import { TechnicalEvaluationPanel } from './TechnicalEvaluationPanel';
 
 const sections = [
   { id: 'resumo', label: 'Resumo' },
@@ -20,16 +26,21 @@ export function RiskDetail({
   organizationId,
   id,
   canWrite,
+  canEvaluate,
   query,
   onExpire,
+  onChanged,
 }: {
   organizationId: string;
   id: string;
   canWrite: boolean;
+  canEvaluate: boolean;
   query: string;
   onExpire: () => void;
+  onChanged: () => void;
 }) {
   const [attempt, setAttempt] = useState(0);
+  const [unavailable, setUnavailable] = useState<{ status: number; attempt: number } | null>(null);
   const [editing, setEditing] = useState(false);
   const [evaluating, setEvaluating] = useState(false);
   const [evaluationPage, setEvaluationPage] = useState(1);
@@ -37,6 +48,7 @@ export function RiskDetail({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
   const [needsRefresh, setNeedsRefresh] = useState(false);
+  const [retained, setRetained] = useState<RiskWorkspace | null>(null);
   const [activeSection, setActiveSection] = useState(() => {
     const selected = new URLSearchParams(query).get('section');
     return sections.find((entry) => entry.id === selected)?.id ?? 'resumo';
@@ -45,17 +57,52 @@ export function RiskDetail({
   const heading = useRef<HTMLHeadingElement>(null);
   const controller = useRef(new AbortController());
   const path = `/organizations/${organizationId}/risks/${id}`;
-  const detail = useRiskData(path, riskDetailSchema, onExpire, attempt);
+  const detail = useRiskData(
+    `/organizations/${organizationId}/risk-workspaces/${id}`,
+    riskWorkspaceSchema,
+    onExpire,
+    attempt,
+  );
   const history = useRiskData(
     detail.data ? `${path}/evaluations?page=${evaluationPage}&pageSize=50` : null,
     preliminaryEvaluationListSchema,
     onExpire,
     attempt,
   );
-  const item = detail.data;
+  const accessRestored = unavailable && attempt > unavailable.attempt && detail.data !== null;
+  if (accessRestored) {
+    setUnavailable(null);
+  }
+  const deniedStatus = unavailable && !accessRestored ? unavailable.status : detail.errorStatus;
+  const denied = deniedStatus !== null && [401, 403, 404].includes(deniedStatus);
+  if (denied && retained) {
+    setRetained(null);
+    setEditing(false);
+    setEvaluating(false);
+    setConfirming(false);
+  }
+  if (!denied && detail.data && detail.data !== retained) setRetained(detail.data);
+  const retainedHere = retained?.id === id && retained.organizationId === organizationId;
+  const item = denied ? null : (detail.data ?? (retainedHere ? retained : null));
+  const unavailableForWrite = detail.loading || !!detail.error || denied;
   const params = new URLSearchParams(query);
   const rawReturn = params.get('returnTo') ?? '';
   const returnTo = /^#\/inventario(?:\?|$)/.test(rawReturn) ? rawReturn : '#/inventario';
+  function contextualScroll(target: HTMLElement, behavior: ScrollBehavior) {
+    const panel = root.current?.closest<HTMLElement>('.risk-context-panel');
+    if (panel && window.matchMedia?.('(min-width: 1100px)').matches) {
+      const navigation = root.current?.querySelector('.risk-section-nav');
+      panel.scrollTo({
+        top:
+          panel.scrollTop +
+          target.getBoundingClientRect().top -
+          panel.getBoundingClientRect().top -
+          (navigation?.getBoundingClientRect().height ?? 0) -
+          16,
+        behavior,
+      });
+    } else target.scrollIntoView?.({ block: 'start', behavior });
+  }
   useEffect(() => {
     controller.current = new AbortController();
     const current = controller.current;
@@ -69,10 +116,11 @@ export function RiskDetail({
       : null;
     if (target) {
       target.focus({ preventScroll: true });
-      target.scrollIntoView?.({ block: 'start', behavior: 'auto' });
+      contextualScroll(target, 'auto');
     } else {
       heading.current?.focus({ preventScroll: true });
-      heading.current?.scrollIntoView?.({ block: 'start', behavior: 'auto' });
+      if (!window.matchMedia?.('(min-width: 1100px)').matches)
+        heading.current?.scrollIntoView?.({ block: 'start', behavior: 'auto' });
     }
     if (typeof IntersectionObserver === 'undefined') return;
     const visibleSections = new Map<Element, IntersectionObserverEntry>();
@@ -103,14 +151,19 @@ export function RiskDetail({
     const target = root.current?.querySelector<HTMLElement>(`#risk-${section}`);
     const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     target?.focus({ preventScroll: true });
-    target?.scrollIntoView?.({ block: 'start', behavior: reduced ? 'auto' : 'smooth' });
+    if (target) contextualScroll(target, reduced ? 'auto' : 'smooth');
     const next = new URLSearchParams(query);
     next.set('section', section);
     window.history.replaceState(null, '', `#/inventario/${id}?${next}`);
     setActiveSection(section);
   }
+  function reloadRisk() {
+    controller.current.abort();
+    controller.current = new AbortController();
+    setAttempt((value) => value + 1);
+  }
   async function archive() {
-    if (!item || pending || needsRefresh) return;
+    if (!item || pending || needsRefresh || unavailableForWrite) return;
     setPending(true);
     setError('');
     try {
@@ -122,6 +175,7 @@ export function RiskDetail({
       if (!controller.current.signal.aborted) {
         setConfirming(false);
         setAttempt(attempt + 1);
+        onChanged();
       }
     } catch (failure) {
       if (controller.current.signal.aborted) return;
@@ -143,17 +197,17 @@ export function RiskDetail({
       if (!controller.current.signal.aborted) setPending(false);
     }
   }
-  if (detail.loading)
+  if (detail.loading && !item)
     return (
       <StatusMessage className="surface" tone="loading">
         Carregando registro…
       </StatusMessage>
     );
-  if (detail.error || !item)
+  if (!item)
     return (
       <StatusMessage tone="error" className="feedback error">
         <p>{detail.error || 'Registro indisponível.'}</p>
-        <Button variant="outline" onClick={() => setAttempt(attempt + 1)}>
+        <Button variant="outline" onClick={reloadRisk}>
           Atualizar registro
         </Button>
         <a href={returnTo}>Voltar ao inventário</a>
@@ -172,15 +226,25 @@ export function RiskDetail({
         onSaved={() => {
           setEditing(false);
           setAttempt(attempt + 1);
+          onChanged();
         }}
       />
     );
-  const writable = canWrite && item.status !== 'ARCHIVED' && !needsRefresh;
+  const writable = canWrite && item.status !== 'ARCHIVED' && !needsRefresh && !unavailableForWrite;
   return (
     <div className="risk-stack risk-detail" ref={root}>
       <a className="back-link" href={returnTo}>
         ← Voltar ao inventário
       </a>
+      {detail.loading && <p role="status">Atualizando risco; o rascunho foi preservado.</p>}
+      {detail.error && (
+        <div className="feedback error" role="alert">
+          <p>{detail.error} Consulte o risco novamente antes de registrar alterações.</p>
+          <Button variant="outline" onClick={reloadRisk}>
+            Atualizar registro
+          </Button>
+        </div>
+      )}
       <header className="surface risk-detail-header">
         <div>
           <p className="panel-label">INVENTÁRIO · VERSÃO {item.version}</p>
@@ -197,10 +261,14 @@ export function RiskDetail({
           />
         </div>
         <div className="record-actions">
+          <Button variant="outline" disabled={detail.loading || pending} onClick={reloadRisk}>
+            Atualizar risco
+          </Button>
           <a className="action-link" href={`#/acoes?riskId=${id}&page=1`}>
             Ver ações deste risco
           </a>
           {canWrite &&
+            !unavailableForWrite &&
             item.status === 'REGISTERED' &&
             item.unit.isActive &&
             item.sector.isActive && (
@@ -229,6 +297,24 @@ export function RiskDetail({
         Este registro é preliminar e não substitui uma avaliação técnica de SST. Não representa
         laudo ou garantia de conformidade com a NR-01.
       </p>
+      <TechnicalEvaluationPanel
+        risk={item}
+        canEvaluate={canEvaluate}
+        disabled={unavailableForWrite}
+        onExpire={onExpire}
+        refreshKey={attempt}
+        onUnavailable={(status) => {
+          controller.current.abort();
+          setUnavailable({ status, attempt });
+          setEditing(false);
+          setEvaluating(false);
+          setConfirming(false);
+        }}
+        onSaved={() => {
+          setAttempt((value) => value + 1);
+          onChanged();
+        }}
+      />
       {error && (
         <div role="alert" className="feedback error">
           <p>{error}</p>
@@ -254,7 +340,7 @@ export function RiskDetail({
             restauração neste incremento.
           </p>
           <div className="record-actions">
-            <Button disabled={pending} onClick={() => void archive()}>
+            <Button disabled={pending || unavailableForWrite} onClick={() => void archive()}>
               {pending ? 'Arquivando…' : 'Confirmar arquivamento'}
             </Button>
             <Button variant="outline" disabled={pending} onClick={() => setConfirming(false)}>
@@ -378,6 +464,7 @@ export function RiskDetail({
             onSaved={() => {
               setEvaluating(false);
               setAttempt(attempt + 1);
+              onChanged();
             }}
           />
         )}
@@ -385,7 +472,7 @@ export function RiskDetail({
         {history.error && (
           <div className="feedback error" role="alert">
             <p>{history.error}</p>
-            <Button variant="outline" onClick={() => setAttempt(attempt + 1)}>
+            <Button variant="outline" onClick={reloadRisk}>
               Atualizar fichas
             </Button>
           </div>

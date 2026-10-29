@@ -31,6 +31,11 @@ async function login(page: Page, email = 'admin1@renr.example') {
   await page.getByLabel('Senha', { exact: true }).fill(demoPassword());
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Empresas', exact: true })).toBeVisible();
+  const company = page.getByRole('combobox', { name: 'Empresa ativa', exact: true });
+  if ((await company.inputValue()) !== organizationId) {
+    await company.selectOption(organizationId);
+    await expect(page.getByRole('heading', { name: 'Unidades', exact: true })).toBeVisible();
+  }
 }
 async function navigate(page: Page, name: string) {
   const trigger = page.getByRole('button', { name: 'Abrir navegação', exact: true });

@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import {
-  riskListSchema,
+  riskWorkspaceListSchema,
   riskOverviewSchema,
   riskRegistrationsSchema,
 } from '../../packages/contracts/src/index';
@@ -61,21 +61,23 @@ test('KPIs e anel conferem com snapshot real; sem ficha exclui arquivados', asyn
     }),
   ).toBeVisible();
   const loaded = page.waitForResponse(
-    (response) => /\/risks\?/.test(response.url()) && response.request().method() === 'GET',
+    (response) =>
+      /\/risk-workspaces\?/.test(response.url()) && response.request().method() === 'GET',
   );
   await metrics.getByRole('link', { name: /Sem ficha/ }).click();
   await expect(page).toHaveURL(/#\/inventario\?page=1&evaluationPresence=WITHOUT$/);
-  const result = riskListSchema.parse(await (await loaded).json());
+  const result = riskWorkspaceListSchema.parse(await (await loaded).json());
   expect(result.total).toBe(snapshot.totals.withoutEvaluation);
   expect(
     result.items.every((risk) => risk.status !== 'ARCHIVED' && risk.latestEvaluation === null),
   ).toBe(true);
   expect(result.items.some((risk) => risk.status === 'REGISTERED')).toBe(true);
   const archivedResponse = page.waitForResponse(
-    (response) => /\/risks\?/.test(response.url()) && response.request().method() === 'GET',
+    (response) =>
+      /\/risk-workspaces\?/.test(response.url()) && response.request().method() === 'GET',
   );
   await page.goto('/#/inventario?page=1&status=ARCHIVED&evaluationPresence=WITHOUT');
-  const archived = riskListSchema.parse(await (await archivedResponse).json());
+  const archived = riskWorkspaceListSchema.parse(await (await archivedResponse).json());
   expect(archived.items.length).toBeGreaterThan(0);
   expect(
     archived.items.every((risk) => risk.status === 'ARCHIVED' && risk.latestEvaluation === null),
@@ -92,13 +94,14 @@ test('valores por unidade oferecem drill-down real com filtro explícito', async
   const table = page.getByRole('table', { name: 'Valores e acesso ao inventário por unidade' });
   await expect(table).toBeVisible();
   const loaded = page.waitForResponse(
-    (response) => /\/risks\?/.test(response.url()) && response.request().method() === 'GET',
+    (response) =>
+      /\/risk-workspaces\?/.test(response.url()) && response.request().method() === 'GET',
   );
   await table
     .getByRole('link', { name: unit.name + (unit.isActive ? '' : ' · inativa'), exact: true })
     .click();
   await expect(page).toHaveURL(new RegExp(`unitId=${unit.unitId}`));
-  const list = riskListSchema.parse(await (await loaded).json());
+  const list = riskWorkspaceListSchema.parse(await (await loaded).json());
   expect(list.total).toBe(unit.total);
   expect(
     list.items.every((risk) => risk.unit.id === unit.unitId && risk.status !== 'ARCHIVED'),

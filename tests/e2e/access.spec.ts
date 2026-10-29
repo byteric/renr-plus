@@ -219,6 +219,11 @@ test('troca de empresa remove registros anteriores e nega consulta fora do conte
   await page
     .getByLabel('Empresa ativa', { exact: true })
     .selectOption('10000000-0000-4000-8000-000000000001');
+  // Switching organization also changes the route and closes the mobile navigation.
+  // Wait for that transition before opening the next workspace.
+  await expect(page).toHaveURL(/#\/unidades$/);
+  await expect(page.getByRole('heading', { name: 'Unidades', exact: true })).toBeVisible();
+  await expect(page.getByLabel('Empresa ativa', { exact: true })).toBeEnabled();
   await navigateWorkspace(page, 'Acessos');
   await expect(page.getByRole('heading', { name: company.memberName, exact: true })).toHaveCount(0);
   expect(

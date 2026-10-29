@@ -65,6 +65,12 @@ test('filtros ficam acessíveis no desktop e âncoras não são encobertas pelo 
   await page.getByLabel('Senha', { exact: true }).fill(demoPassword());
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Empresas', exact: true })).toBeVisible();
+  const company = page.getByRole('combobox', { name: 'Empresa ativa', exact: true });
+  const targetOrganizationId = '10000000-0000-4000-8000-000000000001';
+  if ((await company.inputValue()) !== targetOrganizationId) {
+    await company.selectOption(targetOrganizationId);
+    await expect(page.getByRole('heading', { name: 'Unidades', exact: true })).toBeVisible();
+  }
   await navigateWorkspace(page, 'Inventário');
   const filters = page.getByRole('form', { name: 'Filtros do inventário' });
   await expect(filters).toBeVisible();

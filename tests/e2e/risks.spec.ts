@@ -55,7 +55,16 @@ async function login(page: Page, email = 'admin1@renr.example') {
   await expect(page.getByRole('heading', { name: 'Empresas', exact: true })).toBeVisible();
   const select = page.getByRole('combobox', { name: 'Empresa ativa', exact: true });
   if ((await select.inputValue()) !== org) {
-    await select.selectOption(org);
+    const [activation] = await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          response.request().method() === 'PUT' &&
+          response.url().endsWith('/api/v1/auth/session/organization'),
+      ),
+      select.selectOption(org),
+    ]);
+    expect(activation.status()).toBe(200);
+    await expect(select).toHaveValue(org);
     await expect(page.getByRole('heading', { name: 'Unidades', exact: true })).toBeVisible();
   }
 }
