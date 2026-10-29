@@ -34,5 +34,25 @@ child.on('error', () => {
   process.exitCode = 1;
 });
 child.on('exit', (code) => {
-  process.exitCode = code ?? 1;
+  if (code !== 0) {
+    process.exitCode = code ?? 1;
+    return;
+  }
+  const recovery = spawn(
+    process.execPath,
+    ['--test', 'scripts/reconcile-evidence-uploads.integration.test.mjs'],
+    {
+      cwd: root,
+      env: environment,
+      stdio: 'inherit',
+      windowsHide: true,
+    },
+  );
+  recovery.once('error', () => {
+    console.error('Não foi possível verificar a reconciliação pela API local.');
+    process.exitCode = 1;
+  });
+  recovery.once('exit', (recoveryCode) => {
+    process.exitCode = recoveryCode ?? 1;
+  });
 });
