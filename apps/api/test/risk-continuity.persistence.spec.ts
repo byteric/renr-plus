@@ -86,7 +86,10 @@ database('ID17 continuity PostgreSQL invariants', () => {
   const schema = `id17_owned_${randomUUID().replaceAll('-', '')}`;
   beforeAll(async () => {
     const url = localDatabaseUrl(process.env.DATABASE_URL!);
-    if (url.pathname !== '/renr_technical_id11_verification' || (url.port && url.port !== '5432'))
+    if (
+      !['/renr_test', '/renr_technical_id11_verification'].includes(url.pathname) ||
+      (url.port && url.port !== '5432')
+    )
       throw new Error('Dedicated verification database required');
     db = new Client({ connectionString: url.toString() });
     await db.connect();
