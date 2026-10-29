@@ -103,18 +103,18 @@ Após a autorização para publicar e depois do merge dos pacotes:
 5. O primeiro deploy pode derivar a origem HTTPS de `RENDER_EXTERNAL_URL`, fornecida pelo Render. Depois, preencher `CORS_ORIGIN` com a origem HTTPS exata do serviço, sem barra final ou caminho.
 6. Confirmar os valores da tabela abaixo antes de iniciar o deploy.
 
-| Variável                | Valor                                             |
-| ----------------------- | ------------------------------------------------- |
-| `NODE_ENV`              | `production`                                      |
-| `HOST`                  | `0.0.0.0`                                         |
-| `PORT`                  | `10000`                                           |
-| `SERVE_WEB`             | `true`                                            |
-| `WEB_DIST_PATH`         | `/app/apps/web/dist`                              |
-| `STORAGE_ENABLED`       | `true`                                            |
-| `RUN_MIGRATIONS`        | `true`                                            |
-| `CORS_ORIGIN`           | Origem HTTPS exata do serviço                     |
-| `DATABASE_URL`          | Conexão Neon com pool e TLS verificado            |
-| `DATABASE_URL_UNPOOLED` | Conexão Neon direta, mesmo banco e TLS verificado |
+| Variável                | Valor                                                   |
+| ----------------------- | ------------------------------------------------------- |
+| `NODE_ENV`              | `production`                                            |
+| `HOST`                  | `0.0.0.0`                                               |
+| `PORT`                  | `10000`                                                 |
+| `SERVE_WEB`             | `true`                                                  |
+| `WEB_DIST_PATH`         | `/app/apps/web/dist`                                    |
+| `STORAGE_ENABLED`       | `true`                                                  |
+| `RUN_MIGRATIONS`        | `false` — aplicar migrações manualmente antes do deploy |
+| `CORS_ORIGIN`           | Origem HTTPS exata do serviço                           |
+| `DATABASE_URL`          | Conexão Neon com pool e TLS verificado                  |
+| `DATABASE_URL_UNPOOLED` | Conexão Neon direta, mesmo banco e TLS verificado       |
 
 Configure `S3_ENDPOINT`, `S3_REGION` e `S3_BUCKET` a partir do projeto Supabase dedicado,
 com bucket `renr-evidence` privado e região `us-east-2`. Guarde `S3_ACCESS_KEY` e

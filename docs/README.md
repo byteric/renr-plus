@@ -10,7 +10,7 @@ O MVP conectará, em um único histórico rastreável:
 
 ## Estado do projeto
 
-A base v0.1 implementa login, sessão e cadastros. A v0.2 acrescenta diagnóstico demonstrativo com ciclos, convites de uso único e consolidação coletiva protegida. A v0.3 local conecta inventário, fichas preliminares e dashboards com dados reais, incluindo cadastros por dia. O instrumento é fictício e a ficha não representa pontuação ou validação técnica. Ações, evidências e avaliação técnica validada continuam nos próximos incrementos. Consulte o [guia de execução](../README.md), o [recorte v0.3](IMPLEMENTACAO_V03.md) e o [guia de uso](USO_V03.md). A disponibilidade online depende do commit publicado, não apenas da documentação.
+A aplicação reúne acesso por empresa, cadastros, instrumentos versionados, coletas protegidas, inventário, ações e evidências privadas. Os IDs 11–20 acrescentam métodos e avaliações técnicas versionadas, atribuição de ações, pareceres de eficácia, reavaliação, encerramento técnico e recuperação explícita de uploads. Instrumentos demonstrativos não constituem validação metodológica; métodos reais dependem de responsável e aprovação técnica. Consulte o [guia de execução](../README.md) e o [guia de promoção dos IDs 11–20](RELEASE_IDS11_20.md). A disponibilidade no link corresponde ao commit ativo no Render, depois da publicação e verificação.
 
 ## Escopo do MVP
 
@@ -60,6 +60,8 @@ A arquitetura é um monólito modular. IA não faz parte do MVP; uma porta de in
 - [Contratos e critérios v0.3](CRITERIOS_V03.md)
 - [Experiência e acessibilidade v0.3](UX_V03.md)
 - [Verificação v0.3](VERIFICACAO_V03.md)
+- [Promoção e verificação dos IDs 11–20](RELEASE_IDS11_20.md)
+- [Evidências recuperáveis](EVIDENCIAS_RECUPERAVEIS_ID19.md)
 - [Diagnóstico demonstrativo](DIAGNOSTICO_V02.md)
 - [Histórias e critérios do diagnóstico](CRITERIOS_DIAGNOSTICO_V02.md)
 - [Contrato HTTP do diagnóstico](API_DIAGNOSTICO_V02.md)
@@ -68,12 +70,12 @@ A arquitetura é um monólito modular. IA não faz parte do MVP; uma porta de in
 
 ## Governança do repositório
 
-- A branch `main` será protegida contra alterações diretas.
-- Toda contribuição será submetida por pull request.
-- Pull requests precisarão da aprovação de `@Byteric` antes do merge.
-- Aprovações antigas serão descartadas quando houver novas alterações no pull request.
-- Conversas de revisão deverão ser resolvidas antes do merge.
-- Force push e exclusão da branch protegida permanecerão bloqueados.
+- A branch `main` recebe alterações por pull request, com CI e revisão válidas.
+- Ricardo coordena a composição do incremento e a publicação.
+- A PR final de Ricardo exige a aprovação independente de um revisor autorizado; Luiz é o revisor solicitado para esta promoção.
+- Novos pushes exigem conferir novamente a validade da aprovação e dos checks.
+- Conversas de revisão precisam ser resolvidas antes do merge.
+- Force push, exclusão da branch protegida e bypass não fazem parte do fluxo.
 
 ### Branches da equipe
 
@@ -88,7 +90,7 @@ A arquitetura é um monólito modular. IA não faz parte do MVP; uma porta de in
 | Luiz Henrique Rocha Silva | `dev/luiz` |
 | Eliziane Mota de Souza | `dev/eliziane` |
 
-Cada integrante trabalha e publica commits somente em sua branch. A integração com `main` será feita por pull request revisado e aprovado pela conta `@Byteric`.
+Cada integrante contribui pela sua branch; Ricardo compõe o incremento na `dev/ricardo`. A `main` recebe a PR final após CI e aprovação independente. O merge commit preserva os commits e suas coautorias. Publicação é manual e ocorre depois das migrações aditivas verificadas.
 
 ## Dados e responsabilidade
 
