@@ -13,6 +13,11 @@ import { z } from 'zod';
 import { Prisma } from '../generated/prisma/client';
 import { InviteUnavailableException } from '../modules/diagnostics/diagnostics.service';
 import { AccessInviteUnavailableException } from '../modules/access/access.errors';
+import {
+  ReportGenerationBusyException,
+  ReportGenerationDeadlineException,
+  ReportScopeTooLargeException,
+} from '../modules/reports/report-errors';
 
 const unavailableDatabaseCodes = new Set(['P1001', 'P1002', 'P1008', 'P1017', 'P2024']);
 function isDatabaseUnavailable(exception: unknown): boolean {
@@ -74,6 +79,16 @@ export class ApiExceptionFilter implements ExceptionFilter {
     if (exception instanceof AccessInviteUnavailableException) {
       body.code = 'ACCESS_INVITE_UNAVAILABLE';
       body.message = 'Activation invitation unavailable';
+    }
+    if (exception instanceof ReportScopeTooLargeException) {
+      body.code = 'REPORT_SCOPE_TOO_LARGE';
+      body.message = 'Choose a smaller report scope';
+    } else if (exception instanceof ReportGenerationBusyException) {
+      body.code = 'REPORT_GENERATION_BUSY';
+      body.message = 'Another report is being generated';
+    } else if (exception instanceof ReportGenerationDeadlineException) {
+      body.code = 'REPORT_GENERATION_DEADLINE';
+      body.message = 'Report generation exceeded its deadline';
     }
     if (exception instanceof HttpException && statusCode === 400) {
       const details = z

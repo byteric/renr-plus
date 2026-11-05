@@ -11,14 +11,15 @@ export const SheetDescription = Dialog.Description;
 export function SheetContent({
   children,
   className,
+  closeLabel = 'Fechar navegação',
   ...props
-}: ComponentProps<typeof Dialog.Content>) {
+}: ComponentProps<typeof Dialog.Content> & { closeLabel?: string }) {
   return (
     <Dialog.Portal>
       <Dialog.Overlay className="sheet-overlay" />
       <Dialog.Content className={cn('sheet-content', className)} {...props}>
         {children}
-        <Dialog.Close className="sheet-close" aria-label="Fechar navegação">
+        <Dialog.Close className="sheet-close" aria-label={closeLabel}>
           ×
         </Dialog.Close>
       </Dialog.Content>

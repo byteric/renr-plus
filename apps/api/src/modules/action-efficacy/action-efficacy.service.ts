@@ -48,6 +48,33 @@ function originActive(record: ActionRecord): boolean {
   );
 }
 
+export function currentEfficacy(
+  record: ActionRecord,
+  row: Pick<OpinionRecord, 'actionFingerprint' | 'riskContextFingerprint' | 'proofPackage'>,
+  files: ReadonlyMap<string, { archivedAt: Date | null; sha256: string }>,
+  isLatest: boolean,
+) {
+  const proof = efficacyProofPackageSchema.parse(row.proofPackage);
+  const fingerprints = efficacyFingerprints(operational(record), toRisk(record.risk));
+  return {
+    ...fingerprints,
+    ...deriveEfficacyValidity({
+      isLatest,
+      ...fingerprints,
+      opinionActionFingerprint: row.actionFingerprint,
+      opinionRiskContextFingerprint: row.riskContextFingerprint,
+      originActive: originActive(record),
+      selectedEvidence: proof.files.map((file) => {
+        const current = files.get(file.id);
+        return {
+          available: !!current,
+          archived: !!current?.archivedAt,
+          hashMatches: current?.sha256 === file.sha256,
+        };
+      }),
+    }),
+  };
+}
 @Injectable()
 export class ActionEfficacyService {
   constructor(private readonly actions: ActionsRepository) {}
@@ -75,7 +102,6 @@ export class ActionEfficacyService {
     rows: OpinionRecord[],
     latestId: string | null,
   ): Promise<EfficacyOpinion[]> {
-    const fingerprints = efficacyFingerprints(operational(record), toRisk(record.risk));
     const parsed = rows.map((row) => ({
       row,
       proof: efficacyProofPackageSchema.parse(row.proofPackage),
@@ -88,8 +114,9 @@ export class ActionEfficacyService {
         })
       : [];
     const files = new Map(currentFiles.map((file) => [file.id, file]));
-    return parsed.map(({ row, proof }) =>
-      efficacyOpinionSchema.parse({
+    return parsed.map(({ row, proof }) => {
+      const { validity, reviewReasons } = currentEfficacy(record, row, files, row.id === latestId);
+      return efficacyOpinionSchema.parse({
         id: row.id,
         organizationId: row.organizationId,
         actionId: row.actionId,
@@ -112,23 +139,10 @@ export class ActionEfficacyService {
         proofPackage: proof,
         author: row.author,
         createdAt: row.createdAt.toISOString(),
-        ...deriveEfficacyValidity({
-          isLatest: row.id === latestId,
-          ...fingerprints,
-          opinionActionFingerprint: row.actionFingerprint,
-          opinionRiskContextFingerprint: row.riskContextFingerprint,
-          originActive: originActive(record),
-          selectedEvidence: proof.files.map((file) => {
-            const current = files.get(file.id);
-            return {
-              available: !!current,
-              archived: !!current?.archivedAt,
-              hashMatches: current?.sha256 === file.sha256,
-            };
-          }),
-        }),
-      }),
-    );
+        validity,
+        reviewReasons,
+      });
+    });
   }
   async contextInTransaction(
     tx: Prisma.TransactionClient,
@@ -297,6 +311,11 @@ export class ActionEfficacyService {
           actorId: scope.userId,
           resourceId: row.id,
           action: 'ACTION_EFFICACY_RECORDED',
+          resourceType: 'efficacy-opinion',
+          reason: input.rationale,
+          referenceType: 'efficacy-opinion',
+          referenceId: row.id,
+          version: row.sequence,
         },
       });
       return (await this.opinionsInTransaction(tx, record, [row], row.id))[0]!;

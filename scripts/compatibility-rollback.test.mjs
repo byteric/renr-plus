@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { createServer } from 'node:net';
-import { mkdtemp, readFile, readdir, realpath, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
@@ -14,6 +14,7 @@ import { localDatabaseUrl } from './local-database-url.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const baseline = 'c301caae569442a4aa5ccef34111ffaf32f05982';
+const publishedBaseline = '3de32b1cfb2b72dd130b2e9ae73efd246f0eec7c';
 const requireApi = createRequire(path.join(root, 'apps/api/package.json'));
 const { Pool } = requireApi('pg');
 const pnpm = path.join(root, 'node_modules/pnpm/bin/pnpm.cjs');
@@ -63,6 +64,35 @@ async function reservePort() {
   return port;
 }
 
+async function extractApplication(artifact, commit, env) {
+  const archive = path.join(artifact, 'source.tar');
+  await run(
+    'git',
+    ['archive', '--format=tar', `--output=${archive}`, commit],
+    root,
+    env,
+    'Archive',
+  );
+  await run('tar', ['-xf', archive, '-C', artifact], root, env, 'Extract archive');
+}
+
+async function buildApplication(artifact, env) {
+  await run(
+    process.execPath,
+    [pnpm, 'install', '--prefer-offline', '--frozen-lockfile', '--ignore-scripts'],
+    artifact,
+    env,
+    'Frozen dependency install',
+    true,
+  );
+  for (const args of [
+    ['--filter', '@renr/contracts', 'build'],
+    ['--filter', '@renr/api', 'prisma:generate'],
+    ['--filter', '@renr/api', 'build'],
+  ])
+    await run(process.execPath, [pnpm, ...args], artifact, env, `Build ${args.at(-1)}`);
+}
+
 async function stop(child) {
   if (!child || child.exitCode !== null || child.signalCode !== null) return;
   const exited = once(child, 'exit');
@@ -88,7 +118,8 @@ async function startApplication(directory, env) {
     for (let attempt = 0; attempt < 150; attempt++) {
       assert.ok(!failed && child.exitCode === null, 'Application exited before readiness');
       try {
-        const response = await fetch(`${url}/health`, { signal: AbortSignal.timeout(1000) });
+        // Wait for the database probe too. Listening can precede the first connection.
+        const response = await fetch(`${url}/ready`, { signal: AbortSignal.timeout(3000) });
         if (response.ok) return { child, url };
       } catch {
         /* The process may still be binding its port. */
@@ -165,7 +196,7 @@ async function consumer(application, contracts, password) {
 }
 
 test(
-  'frozen v0.3 consumers and application rollback preserve expanded v0.5 data',
+  'frozen v0.3 consumers and published application rollback preserve the expanded schema',
   { timeout: 600_000 },
   async (t) => {
     // No .env fallback: the caller must explicitly choose the local database server.
@@ -199,15 +230,7 @@ test(
     try {
       await admin.query(`CREATE DATABASE "${databaseName}"`);
       created = true;
-      const archive = path.join(artifact, 'v03.tar');
-      await run(
-        'git',
-        ['archive', '--format=tar', `--output=${archive}`, baseline],
-        root,
-        env,
-        'v0.3 archive',
-      );
-      await run('tar', ['-xf', archive, '-C', artifact], root, env, 'v0.3 extraction');
+      await extractApplication(artifact, baseline, env);
       // These committed fixtures must never be refreshed from the current provider.
       for (const name of [
         'index',
@@ -231,20 +254,7 @@ test(
           `Frozen ${name} differs from v0.3`,
         );
       }
-      await run(
-        process.execPath,
-        [pnpm, 'install', '--prefer-offline', '--frozen-lockfile', '--ignore-scripts'],
-        artifact,
-        env,
-        'Frozen v0.3 install',
-        true,
-      );
-      for (const args of [
-        ['--filter', '@renr/contracts', 'build'],
-        ['--filter', '@renr/api', 'prisma:generate'],
-        ['--filter', '@renr/api', 'build'],
-      ])
-        await run(process.execPath, [pnpm, ...args], artifact, env, `v0.3 ${args.at(-1)}`);
+      await buildApplication(artifact, env);
       const oldRequire = createRequire(path.join(artifact, 'apps/api/package.json'));
       const contracts = oldRequire('@renr/contracts');
       t.diagnostic(`Built isolated v0.3 artifact ${baseline}; frozen consumer fixtures verified`);
@@ -494,8 +504,44 @@ test(
       );
       await stop(application.child);
 
+      const mixedMember = await db.query(
+        `UPDATE memberships
+         SET capabilities = ARRAY['TECHNICAL_DECISIONS']::"Capability"[],
+             hr_capabilities = ARRAY['HR_ANALYTICS_READ']::"Capability"[]
+         WHERE organization_id=$1
+           AND user_id=(SELECT id FROM users WHERE email='admin1@renr.example')`,
+        [organization],
+      );
+      assert.equal(mixedMember.rowCount, 1);
+      const published = path.join(artifact, 'published');
+      await mkdir(published);
+      await extractApplication(published, publishedBaseline, env);
+      await buildApplication(published, env);
+      const publishedRequire = createRequire(path.join(published, 'apps/api/package.json'));
+      const publishedContracts = publishedRequire('@renr/contracts');
+      application = await startApplication(published, env);
+      const rollback = await consumer(application, contracts, password);
+      const legacyGrants = await rollback.request(
+        '/auth/session-capabilities',
+        publishedContracts.sessionCapabilitiesSchema,
+      );
+      assert.deepEqual(legacyGrants.capabilities, ['TECHNICAL_DECISIONS']);
+      const rollbackActions = await rollback.request(
+        `${rollback.base}/actions`,
+        publishedContracts.actionListSchema,
+      );
+      assert.ok(rollbackActions.items.some((item) => item.id === action.id));
+      assert.deepEqual(await history(), before, 'Published rollback must preserve historical rows');
+      t.diagnostic(`Published commit ${publishedBaseline} serves the expanded schema`);
+      await stop(application.child);
+
       application = await startApplication(root, env);
       const resumed = await consumer(application, contracts, password);
+      const currentGrants = await resumed.request(
+        '/auth/session-capabilities',
+        requireApi('@renr/contracts').sessionCapabilitiesSchema,
+      );
+      assert.deepEqual(currentGrants.capabilities, ['TECHNICAL_DECISIONS', 'HR_ANALYTICS_READ']);
       assert.ok(resumed.cycles.items.some((item) => item.id === cycle.id));
       await resumed.request(
         `${resumed.base}/diagnostic-cycles/${cycle.id}/results`,

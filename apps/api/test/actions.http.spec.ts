@@ -24,7 +24,11 @@ describe('Action HTTP boundary', () => {
               userId: id,
               activeOrganizationId: org,
               expiresAt: new Date(Date.now() + 60000),
-              user: { memberships: [{ organizationId: org, role: 'READER' }] },
+              user: {
+                memberships: [
+                  { organizationId: org, role: 'READER', capabilities: [], hrCapabilities: [] },
+                ],
+              },
             }),
           },
         },

@@ -9,6 +9,8 @@ export default defineConfig({
   fullyParallel: false,
   retries: 0,
   workers: 1,
+  // Authenticated journeys may use tokens or passwords. Only explicit safe captures are retained.
+  use: { ...base.use, trace: 'off', video: 'off', screenshot: 'off' },
   webServer: [
     {
       command: 'node dist/main.js',

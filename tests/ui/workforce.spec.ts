@@ -51,6 +51,8 @@ async function mockWorkforce(page: Page, kind: Kind, theme: 'light' | 'dark') {
   });
   await page.route('**/api/v1/**', async (route) => {
     const path = new URL(route.request().url()).pathname;
+    if (path === '/api/v1/platform/capabilities')
+      return route.fulfill({ json: { capabilities: [] } });
     if (route.request().method() !== 'GET')
       throw new Error(`Unexpected synthetic mutation: ${route.request().method()} ${path}`);
     if (path === '/api/v1/health')

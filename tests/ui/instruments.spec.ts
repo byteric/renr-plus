@@ -72,6 +72,8 @@ async function mockInstruments(page: Page, theme: 'light' | 'dark', published: b
   await page.addInitScript((value) => localStorage.setItem('renr-theme', value), theme);
   await page.route('**/api/v1/**', async (route) => {
     const path = new URL(route.request().url()).pathname;
+    if (path === '/api/v1/platform/capabilities')
+      return route.fulfill({ json: { capabilities: [] } });
     if (route.request().method() !== 'GET')
       throw new Error('Visual fixtures must never mutate data');
     if (path === '/api/v1/health')

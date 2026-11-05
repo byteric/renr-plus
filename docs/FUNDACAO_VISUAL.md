@@ -71,3 +71,9 @@ Os E2E de negócio exigem os serviços locais e dados sintéticos preparados con
 o README. A suíte `test:ui` inicia seu próprio Vite e não usa credenciais. Capturas
 ficam em `test-results/`, fora do versionamento. Os resultados executados de cada
 etapa são registrados em `docs/VERIFICACAO_ID01_ID02.md`.
+
+## Aplicação de Percurso nas áreas de Pessoas, Plataforma e Relatórios
+
+A interface usa os masters de aplicação em `apps/web/public/brand/`. A composição horizontal se ajusta para o símbolo em espaço compacto. Os fundos escuros recebem a variante branca. O favicon permanece nos caminhos históricos, com referência versionada no HTML. A fonte Manrope Variable é servida localmente em WOFF2 com cobertura latina, peso 200–800, troca imediata de fonte e licença OFL ao lado do asset. Os tokens semânticos de texto, ação, foco, superfícies e estados em `design-tokens.css` separam a paleta Percurso dos significados de risco, férias e situação fiscal.
+
+A área da empresa preserva o seletor e a Administração da plataforma identifica o escopo global. A prévia focaliza o título da emissão e mostra os dados preservados. Tabelas extensas rolam dentro de uma região identificada. A assinatura é estática. O sistema aplica 120 ms para resposta de controles, 180 ms para transições de conteúdo, 220 ms para o painel de correção cadastral e até 450 ms para gráficos, com até 35 ms de escalonamento total e respeito à preferência por movimento reduzido.

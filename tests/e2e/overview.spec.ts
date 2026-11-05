@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { navigateWorkspace } from './navigation';
 import {
   organizationListSchema,
-  organizationOverviewSchema,
+  managementIndicatorsSchema,
 } from '../../packages/contracts/src/index';
 import { demoPassword } from '../../scripts/e2e-data.mjs';
 
@@ -42,27 +42,28 @@ test('painel lê indicadores reais, mantém contexto e funciona em claro e escur
   page.on('pageerror', (error) => errors.push(error.message));
   await login(page);
   const responsePromise = page.waitForResponse(
-    (response) => response.url().endsWith('/overview') && response.request().method() === 'GET',
+    (response) =>
+      response.url().includes('/management-indicators?') && response.request().method() === 'GET',
   );
   await navigateWorkspace(page, 'Painel');
   const response = await responsePromise;
   expect(response.status()).toBe(200);
-  const overview = organizationOverviewSchema.parse(await response.json());
+  const overview = managementIndicatorsSchema.parse(await response.json());
   await expect(page).toHaveURL(/#\/painel$/);
   await expect(
     page.getByRole('heading', { name: overview.organization.name, exact: true }),
   ).toBeVisible();
+  await page
+    .getByRole('navigation', { name: 'Áreas do painel' })
+    .getByRole('link', { name: 'Estrutura' })
+    .click();
   for (const [label, value] of [
-    ['Unidades cadastradas', overview.units.total],
-    ['Setores cadastrados', overview.sectors.total],
-    ['Unidades sem setores', overview.unitsWithoutSectors],
+    ['Unidades', overview.structure.units.total],
+    ['Setores', overview.structure.sectors.total],
   ] as const) {
-    const metric = page.getByText(label, { exact: true }).locator('..');
+    const metric = page.locator('dt').getByText(label, { exact: true }).locator('..');
     await expect(metric.getByRole('definition')).toHaveText(String(value));
   }
-  await expect(
-    page.getByText(/não representam avaliação de riscos nem conformidade com a NR-01/),
-  ).toBeVisible();
   for (const theme of ['light', 'dark'] as const) {
     if (theme === 'dark')
       await page.getByRole('button', { name: 'Modo escuro', exact: true }).click();
@@ -79,7 +80,10 @@ test('painel lê indicadores reais, mantém contexto e funciona em claro e escur
   await expect(
     page.getByRole('heading', { name: overview.organization.name, exact: true }),
   ).toBeVisible();
-  await page.getByRole('link', { name: 'Consultar unidades e setores →' }).click();
+  await page
+    .getByRole('region', { name: 'Estrutura cadastrada' })
+    .getByRole('link', { name: 'Unidades', exact: true })
+    .click();
   await expect(page.getByRole('heading', { name: 'Unidades', exact: true })).toBeVisible();
   expect(errors).toEqual([]);
 });
@@ -87,13 +91,13 @@ test('painel lê indicadores reais, mantém contexto e funciona em claro e escur
 test('painel recupera após falha temporária usando nova resposta real', async ({ page }) => {
   const name = await login(page);
   let fail = true;
-  await page.route('**/api/v1/organizations/*/overview', async (route) => {
+  await page.route('**/api/v1/organizations/*/management-indicators?**', async (route) => {
     if (fail) await route.fulfill({ status: 503, contentType: 'application/json', body: '{}' });
     else await route.continue();
   });
   await navigateWorkspace(page, 'Painel');
   await expect(page.getByRole('alert')).toContainText('Serviço temporariamente indisponível');
-  await expect(page.getByText('Unidades cadastradas', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('list', { name: 'Indicadores principais' })).toHaveCount(0);
   fail = false;
   await page.getByRole('button', { name: 'Tentar novamente', exact: true }).click();
   await expect(page.getByRole('heading', { name, exact: true })).toBeVisible();
@@ -105,12 +109,12 @@ test('resposta inválida não exibe indicadores e sessão expirada retorna ao lo
 }) => {
   await login(page);
   let status = 200;
-  await page.route('**/api/v1/organizations/*/overview', (route) =>
+  await page.route('**/api/v1/organizations/*/management-indicators?**', (route) =>
     route.fulfill({ status, contentType: 'application/json', body: '{}' }),
   );
   await navigateWorkspace(page, 'Painel');
   await expect(page.getByRole('alert')).toContainText('Não foi possível concluir a operação');
-  await expect(page.getByText('Unidades cadastradas', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('list', { name: 'Indicadores principais' })).toHaveCount(0);
   status = 401;
   await page.getByRole('button', { name: 'Tentar novamente', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Acesse o ReNR+', exact: true })).toBeVisible();

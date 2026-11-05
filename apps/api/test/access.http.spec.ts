@@ -26,7 +26,13 @@ describe('Access HTTP boundary', () => {
               expiresAt: new Date(Date.now() + 60000),
               user: {
                 memberships: [
-                  { organizationId: org, role: 'ADMIN', isActive: true, capabilities: [] },
+                  {
+                    organizationId: org,
+                    role: 'ADMIN',
+                    isActive: true,
+                    capabilities: [],
+                    hrCapabilities: [],
+                  },
                 ],
               },
             }),

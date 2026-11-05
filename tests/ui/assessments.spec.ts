@@ -120,6 +120,8 @@ async function mock(page: Page, theme: 'light' | 'dark', suppressed = false) {
   await page.addInitScript((value) => localStorage.setItem('renr-theme', value), theme);
   await page.route('**/api/v1/**', async (route) => {
     const path = new URL(route.request().url()).pathname;
+    if (path === '/api/v1/platform/capabilities')
+      return route.fulfill({ json: { capabilities: [] } });
     if (path.endsWith('/assessment-participation/access'))
       return route.fulfill({ json: publicView });
     if (route.request().method() !== 'GET') throw new Error('Visual inspection cannot mutate data');

@@ -14,6 +14,7 @@ import { RiskForm } from './RiskForm';
 import { PreliminaryEvaluationForm } from './PreliminaryEvaluationForm';
 import { riskDate, statusLabels, useRiskData } from './useRiskData';
 import { TechnicalEvaluationPanel } from './TechnicalEvaluationPanel';
+import { DomainHistory } from '../history/DomainHistory';
 
 const sections = [
   { id: 'resumo', label: 'Resumo' },
@@ -559,39 +560,50 @@ export function RiskDetail({
       <section id="risk-historico" className="surface risk-content-section" tabIndex={-1}>
         <p className="panel-label">05 · CONTINUIDADE</p>
         <h3>Histórico</h3>
-        <ol className="risk-timeline">
-          <li>
-            <strong>Cadastro</strong>
-            <p>
-              {item.createdBy.name} ·{' '}
-              <time dateTime={item.createdAt}>{riskDate(item.createdAt)}</time>
-            </p>
-          </li>
-          <li>
-            <strong>
-              Versão atual {item.version} · {statusLabels[item.status]}
-            </strong>
-            <p>
-              {item.updatedBy.name} ·{' '}
-              <time dateTime={item.updatedAt}>{riskDate(item.updatedAt)}</time>
-            </p>
-          </li>
-          {history.data?.items.map((evaluation) => (
-            <li key={evaluation.id}>
-              <strong>
-                Ficha preliminar {evaluation.sequence} · Contexto v{evaluation.riskVersion}
-              </strong>
+        <DomainHistory
+          organizationId={organizationId}
+          kind="risk"
+          id={id}
+          refreshKey={attempt}
+          onExpire={onExpire}
+          onUnavailable={(status) => setUnavailable({ status, attempt })}
+        />
+        <details>
+          <summary>Metadados do cadastro e fichas</summary>
+          <ol className="risk-timeline">
+            <li>
+              <strong>Cadastro</strong>
               <p>
-                {evaluation.author.name} ·{' '}
-                <time dateTime={evaluation.createdAt}>{riskDate(evaluation.createdAt)}</time>
+                {item.createdBy.name} ·{' '}
+                <time dateTime={item.createdAt}>{riskDate(item.createdAt)}</time>
               </p>
             </li>
-          ))}
-        </ol>
-        <p className="muted">
-          Este histórico mostra metadados do cadastro e das fichas; não é um acesso aos logs gerais
-          da organização.
-        </p>
+            <li>
+              <strong>
+                Versão atual {item.version} · {statusLabels[item.status]}
+              </strong>
+              <p>
+                {item.updatedBy.name} ·{' '}
+                <time dateTime={item.updatedAt}>{riskDate(item.updatedAt)}</time>
+              </p>
+            </li>
+            {history.data?.items.map((evaluation) => (
+              <li key={evaluation.id}>
+                <strong>
+                  Ficha preliminar {evaluation.sequence} · Contexto v{evaluation.riskVersion}
+                </strong>
+                <p>
+                  {evaluation.author.name} ·{' '}
+                  <time dateTime={evaluation.createdAt}>{riskDate(evaluation.createdAt)}</time>
+                </p>
+              </li>
+            ))}
+          </ol>
+          <p className="muted">
+            Este histórico mostra metadados do cadastro e das fichas; não é um acesso aos logs
+            gerais da organização.
+          </p>
+        </details>
       </section>
     </div>
   );

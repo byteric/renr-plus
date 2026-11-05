@@ -88,9 +88,28 @@ export class RisksRepository {
   async lock(tx: Prisma.TransactionClient, organizationId: string, id: string): Promise<void> {
     await tx.$queryRaw`SELECT id FROM risks WHERE organization_id = ${organizationId}::uuid AND id = ${id}::uuid FOR UPDATE`;
   }
-  audit(tx: Prisma.TransactionClient, scope: RiskScope, resourceId: string, action: string) {
+  audit(
+    tx: Prisma.TransactionClient,
+    scope: RiskScope,
+    resourceId: string,
+    action: string,
+    reason: string | null = null,
+    version?: number,
+  ) {
     return tx.auditEvent.create({
-      data: { actorId: scope.userId, organizationId: scope.organizationId, resourceId, action },
+      data: {
+        actorId: scope.userId,
+        organizationId: scope.organizationId,
+        resourceId,
+        action,
+        resourceType:
+          action === 'RISK_PRELIMINARY_EVALUATION_CREATE' ? 'preliminary-evaluation' : 'risk',
+        reason,
+        version,
+        referenceId: resourceId,
+        referenceType:
+          action === 'RISK_PRELIMINARY_EVALUATION_CREATE' ? 'preliminary-evaluation' : 'risk',
+      },
     });
   }
 }

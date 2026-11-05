@@ -354,6 +354,12 @@ describeDatabase('v0.1 HTTP with PostgreSQL', () => {
       .set('Origin', origin)
       .set('Cookie', cookie)
       .send({ fiscalIdentifier: 'synthetic', timezone: 'America/Recife' })
+      .expect(400);
+    await request(app.getHttpServer())
+      .patch(`/api/v1/organizations/${organization.body.id}`)
+      .set('Origin', origin)
+      .set('Cookie', cookie)
+      .send({ fiscalIdentifier: '12.ABC.345/01DE-35', timezone: 'America/Recife' })
       .expect(200);
     expect(
       await database.client.membership.findUnique({

@@ -24,6 +24,9 @@ export class RequestError extends Error {
         'Este convite está indisponível, expirou ou já foi utilizado. Solicite outro convite ao responsável.',
       CYCLE_NOT_OPEN: 'O ciclo não está aberto para participação.',
       INVALID_CYCLE_TRANSITION: 'Esta mudança não está disponível para o estado atual do ciclo.',
+      REPORT_SCOPE_TOO_LARGE: 'Reduza o recorte da emissão e tente novamente.',
+      REPORT_GENERATION_BUSY: 'Há outras exportações em andamento. Aguarde e tente novamente.',
+      REPORT_GENERATION_DEADLINE: 'O PDF atingiu o tempo limite de geração. Tente novamente.',
       INVALID_ANSWERS: 'Confira as respostas obrigatórias e as opções selecionadas.',
     };
     super(
@@ -40,19 +43,24 @@ export async function request<T>(
   try {
     const data: unknown = await response.json();
     return schema.parse(data);
-  } catch {
+  } catch (error) {
+    if (error instanceof RequestError) throw error;
     throw new RequestError(502);
   }
 }
-export async function send(path: string, options: RequestInit = {}): Promise<Response> {
+export async function send(
+  path: string,
+  options: RequestInit = {},
+  timeoutMs = 15_000,
+): Promise<Response> {
   let response: Response;
   try {
     response = await fetch(`${apiBaseUrl}${path}`, {
       ...options,
       credentials: options.credentials ?? 'include',
       signal: options.signal
-        ? AbortSignal.any([options.signal, AbortSignal.timeout(15_000)])
-        : AbortSignal.timeout(15_000),
+        ? AbortSignal.any([options.signal, AbortSignal.timeout(timeoutMs)])
+        : AbortSignal.timeout(timeoutMs),
       headers: {
         Accept: 'application/json',
         ...(options.body && !(options.body instanceof FormData)

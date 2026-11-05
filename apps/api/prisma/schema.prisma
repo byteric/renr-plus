@@ -18,6 +18,11 @@ model Organization {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
   fiscalIdentifier String? @map("fiscal_identifier") @db.VarChar(32)
+  fiscalCandidate String? @map("fiscal_candidate") @db.VarChar(14)
+  normalizedFiscalIdentifier String? @unique @map("normalized_fiscal_identifier") @db.VarChar(14)
+  fiscalState String @default("MISSING") @map("fiscal_state") @db.VarChar(16)
+  clientClassification String @default("UNCLASSIFIED") @map("client_classification") @db.VarChar(20)
+  registrationVersion Int @default(1) @map("registration_version")
   timezone String @default("America/Sao_Paulo")
   isActive Boolean @default(true) @map("is_active")
   memberships Membership[]
@@ -39,6 +44,17 @@ model Organization {
   accessHistory AccessHistory[]
   employees Employee[]
   actionEfficacyOpinions ActionEfficacyOpinion[]
+  hrProfiles EmployeeHrProfile[]
+  settlementParameters EmployeeSettlementParameters[]
+  employmentPeriods EmploymentPeriod[]
+  remunerations EmployeeRemuneration[]
+  vacationPeriods EmployeeVacationPeriod[]
+  hrRevisions EmployeeHrRevision[]
+  reportSnapshots ReportSnapshot[]
+  registrationRevisions OrganizationRegistrationRevision[]
+
+  @@index([clientClassification, isActive, name, id])
+  @@index([fiscalCandidate])
 
   @@map("organizations")
 }
@@ -80,6 +96,17 @@ model User {
   technicalRiskEvaluations TechnicalRiskEvaluation[]
   @@map("users")
   actionEfficacyOpinions ActionEfficacyOpinion[]
+  platformGrants PlatformGrant[]
+  hrProfilesUpdated EmployeeHrProfile[]
+  settlementParametersUpdated EmployeeSettlementParameters[]
+  employmentPeriodsUpdated EmploymentPeriod[]
+  remunerationsUpdated EmployeeRemuneration[]
+  vacationPeriodsUpdated EmployeeVacationPeriod[]
+  hrRevisionsAuthored EmployeeHrRevision[]
+  registrationRevisionsAuthored OrganizationRegistrationRevision[]
+  platformEventsAuthored PlatformAuditEvent[] @relation("PlatformActor")
+  platformEventsReceived PlatformAuditEvent[] @relation("PlatformSubject")
+  reportsCreated ReportSnapshot[]
 }
 
 model Membership {
@@ -90,6 +117,7 @@ model Membership {
   isActive Boolean @default(true) @map("is_active")
   version Int @default(1)
   capabilities Capability[] @default([])
+  hrCapabilities Capability[] @default([]) @map("hr_capabilities")
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -103,6 +131,12 @@ model Membership {
 enum Capability {
   EXECUTE_ASSIGNED_ACTIONS
   TECHNICAL_DECISIONS
+  HR_PROFILE_READ
+  HR_PROFILE_MANAGE
+  HR_ANALYTICS_READ
+  HR_COMPENSATION_READ
+  HR_COMPENSATION_MANAGE
+  HR_EXPORT
 }
 
 model AccessInvite {
@@ -112,6 +146,7 @@ model AccessInvite {
   name String @db.VarChar(120)
   role Role
   capabilities Capability[] @default([])
+  hrCapabilities Capability[] @default([]) @map("hr_capabilities")
   tokenHash String @unique @map("token_hash") @db.Char(64)
   version Int @default(1)
   createdBy String @map("created_by") @db.Uuid
@@ -383,8 +418,17 @@ model AuditEvent {
   organizationId String? @map("organization_id") @db.Uuid
   action String @db.VarChar(80)
   resourceId String? @map("resource_id") @db.Uuid
+  resourceType String? @map("resource_type") @db.VarChar(80)
+  reason String? @db.VarChar(4000)
+  referenceType String? @map("reference_type") @db.VarChar(80)
+  referenceId String? @map("reference_id") @db.Uuid
+  version Int?
   createdAt DateTime @default(now()) @map("created_at")
   @@index([organizationId, createdAt])
+  @@index([organizationId, createdAt, id], map: "audit_events_org_created_id_idx")
+  @@index([organizationId, action, createdAt, id], map: "audit_events_org_action_created_id_idx")
+  @@index([organizationId, resourceId, createdAt, id], map: "audit_events_org_resource_created_id_idx")
+  @@index([organizationId, actorId, createdAt, id], map: "audit_events_org_actor_created_id_idx")
   @@map("audit_events")
 }
 
@@ -533,6 +577,7 @@ model ActionRevision {
   evidence ActionEvidence? @relation(fields: [organizationId, actionId, evidenceId], references: [organizationId, actionId, id], onDelete: Restrict, onUpdate: NoAction)
   efficacyOpinions ActionEfficacyOpinion[]
   @@unique([actionId, version])
+  @@index([organizationId, actionId, createdAt, id], map: "action_revisions_org_action_created_id_idx")
   @@map("action_revisions")
 }
 
@@ -617,11 +662,186 @@ model Employee {
   unit Unit @relation(fields: [organizationId, unitId], references: [organizationId, id], onDelete: Restrict)
   sector Sector @relation(fields: [organizationId, unitId, sectorId], references: [organizationId, unitId, id], onDelete: Restrict)
   membership Membership? @relation(fields: [linkedUserId, organizationId], references: [userId, organizationId], onDelete: Restrict)
+  hrProfile EmployeeHrProfile?
+  settlementParameters EmployeeSettlementParameters[]
+  employmentPeriods EmploymentPeriod[]
+  remunerations EmployeeRemuneration[]
+  vacationPeriods EmployeeVacationPeriod[]
+  hrRevisions EmployeeHrRevision[]
+  @@unique([organizationId, id])
   @@unique([organizationId, normalizedIdentifier])
   @@index([organizationId, isActive, name, id])
   @@index([organizationId, unitId, sectorId])
   @@index([linkedUserId, organizationId])
   @@map("employees")
+}
+
+model EmployeeHrProfile {
+  organizationId String @map("organization_id") @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  birthDate DateTime? @map("birth_date") @db.Date
+  gender String? @db.VarChar(30)
+  genderDescription String? @map("gender_description") @db.VarChar(120)
+  vacationHistoryKnown Boolean @default(false) @map("vacation_history_known")
+  complexLeaveHistoryKnown Boolean @default(false) @map("complex_leave_history_known")
+  hasComplexLeaves Boolean @default(false) @map("has_complex_leaves")
+  followUp Boolean @default(false) @map("follow_up")
+  source String @db.VarChar(500)
+  version Int @default(1)
+  updatedById String @map("updated_by_id") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at")
+  organization Organization @relation(fields:[organizationId],references:[id],onDelete:Restrict)
+  employee Employee @relation(fields:[organizationId,employeeId],references:[organizationId,id],onDelete:Restrict)
+  updatedBy User @relation(fields:[updatedById],references:[id],onDelete:Restrict)
+  @@id([organizationId,employeeId])
+  @@map("employee_hr_profiles")
+}
+model EmployeeSettlementParameters {
+  organizationId String @map("organization_id") @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  referenceDate DateTime @map("reference_date") @db.Date
+  input Json
+  source String @db.VarChar(500)
+  version Int @default(1)
+  updatedById String @map("updated_by_id") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at")
+  organization Organization @relation(fields:[organizationId],references:[id],onDelete:Restrict)
+  employee Employee @relation(fields:[organizationId,employeeId],references:[organizationId,id],onDelete:Restrict)
+  updatedBy User @relation(fields:[updatedById],references:[id],onDelete:Restrict)
+  @@id([organizationId,employeeId,referenceDate])
+  @@index([organizationId,referenceDate])
+  @@map("employee_settlement_parameters")
+}
+model EmploymentPeriod {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  startsOn DateTime @map("starts_on") @db.Date
+  endsOn DateTime? @map("ends_on") @db.Date
+  source String @db.VarChar(500)
+  version Int @default(1)
+  updatedById String @map("updated_by_id") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at")
+  organization Organization @relation(fields:[organizationId],references:[id],onDelete:Restrict)
+  employee Employee @relation(fields:[organizationId,employeeId],references:[organizationId,id],onDelete:Restrict)
+  updatedBy User @relation(fields:[updatedById],references:[id],onDelete:Restrict)
+  @@unique([organizationId,employeeId,id])
+  @@index([organizationId,employeeId,startsOn])
+  @@map("employment_periods")
+}
+model EmployeeRemuneration {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  competence String @db.VarChar(7)
+  salaryCents BigInt @map("salary_cents")
+  remunerationType String @default("FIXED") @map("remuneration_type") @db.VarChar(16)
+  source String @db.VarChar(500)
+  version Int @default(1)
+  updatedById String @map("updated_by_id") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at")
+  organization Organization @relation(fields:[organizationId],references:[id],onDelete:Restrict)
+  employee Employee @relation(fields:[organizationId,employeeId],references:[organizationId,id],onDelete:Restrict)
+  updatedBy User @relation(fields:[updatedById],references:[id],onDelete:Restrict)
+  @@unique([organizationId,employeeId,competence])
+  @@index([organizationId,competence,employeeId])
+  @@map("employee_remunerations")
+}
+model EmployeeVacationPeriod {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  acquisitionStart DateTime @map("acquisition_start") @db.Date
+  acquisitionEnd DateTime @map("acquisition_end") @db.Date
+  concessionDeadline DateTime @map("concession_deadline") @db.Date
+  entitlementDays Int @map("entitlement_days")
+  balanceDays Int @map("balance_days")
+  unjustifiedAbsences Int @default(0) @map("unjustified_absences")
+  historyKnown Boolean @map("history_known")
+  uses Json @default("[]")
+  source String @db.VarChar(500)
+  version Int @default(1)
+  updatedById String @map("updated_by_id") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at")
+  organization Organization @relation(fields:[organizationId],references:[id],onDelete:Restrict)
+  employee Employee @relation(fields:[organizationId,employeeId],references:[organizationId,id],onDelete:Restrict)
+  updatedBy User @relation(fields:[updatedById],references:[id],onDelete:Restrict)
+  @@unique([organizationId,employeeId,acquisitionStart])
+  @@index([organizationId,concessionDeadline,employeeId])
+  @@map("employee_vacation_periods")
+}
+model EmployeeHrRevision {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  resourceType String @map("resource_type") @db.VarChar(40)
+  resourceId String @map("resource_id") @db.Uuid
+  financial Boolean @default(false)
+  version Int
+  snapshot Json
+  reason String @db.VarChar(1000)
+  actorId String @map("actor_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  organization Organization @relation(fields:[organizationId],references:[id],onDelete:Restrict)
+  employee Employee @relation(fields:[organizationId,employeeId],references:[organizationId,id],onDelete:Restrict)
+  actor User @relation(fields:[actorId],references:[id],onDelete:Restrict)
+  @@index([organizationId,employeeId,createdAt,id])
+  @@map("employee_hr_revisions")
+}
+enum PlatformCapability {
+  READ_OVERVIEW
+  MANAGE_CLIENTS
+  MANAGE_GRANTS
+}
+model PlatformGrant {
+  userId String @map("user_id") @db.Uuid
+  capability PlatformCapability
+  isActive Boolean @default(true) @map("is_active")
+  version Int @default(1)
+  updatedAt DateTime @updatedAt @map("updated_at")
+  user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+  @@id([userId,capability])
+  @@index([capability,isActive])
+  @@map("platform_grants")
+}
+model PlatformAuditEvent {
+  id String @id @default(uuid()) @db.Uuid
+  actorId String? @map("actor_id") @db.Uuid
+  subjectId String? @map("subject_id") @db.Uuid
+  action String @db.VarChar(80)
+  resourceId String? @map("resource_id") @db.Uuid
+  reason String @db.VarChar(1000)
+  createdAt DateTime @default(now()) @map("created_at")
+  actor User? @relation("PlatformActor",fields:[actorId],references:[id],onDelete:Restrict)
+  subject User? @relation("PlatformSubject",fields:[subjectId],references:[id],onDelete:Restrict)
+  @@index([createdAt,id])
+  @@map("platform_audit_events")
+}
+model OrganizationRegistrationRevision {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  version Int
+  snapshot Json
+  actorId String @map("actor_id") @db.Uuid
+  reason String @db.VarChar(1000)
+  createdAt DateTime @default(now()) @map("created_at")
+  organization Organization @relation(fields:[organizationId],references:[id],onDelete:Restrict)
+  actor User @relation(fields:[actorId],references:[id],onDelete:Restrict)
+  @@unique([organizationId,version])
+  @@map("organization_registration_revisions")
+}
+model ReportSnapshot {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String? @map("organization_id") @db.Uuid
+  kind String @db.VarChar(16)
+  financial Boolean @default(false)
+  createdById String @map("created_by_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  snapshot Json
+  organization Organization? @relation(fields:[organizationId],references:[id],onDelete:Restrict)
+  createdBy User @relation(fields:[createdById],references:[id],onDelete:Restrict)
+  @@index([organizationId,createdAt,id])
+  @@map("report_snapshots")
 }
 
 model ConsolidationPolicyVersion {

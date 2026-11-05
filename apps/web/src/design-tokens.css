@@ -1,34 +1,48 @@
-/* ReNR+ foundation: existing brand colors, named semantic roles and a 4px rhythm. */
+@font-face {
+  font-family: 'Manrope Variable';
+  src: url('/brand/manrope-latin.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+}
+/* Percurso: approved brand palette, semantic roles and a 4px rhythm. */
 :root {
   font-family: 'Manrope Variable', 'Segoe UI', Arial, sans-serif;
   font-synthesis: none;
   line-height: 1.5;
   color-scheme: light;
 
-  --background: #faf9f3;
-  --foreground: #153b40;
-  --card: #ffffff;
-  --card-foreground: #153b40;
-  --primary: #075663;
-  --primary-foreground: #ffffff;
-  --muted: #eef2ed;
-  --muted-foreground: #516569;
-  --border: #dce4df;
-  --input: #6d8883;
-  --ring: #009b3a;
-  --brand-green: #009d37;
-  --brand-orange: #ff8a12;
+  --brand-deep: #173e3a;
+  --brand-mineral: #579277;
+  --brand-lime: #d5e7a3;
+  --brand-light: #f7f8f2;
+  --brand-accent-ink: #416f54;
 
-  --info: #075663;
-  --info-surface: #eaf4f4;
+  --background: var(--brand-light);
+  --foreground: var(--brand-deep);
+  --card: #ffffff;
+  --card-foreground: var(--brand-deep);
+  --primary: var(--brand-deep);
+  --primary-foreground: #ffffff;
+  --muted: #edf1e8;
+  --muted-foreground: #52665d;
+  --border: #d7e1d8;
+  --input: #6b8375;
+  --ring: #416f54;
+  /* Compatibility aliases for existing surfaces; statuses have separate tokens. */
+  --brand-green: var(--primary);
+  --brand-orange: var(--brand-accent-ink);
+
+  --info: #173e3a;
+  --info-surface: #eaf1ec;
   --success: #17613b;
   --success-surface: #e9f6ee;
   --warning: #7a4905;
   --warning-surface: #fff3df;
   --danger: #9f3227;
   --danger-surface: #fff1ed;
-  --shadow-low: 0 1px 3px #153b400a, 0 4px 16px #153b4005;
-  --shadow-overlay: 8px 0 32px #051e2826;
+  --shadow-low: 0 1px 3px #173e3a0a, 0 4px 16px #173e3a05;
+  --shadow-overlay: 8px 0 32px #173e3a26;
 
   --font-caption: 0.75rem;
   --font-label: 0.875rem;
@@ -63,19 +77,20 @@
 
 .dark {
   color-scheme: dark;
-  --background: #101f23;
-  --foreground: #f0f5ef;
-  --card: #182c30;
-  --card-foreground: #f0f5ef;
-  --primary: #a0ded8;
-  --primary-foreground: #123136;
-  --muted: #21373b;
-  --muted-foreground: #b0c5c5;
-  --border: #344b4f;
-  --input: #617e82;
-  --ring: #78d391;
-  --info: #a0ded8;
-  --info-surface: #173c42;
+  --background: #102522;
+  --foreground: var(--brand-light);
+  --card: #19342f;
+  --card-foreground: var(--brand-light);
+  --primary: var(--brand-lime);
+  --primary-foreground: var(--brand-deep);
+  --brand-accent-ink: var(--brand-lime);
+  --muted: #223d35;
+  --muted-foreground: #b7cbbd;
+  --border: #3c574b;
+  --input: #799889;
+  --ring: var(--brand-lime);
+  --info: #d5e7a3;
+  --info-surface: #223d35;
   --success: #9de2b6;
   --success-surface: #1b382c;
   --warning: #ffd08a;

@@ -259,7 +259,24 @@ export function App() {
       </a>
       <header className="site-header">
         <a className="wordmark" href="#/empresas" aria-label="ReNR+ início">
-          ReNR<span>+</span>
+          <picture>
+            <source
+              media="(max-width: 600px)"
+              srcSet={
+                theme === 'dark'
+                  ? '/brand/renr-plus-symbol-dark.svg'
+                  : '/brand/renr-plus-symbol.svg'
+              }
+            />
+            <img
+              src={
+                theme === 'dark' ? '/brand/renr-plus-logo-dark.svg' : '/brand/renr-plus-logo.svg'
+              }
+              width={180}
+              height={57}
+              alt=""
+            />
+          </picture>
         </a>
         <div className="header-actions">
           <Button

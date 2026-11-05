@@ -48,19 +48,20 @@ try {
       [0, '10000000-0000-4000-8000-000000000001', 'Empresa demonstração 1'],
       [1, '10000000-0000-4000-8000-000000000002', 'Empresa demonstração 2'],
     ]) {
-      await tx.organization.upsert({ where: { id }, update: {}, create: { id, name } });
+      // Migration tests also seed schemas from before the People fields were added.
+      await tx.$executeRaw`
+        INSERT INTO organizations (id, name, updated_at) VALUES (${id}::uuid, ${name}, CURRENT_TIMESTAMP)
+        ON CONFLICT (id) DO NOTHING`;
       await provisionDemoInstrument(tx, id);
-      await tx.membership.upsert({
-        where: { userId_organizationId: { userId: users[index].id, organizationId: id } },
-        update: {},
-        create: { userId: users[index].id, organizationId: id, role: 'ADMIN' },
-      });
+      await tx.$executeRaw`
+        INSERT INTO memberships (user_id, organization_id, role)
+        VALUES (${users[index].id}::uuid, ${id}::uuid, 'ADMIN')
+        ON CONFLICT (user_id, organization_id) DO NOTHING`;
       if (index === 0)
-        await tx.membership.upsert({
-          where: { userId_organizationId: { userId: users[2].id, organizationId: id } },
-          update: {},
-          create: { userId: users[2].id, organizationId: id, role: 'READER' },
-        });
+        await tx.$executeRaw`
+          INSERT INTO memberships (user_id, organization_id, role)
+          VALUES (${users[2].id}::uuid, ${id}::uuid, 'READER')
+          ON CONFLICT (user_id, organization_id) DO NOTHING`;
       const unit = await tx.unit.upsert({
         where: {
           organizationId_normalizedName: {
