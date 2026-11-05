@@ -4,6 +4,8 @@ import {
   unitListSchema,
   sectorListSchema,
   sessionResponseSchema,
+  sessionCapabilitiesSchema,
+  platformCapabilitiesSchema,
   type Organization,
   type Unit,
   type Sector,
@@ -15,6 +17,7 @@ import { Diagnostics } from './Diagnostics';
 import { WorkspaceNavigation } from './WorkspaceNavigation';
 import { RouteMotion } from './RouteMotion';
 import { StructureEditor } from './StructureEditor';
+import { useRiskData } from './risks/useRiskData';
 import './workforce/workforce.css';
 
 const RiskWorkspace = lazy(() =>
@@ -44,6 +47,18 @@ const AssessmentWorkspace = lazy(() =>
     default: module.AssessmentWorkspace,
   })),
 );
+const AuditWorkspace = lazy(() =>
+  import('./history/AuditWorkspace').then((module) => ({ default: module.AuditWorkspace })),
+);
+const PeopleWorkspace = lazy(() =>
+  import('./people/PeopleWorkspace').then((module) => ({ default: module.PeopleWorkspace })),
+);
+const PlatformWorkspace = lazy(() =>
+  import('./platform/PlatformWorkspace').then((module) => ({ default: module.PlatformWorkspace })),
+);
+const ReportsWorkspace = lazy(() =>
+  import('./reports/ReportsWorkspace').then((module) => ({ default: module.ReportsWorkspace })),
+);
 
 type Kind = 'empresas' | 'unidades' | 'setores';
 type RecordItem = Organization | Unit | Sector;
@@ -55,19 +70,28 @@ type Route = {
     | 'inventario'
     | 'acoes'
     | 'acessos'
+    | 'auditoria'
     | 'instrumentos'
     | 'coletas'
     | 'colaboradores'
-    | 'grupos';
+    | 'grupos'
+    | 'pessoas'
+    | 'plataforma'
+    | 'relatorios'
+    | 'platform-reports';
   unitId: string | null;
 };
 function readRoute(): Route {
   const parts = window.location.hash.replace(/^#\/?/, '').split('?')[0]?.split('/') ?? [];
+  if (parts[0] === 'pessoas' || parts[0] === 'relatorios') return { kind: parts[0], unitId: null };
+  if (parts[0] === 'plataforma')
+    return { kind: parts[1] === 'relatorios' ? 'platform-reports' : 'plataforma', unitId: null };
   if (parts[0] === 'coletas') return { kind: 'coletas', unitId: null };
   if (parts[0] === 'instrumentos') return { kind: 'instrumentos', unitId: null };
   if (parts[0] === 'colaboradores' || parts[0] === 'grupos')
     return { kind: parts[0], unitId: null };
   if (parts[0] === 'acessos') return { kind: 'acessos', unitId: null };
+  if (parts[0] === 'auditoria') return { kind: 'auditoria', unitId: null };
   if (parts[0] === 'inventario') return { kind: 'inventario', unitId: null };
   if (parts[0] === 'acoes') return { kind: 'acoes', unitId: null };
   if (parts[0] === 'diagnostico') return { kind: 'diagnostico', unitId: null };
@@ -78,6 +102,10 @@ function readRoute(): Route {
   return { kind: 'empresas', unitId: null };
 }
 const titles: Record<Route['kind'], string> = {
+  pessoas: 'Gestão de Pessoas',
+  plataforma: 'Administração da plataforma',
+  relatorios: 'Relatórios',
+  'platform-reports': 'Relatórios da plataforma',
   coletas: 'Coletas',
   instrumentos: 'Instrumentos',
   colaboradores: 'Colaboradores',
@@ -87,6 +115,7 @@ const titles: Record<Route['kind'], string> = {
   inventario: 'Inventário',
   acoes: 'Ações',
   acessos: 'Acessos',
+  auditoria: 'Auditoria',
   empresas: 'Empresas',
   unidades: 'Unidades',
   setores: 'Setores',
@@ -135,6 +164,13 @@ export function Structure({
     (value) => value.organizationId === session.activeOrganizationId,
   );
   const canWrite = membership?.role === 'ADMIN';
+  const access = useRiskData('/auth/session-capabilities', sessionCapabilitiesSchema, onExpire);
+  const globalAccess = useRiskData('/platform/capabilities', platformCapabilitiesSchema, onExpire);
+  const capabilities =
+    access.data?.organizationId === session.activeOrganizationId
+      ? (access.data?.capabilities ?? [])
+      : [];
+  const platformCapabilities = globalAccess.data?.capabilities ?? [];
   const isRegistration =
     route.kind === 'empresas' || route.kind === 'unidades' || route.kind === 'setores';
   const registrationSingular =
@@ -263,6 +299,8 @@ export function Structure({
         unitId={route.unitId}
         pending={pending}
         onSelect={(id) => void select({ id })}
+        capabilities={capabilities}
+        platformCapabilities={platformCapabilities}
       />
       <section className="workspace-content">
         <RouteMotion route={`${route.kind}-${route.unitId}`}>
@@ -279,31 +317,41 @@ export function Structure({
                         ? 'SEU CONTEXTO, EM PERSPECTIVA'
                         : route.kind === 'diagnostico'
                           ? 'ESCUTA COLETIVA · DADOS DEMONSTRATIVOS'
-                          : 'ESTRUTURA ORGANIZACIONAL'}
+                          : route.kind === 'plataforma' || route.kind === 'platform-reports'
+                            ? 'ADMINISTRAÇÃO · ESCOPO GLOBAL'
+                            : 'ESTRUTURA ORGANIZACIONAL'}
               </p>
               <h1 ref={heading} tabIndex={-1}>
                 {titles[route.kind]}
               </h1>
               <p className="muted">
-                {route.kind === 'coletas'
-                  ? 'Aplique instrumentos publicados e acompanhe cada coleta no contexto da empresa.'
-                  : route.kind === 'instrumentos'
-                    ? 'Crie instrumentos, confira a prévia e preserve cada versão publicada.'
-                    : route.kind === 'acessos'
-                      ? 'Gerencie vínculos e conceda somente as capacidades necessárias.'
-                      : route.kind === 'acoes'
-                        ? 'Organize medidas preventivas e preserve o histórico de acompanhamento.'
-                        : route.kind === 'painel'
-                          ? 'Conecte estrutura, registros e próximos passos da empresa selecionada.'
-                          : route.kind === 'inventario'
-                            ? 'Documente fatores, preserve a origem e acompanhe cada versão.'
-                            : route.kind === 'diagnostico'
-                              ? 'Aplique ciclos demonstrativos e consulte a consolidação coletiva.'
-                              : route.kind === 'empresas'
-                                ? 'Escolha a empresa em que você deseja trabalhar.'
-                                : route.kind === 'unidades'
-                                  ? 'Organize os locais de trabalho da empresa.'
-                                  : 'Organize as equipes e áreas da unidade selecionada.'}
+                {route.kind === 'plataforma' || route.kind === 'platform-reports'
+                  ? 'Escopo global: atendimento de clientes e cadastros vinculados, sem acesso nominal automático.'
+                  : route.kind === 'pessoas'
+                    ? 'Perfis e indicadores de RH no contexto da empresa, conforme suas permissões.'
+                    : route.kind === 'relatorios'
+                      ? 'Emita uma versão preservada dos dados e consulte a mesma prévia antes do download.'
+                      : route.kind === 'coletas'
+                        ? 'Aplique instrumentos publicados e acompanhe cada coleta no contexto da empresa.'
+                        : route.kind === 'instrumentos'
+                          ? 'Crie instrumentos, confira a prévia e preserve cada versão publicada.'
+                          : route.kind === 'auditoria'
+                            ? 'Consulte o histórico de operações da empresa e abra os registros correspondentes.'
+                            : route.kind === 'acessos'
+                              ? 'Gerencie vínculos e conceda somente as capacidades necessárias.'
+                              : route.kind === 'acoes'
+                                ? 'Organize medidas preventivas e preserve o histórico de acompanhamento.'
+                                : route.kind === 'painel'
+                                  ? 'Conecte estrutura, registros e próximos passos da empresa selecionada.'
+                                  : route.kind === 'inventario'
+                                    ? 'Documente fatores, preserve a origem e acompanhe cada versão.'
+                                    : route.kind === 'diagnostico'
+                                      ? 'Aplique ciclos demonstrativos e consulte a consolidação coletiva.'
+                                      : route.kind === 'empresas'
+                                        ? 'Escolha a empresa em que você deseja trabalhar.'
+                                        : route.kind === 'unidades'
+                                          ? 'Organize os locais de trabalho da empresa.'
+                                          : 'Organize as equipes e áreas da unidade selecionada.'}
               </p>
             </div>
             {canWrite &&
@@ -335,7 +383,41 @@ export function Structure({
               )}
             </div>
           )}
-          {route.kind === 'coletas' ? (
+          {route.kind === 'plataforma' ? (
+            <Suspense fallback={<p role="status">Carregando administração da plataforma…</p>}>
+              <PlatformWorkspace onExpire={onExpire} />
+            </Suspense>
+          ) : route.kind === 'relatorios' || route.kind === 'platform-reports' ? (
+            <Suspense fallback={<p role="status">Carregando relatórios…</p>}>
+              <ReportsWorkspace
+                key={route.kind + '-' + session.activeOrganizationId}
+                organizationId={session.activeOrganizationId}
+                organizationName={membership?.organizationName}
+                onExpire={onExpire}
+                platform={route.kind === 'platform-reports'}
+              />
+            </Suspense>
+          ) : route.kind === 'pessoas' ? (
+            session.activeOrganizationId ? (
+              <Suspense fallback={<p role="status">Carregando Gestão de Pessoas…</p>}>
+                <PeopleWorkspace
+                  key={session.activeOrganizationId}
+                  organizationId={session.activeOrganizationId}
+                  onExpire={onExpire}
+                />
+              </Suspense>
+            ) : (
+              <p className="surface">Selecione uma empresa para consultar Gestão de Pessoas.</p>
+            )
+          ) : route.kind === 'auditoria' ? (
+            <Suspense fallback={<p role="status">Carregando auditoria…</p>}>
+              <AuditWorkspace
+                key={session.activeOrganizationId}
+                session={session}
+                onExpire={onExpire}
+              />
+            </Suspense>
+          ) : route.kind === 'coletas' ? (
             <Suspense fallback={<p role="status">Carregando coletas…</p>}>
               <AssessmentWorkspace session={session} onExpire={onExpire} />
             </Suspense>
@@ -403,6 +485,7 @@ export function Structure({
               <ManagementDashboard
                 key={session.activeOrganizationId ?? 'no-organization'}
                 organizationId={session.activeOrganizationId}
+                canReadEmployees={canWrite}
                 onExpire={onExpire}
               />
             </Suspense>

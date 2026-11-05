@@ -1,0 +1,272 @@
+.people-workspace,
+.people-details,
+.people-overview,
+.people-editor {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-4);
+}
+.people-workspace p,
+.people-details p {
+  margin: 0;
+  color: var(--muted-foreground);
+}
+.people-workspace h2,
+.people-workspace h3,
+.people-workspace h4,
+.people-details h3,
+.people-details h4 {
+  margin: 0;
+  line-height: var(--line-heading);
+}
+.people-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+.people-heading h2 {
+  font-size: var(--font-title);
+  margin-bottom: var(--space-2);
+}
+.people-heading .eyebrow {
+  margin-bottom: var(--space-2);
+}
+.people-areas,
+.people-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.people-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  gap: var(--space-3);
+  align-items: end;
+  padding: var(--space-4);
+  background: var(--muted);
+  border-radius: var(--radius-surface);
+}
+.people-workspace label,
+.people-details label {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--foreground);
+  font-size: var(--font-label);
+}
+.people-workspace input,
+.people-workspace select,
+.people-details input,
+.people-details select,
+.people-details textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--control-min-height);
+  border: 1px solid var(--input);
+  border-radius: var(--radius-control);
+  padding: var(--space-2) var(--space-3);
+  color: var(--foreground);
+  background: var(--background);
+  font: inherit;
+}
+.people-details input[type='checkbox'] {
+  width: 20px;
+  min-height: 20px;
+  flex-shrink: 0;
+  accent-color: var(--primary);
+}
+.people-details .people-check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.people-details textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+.people-workspace :is(input, select):focus-visible,
+.people-details :is(input, select, textarea):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+.people-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: var(--space-4);
+}
+.people-metric {
+  min-width: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--brand-mineral);
+  border-radius: var(--radius-surface);
+  background: var(--card);
+  display: grid;
+  gap: var(--space-2);
+}
+.people-metric h4 {
+  font-size: var(--font-label);
+  font-weight: 650;
+}
+.people-metric > strong {
+  font-size: var(--font-subtitle);
+  color: var(--primary);
+  font-variant-numeric: tabular-nums;
+}
+.people-metric p,
+.people-metric small {
+  font-size: var(--font-caption);
+  color: var(--muted-foreground);
+}
+.people-distributions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: var(--space-4);
+}
+.people-distribution {
+  min-width: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  background: var(--card);
+}
+.people-chart {
+  display: grid;
+  gap: var(--space-3);
+  margin-block: var(--space-4);
+}
+.people-chart span {
+  display: block;
+  font-size: var(--font-label);
+}
+.people-chart i {
+  display: block;
+  min-height: 8px;
+  margin-top: var(--space-1);
+  background: var(--brand-mineral);
+  border-radius: 4px;
+  transform-origin: left;
+}
+.people-workspace table,
+.people-details table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: var(--font-label);
+  margin-top: var(--space-3);
+}
+.people-workspace th,
+.people-workspace td,
+.people-details th,
+.people-details td {
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.people-policy {
+  padding: var(--space-4);
+  border-inline-start: 3px solid var(--brand-mineral);
+  background: var(--muted);
+  font-size: var(--font-label);
+}
+.people-employees,
+.people-records {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+.people-employees > li,
+.people-records > li {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+}
+.people-employees > li > div,
+.people-records > li > div {
+  min-width: 0;
+  flex: 1 1 200px;
+}
+.people-workspace,
+.people-details {
+  overflow-wrap: anywhere;
+}
+.people-sheet {
+  inset-inline-start: auto;
+  inset-inline-end: 0;
+  width: min(100%, 760px);
+  max-width: 100vw;
+  padding: var(--space-6);
+  overflow-y: auto;
+}
+.people-sheet > h2 {
+  padding-inline-end: var(--space-8);
+}
+.people-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  gap: var(--space-3);
+}
+.people-details fieldset {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  padding: var(--space-4);
+  display: grid;
+  gap: var(--space-3);
+}
+.people-facts,
+.people-review dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: var(--space-4);
+  padding-block: var(--space-3);
+  margin: 0;
+}
+.people-facts dt,
+.people-review dt {
+  font-size: var(--font-label);
+  color: var(--muted-foreground);
+}
+.people-facts dd,
+.people-review dd {
+  margin: var(--space-1) 0 0;
+}
+.people-review {
+  padding: var(--space-4);
+  background: var(--warning-surface);
+  border: 1px solid var(--warning);
+  border-radius: var(--radius-control);
+}
+.people-editor [aria-invalid='true'] {
+  border-color: var(--danger);
+}
+.people-settlement,
+.people-settlement-result {
+  display: grid;
+  gap: var(--space-4);
+}
+@media (max-width: 480px) {
+  .people-sheet {
+    padding: var(--space-4);
+  }
+  .people-areas > button {
+    flex: 1 1 auto;
+  }
+  .people-form-actions > button {
+    flex: 1 1 100%;
+  }
+  .people-workspace .pagination,
+  .people-details .pagination {
+    flex-wrap: wrap;
+  }
+}

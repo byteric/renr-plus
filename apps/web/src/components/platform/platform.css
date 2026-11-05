@@ -1,0 +1,130 @@
+.platform-workspace,
+.platform-editor,
+.platform-grants {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.platform-workspace :is(h2, h3, p),
+.platform-editor :is(h3, h4, p) {
+  margin: 0;
+}
+.platform-heading,
+.platform-areas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+.platform-heading {
+  justify-content: space-between;
+}
+.platform-heading > div {
+  flex: 1 1 20rem;
+}
+.platform-filters,
+.platform-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+  gap: var(--space-3);
+  align-items: end;
+}
+.platform-filters,
+.platform-metrics > article,
+.platform-records > li,
+.platform-review,
+.platform-grants > .platform-editor {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  background: var(--card);
+  padding: var(--space-4);
+}
+.platform-metrics {
+  align-items: stretch;
+}
+.platform-metrics h3 {
+  color: var(--muted-foreground);
+  font-size: var(--font-label);
+}
+.platform-metrics strong {
+  display: block;
+  font-size: var(--font-section);
+  font-variant-numeric: tabular-nums;
+}
+:is(.platform-filters, .platform-editor) label {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-1);
+  font-weight: 650;
+}
+:is(.platform-filters, .platform-editor) :is(input:not([type='checkbox']), select, textarea) {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--control-min-height);
+  padding: var(--space-2);
+  border: 1px solid var(--input);
+  border-radius: var(--radius-control);
+  background: var(--background);
+  color: var(--foreground);
+}
+.platform-editor .platform-check input[type='checkbox'] {
+  flex: none;
+  width: 1.125rem;
+  height: 1.125rem;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--primary);
+}
+.platform-editor .platform-check {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  min-height: var(--control-min-height);
+}
+.platform-records {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.platform-records > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.platform-records > li > div {
+  min-width: 0;
+  flex: 1 1 14rem;
+}
+.platform-sheet {
+  width: min(100%, 34rem);
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+}
+.platform-workspace button,
+.platform-sheet button {
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .platform-sheet[data-state='open'] {
+    animation: platform-sheet-enter var(--duration-panel) var(--ease-out) both;
+  }
+  :is(.platform-workspace, .reports-workspace) button {
+    transition-duration: var(--duration-fast);
+  }
+}
+@keyframes platform-sheet-enter {
+  from {
+    transform: translateX(-0.75rem);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
