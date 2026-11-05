@@ -12,6 +12,7 @@ import type { Request } from 'express';
 import type {
   AccessInvite,
   AccessMembership,
+  Capability,
   AcceptAccessInvite,
   CreateAccessInvite,
   MutateAccessInvite,
@@ -22,6 +23,7 @@ import type { AccessInvite as InviteRecord, Membership } from '../../generated/p
 import { IdentityService } from '../identity/identity.service';
 import { hashPassword } from '../identity/password';
 import { AccessInviteUnavailableException } from './access.errors';
+import { combineCapabilities, splitCapabilities } from './capabilities';
 import {
   AccessRepository,
   memberInclude,
@@ -51,7 +53,7 @@ export class AccessService {
       email: member.user.email,
       role: member.role,
       isActive: member.isActive,
-      capabilities: member.capabilities,
+      capabilities: combineCapabilities(member),
       version: member.version,
       updatedAt: member.updatedAt.toISOString(),
     };
@@ -63,7 +65,7 @@ export class AccessService {
       email: record.email,
       name: record.name,
       role: record.role,
-      capabilities: record.capabilities,
+      capabilities: combineCapabilities(record),
       version: record.version,
       status: record.consumedAt
         ? 'CONSUMED'
@@ -108,7 +110,7 @@ export class AccessService {
       if (current.version !== input.expectedVersion) throw new ConflictException();
       const change =
         'capabilities' in input
-          ? { capabilities: input.capabilities }
+          ? splitCapabilities(input.capabilities)
           : { role: input.role, isActive: input.isActive };
       const role = 'role' in input ? (input.role ?? current.role) : current.role;
       const active = 'isActive' in input ? (input.isActive ?? current.isActive) : current.isActive;
@@ -136,7 +138,7 @@ export class AccessService {
           tx,
           scope,
           userId,
-          current.capabilities,
+          combineCapabilities(current),
           input.capabilities,
           input.reason,
         );
@@ -161,8 +163,8 @@ export class AccessService {
     tx: AccessTransaction,
     scope: AccessScope,
     userId: string,
-    previous: Membership['capabilities'],
-    next: Membership['capabilities'],
+    previous: Capability[],
+    next: Capability[],
     reason: string,
   ): Promise<void> {
     for (const capability of previous.filter((c) => !next.includes(c)))
@@ -191,7 +193,7 @@ export class AccessService {
         email: input.email,
         name: input.name,
         role: input.role,
-        capabilities: input.capabilities,
+        ...splitCapabilities(input.capabilities),
         tokenHash: digest(token),
         createdBy: scope.userId,
         expiresAt: new Date(Date.now() + input.expiresInHours * 3600000),
@@ -237,7 +239,7 @@ export class AccessService {
           email: current.email,
           name: current.name,
           role: current.role,
-          capabilities: current.capabilities,
+          capabilities: combineCapabilities(current),
           expiresInHours: 72,
           reason: input.reason,
         });
@@ -312,18 +314,21 @@ export class AccessService {
       const previous = await tx.membership.findUnique({ where });
       // An outstanding invitation cannot downgrade or silently change an active membership.
       if (previous?.isActive) throw new ConflictException('Membership already active');
+      const { capabilities, hrCapabilities } = invite;
       await tx.membership.upsert({
         where,
         create: {
           userId: user.id,
           organizationId: invite.organizationId,
           role: invite.role,
-          capabilities: invite.capabilities,
+          capabilities,
+          hrCapabilities,
         },
         update: {
           isActive: true,
           role: invite.role,
-          capabilities: invite.capabilities,
+          capabilities,
+          hrCapabilities,
           version: { increment: 1 },
         },
       });
@@ -344,8 +349,8 @@ export class AccessService {
         tx,
         { userId: invite.createdBy, organizationId: invite.organizationId },
         user.id,
-        previous?.capabilities ?? [],
-        invite.capabilities,
+        previous ? combineCapabilities(previous) : [],
+        combineCapabilities(invite),
         'Capabilities authorized through activation invitation',
       );
       return { organizationId: invite.organizationId, userId: user.id };

@@ -89,6 +89,33 @@ function summary(row: ReassessmentSummaryRecord): RiskReassessmentSummary {
   });
 }
 
+export function technicalClosureReviewReasons(
+  row: Pick<
+    ClosureRecord,
+    'id' | 'actionFingerprint' | 'riskContextFingerprint' | 'opinionId' | 'reassessment'
+  >,
+  latestId: string | null,
+  efficacy: Pick<EfficacyContext, 'actionFingerprint' | 'riskContextFingerprint'> & {
+    originInactive: boolean;
+    latest: Pick<NonNullable<EfficacyContext['latest']>, 'id' | 'reviewReasons'> | null;
+  },
+  latestEvaluationId: string | null,
+): TechnicalClosureReviewReason[] {
+  const reasons: TechnicalClosureReviewReason[] = [];
+  if (row.id === latestId) {
+    if (row.actionFingerprint !== efficacy.actionFingerprint)
+      reasons.push('ACTION_CONTENT_CHANGED');
+    if (row.riskContextFingerprint !== efficacy.riskContextFingerprint)
+      reasons.push('RISK_CONTEXT_CHANGED');
+    if (efficacy.originInactive) reasons.push('ORIGIN_INACTIVE');
+    if (row.opinionId !== efficacy.latest?.id) reasons.push('OPINION_SUPERSEDED');
+    else reasons.push(...(efficacy.latest?.reviewReasons ?? []));
+    if (row.reassessment.evaluationId !== latestEvaluationId)
+      reasons.push('REASSESSMENT_SUPERSEDED');
+  }
+  return [...new Set(reasons)];
+}
+
 @Injectable()
 export class RiskContinuityService {
   constructor(
@@ -378,6 +405,10 @@ export class RiskContinuityService {
           actorId: scope.userId,
           resourceId: reassessment.id,
           action: 'risk.reassessment_created',
+          resourceType: 'reassessment',
+          reason: input.evaluation.rationale,
+          referenceType: 'reassessment',
+          referenceId: reassessment.id,
         },
       });
       const row = await tx.riskReassessment.findUniqueOrThrow({
@@ -394,19 +425,17 @@ export class RiskContinuityService {
     efficacy: EfficacyContext,
     latestEvaluationId: string | null,
   ): TechnicalClosure {
-    const reasons: TechnicalClosureReviewReason[] = [];
-    if (row.id === latestId) {
-      if (row.actionFingerprint !== efficacy.actionFingerprint)
-        reasons.push('ACTION_CONTENT_CHANGED');
-      if (row.riskContextFingerprint !== efficacy.riskContextFingerprint)
-        reasons.push('RISK_CONTEXT_CHANGED');
-      if (efficacy.blockingReasons.includes('ORIGIN_INACTIVE')) reasons.push('ORIGIN_INACTIVE');
-      if (row.opinionId !== efficacy.latest?.id) reasons.push('OPINION_SUPERSEDED');
-      else reasons.push(...(efficacy.latest?.reviewReasons ?? []));
-      if (row.reassessment.evaluationId !== latestEvaluationId)
-        reasons.push('REASSESSMENT_SUPERSEDED');
-    }
-    const reviewReasons = [...new Set(reasons)];
+    const reviewReasons = technicalClosureReviewReasons(
+      row,
+      latestId,
+      {
+        actionFingerprint: efficacy.actionFingerprint,
+        riskContextFingerprint: efficacy.riskContextFingerprint,
+        originInactive: efficacy.blockingReasons.includes('ORIGIN_INACTIVE'),
+        latest: efficacy.latest,
+      },
+      latestEvaluationId,
+    );
     return technicalClosureSchema.parse({
       id: row.id,
       organizationId: row.organizationId,
@@ -588,6 +617,11 @@ export class RiskContinuityService {
           actorId: scope.userId,
           resourceId: row.id,
           action: 'action.technical_closure_created',
+          resourceType: 'technical-closure',
+          reason: input.rationale,
+          referenceType: 'technical-closure',
+          referenceId: row.id,
+          version: row.sequence,
         },
       });
       return this.closureDto(row, row.id, context.efficacy, context.latestEvaluation!.id);
@@ -671,8 +705,12 @@ export class RiskContinuityService {
         data: {
           organizationId: scope.organizationId,
           actorId: scope.userId,
-          resourceId: row.id,
+          resourceId: created.id,
           action: 'action.corrective_created',
+          resourceType: 'action',
+          reason: input.reason,
+          referenceType: 'action',
+          referenceId: created.id,
         },
       });
       return correctiveActionCreatedSchema.parse({

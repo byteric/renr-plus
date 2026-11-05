@@ -10,6 +10,7 @@ import type {
 } from '@renr/contracts';
 import { PrismaService } from '../../database/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
+import { fiscalFields, legacyOrganizationSelect } from '../platform/platform.service';
 
 type Page = OrganizationQuery;
 type Scope = { userId: string; organizationId: string };
@@ -61,6 +62,7 @@ export class OrganizationsService {
         skip: (pagination.page - 1) * pagination.pageSize,
         take: pagination.pageSize,
         orderBy: { name: 'asc' },
+        select: legacyOrganizationSelect,
       }),
       this.database.client.organization.count({ where }),
     ]);
@@ -80,7 +82,12 @@ export class OrganizationsService {
       )
         throw new ConflictException();
       const organization = await tx.organization.create({
-        data: { ...input, memberships: { create: { userId, role: 'ADMIN' } } },
+        data: {
+          ...input,
+          ...(await fiscalFields(tx, input.fiscalIdentifier ?? null)),
+          memberships: { create: { userId, role: 'ADMIN' } },
+        },
+        select: legacyOrganizationSelect,
       });
       await this.audit(
         tx,
@@ -94,6 +101,19 @@ export class OrganizationsService {
   async updateOrganization(scope: Scope, input: UpdateOrganization) {
     return this.write(async (tx) => {
       await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${scope.userId}))::text`;
+      const current = await tx.organization.findUniqueOrThrow({
+        where: { id: scope.organizationId },
+      });
+      if (
+        input.fiscalIdentifier !== undefined &&
+        current.fiscalIdentifier &&
+        input.fiscalIdentifier !== current.fiscalIdentifier
+      )
+        throw new ConflictException('Use a correção assistida do cadastro fiscal.');
+      const fiscal =
+        input.fiscalIdentifier !== undefined
+          ? await fiscalFields(tx, input.fiscalIdentifier, scope.organizationId)
+          : {};
       if (
         input.name &&
         (await tx.organization.findFirst({
@@ -107,7 +127,8 @@ export class OrganizationsService {
         throw new ConflictException();
       const organization = await tx.organization.update({
         where: { id: scope.organizationId },
-        data: input,
+        data: { ...input, ...fiscal, registrationVersion: { increment: 1 } },
+        select: legacyOrganizationSelect,
       });
       await this.audit(tx, scope, 'ORGANIZATION_UPDATE', organization.id);
       return organization;

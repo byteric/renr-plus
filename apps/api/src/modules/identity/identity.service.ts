@@ -7,7 +7,8 @@ import {
 } from '@nestjs/common';
 import { createHash, randomBytes } from 'node:crypto';
 import type { Request } from 'express';
-import type { Capability, SessionCapabilities, SessionResponse } from '@renr/contracts';
+import type { SessionCapabilities, SessionResponse } from '@renr/contracts';
+import { combineCapabilities, type LegacyCapability } from '../access/capabilities';
 import { ENVIRONMENT, type Environment } from '../../config/env';
 import { PrismaService } from '../../database/prisma.service';
 import { verifyPassword } from './password';
@@ -141,22 +142,26 @@ export class IdentityService {
     return { userId: session.userId, organizationId: active };
   }
 
-  async capabilities(request: Request): Promise<SessionCapabilities> {
+  private async activeMembership(request: Request) {
     const session = await this.authenticate(request);
-    const member = session.user.memberships.find(
+    return session.user.memberships.find(
       (item) => item.organizationId === session.activeOrganizationId && item.isActive !== false,
     );
+  }
+
+  async capabilities(request: Request): Promise<SessionCapabilities> {
+    const member = await this.activeMembership(request);
     return {
       organizationId: member?.organizationId ?? null,
-      capabilities: member?.capabilities ?? [],
+      capabilities: member ? combineCapabilities(member) : [],
       canManageAccess: member?.role === 'ADMIN',
     };
   }
 
-  async requireCapability(request: Request, organizationId: string, capability: Capability) {
+  async requireCapability(request: Request, organizationId: string, capability: LegacyCapability) {
     const scope = await this.scope(request, organizationId, false);
-    const current = await this.capabilities(request);
-    if (current.organizationId !== organizationId || !current.capabilities.includes(capability))
+    const member = await this.activeMembership(request);
+    if (member?.organizationId !== organizationId || !member.capabilities.includes(capability))
       throw new ForbiddenException();
     return scope;
   }

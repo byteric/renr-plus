@@ -9,8 +9,15 @@ export const READINESS_TIMEOUT_MS = 2_000;
 export class PrismaService implements OnApplicationShutdown {
   private readonly logger = new Logger(PrismaService.name);
   readonly client: PrismaClient;
+  readonly allowsRealPeopleData: boolean;
+  readonly productionPeoplePolicy: boolean;
+  readonly peopleDemoOrganizationIds: ReadonlySet<string>;
 
   constructor(@Inject(ENVIRONMENT) environment: Environment) {
+    this.allowsRealPeopleData =
+      environment.NODE_ENV !== 'production' || environment.HR_REAL_DATA_ENABLED;
+    this.productionPeoplePolicy = environment.NODE_ENV === 'production';
+    this.peopleDemoOrganizationIds = new Set(environment.HR_DEMO_ORGANIZATION_IDS);
     // Construction is lazy: only readiness or future repository calls open a connection.
     const adapter = new PrismaPg({
       connectionString: environment.DATABASE_URL,

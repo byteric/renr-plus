@@ -16,6 +16,17 @@ export const environmentSchema = z
     SERVE_WEB: booleanFlag.default(false),
     WEB_DIST_PATH: z.string().min(1).optional(),
     STORAGE_ENABLED: booleanFlag.default(false),
+    HR_REAL_DATA_ENABLED: booleanFlag.default(false),
+    HR_DEMO_ORGANIZATION_IDS: z
+      .string()
+      .default('')
+      .transform((value) =>
+        value
+          .split(',')
+          .map((id) => id.trim().toLowerCase())
+          .filter(Boolean),
+      )
+      .pipe(z.array(z.uuid()).max(50)),
     S3_ENDPOINT: httpUrl.default('http://127.0.0.1:9000'),
     S3_REGION: z.string().min(1).default('us-east-1'),
     S3_BUCKET: z.string().min(1).default('renr-evidence'),
