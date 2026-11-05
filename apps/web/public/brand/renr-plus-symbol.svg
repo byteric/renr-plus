@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">ReNR+ — Percurso</title>
+  <desc id="desc">Duas faixas curvas delimitam um percurso aberto com retorno, representando conexão e acompanhamento contínuo.</desc>
+  <g transform="translate(-14 -4)" fill="#173E3A">
+    <path d="M28 148V134C28 114 37 101 55 90L119 53C151 34 186 51 186 89V116L156.56 99C144 91 130 92 118 99L54 136C43 142 34 145 28 148Z"/>
+    <path d="M70 145V158C70 177 85 184 101 175L207 114C220 106 226 96 226 82V38C226 33 228 31 232 33L247 41.66C253 45.66 256 50.66 256 57.66V101C256 123 245 138 226 149L116 212C78 234 28 211 28 175C28 160 43 151 70 145Z"/>
+  </g>
+</svg>

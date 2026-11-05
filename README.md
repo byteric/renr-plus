@@ -3,88 +3,36 @@
 Plataforma de apoio à gestão preventiva da NR-01 e de fatores de risco psicossociais
 relacionados ao trabalho, no Programa de Residência Tecnológica do Porto Digital / ReTech+.
 
-## Estado atual
+## O que o ReNR+ faz
 
-**Base v0.4 + v0.5:** ações preventivas ligadas ao inventário,
-responsáveis nominais, prazos civis, acompanhamento versionado e evidências privadas
-com MinIO local e armazenamento privado Supabase na homologação.
-Veja [critérios](docs/CRITERIOS_ACOES_EVIDENCIAS_V04_V05.md),
-[API](docs/API_ACOES_EVIDENCIAS.md), [guia de uso](docs/USO_V04_V05.md)
-e [verificação](docs/VERIFICACAO_V04_V05.md).
+O ReNR+ reúne o diagnóstico coletivo, o inventário de riscos e o acompanhamento das
+medidas preventivas. O histórico liga cada decisão à coleta, ao método ou à evidência
+que a fundamentou. O acesso a cada área depende da empresa e das permissões do perfil.
 
-**Base v0.3:** inventário persistido, fichas preliminares com histórico imutável,
-painel com dados reais e navegação por gráficos, temas claro/escuro e movimento opcional.
-O fluxo conecta diagnóstico coletivo, origem do risco e contexto de cada ficha.
-Veja [recorte da v0.3](docs/IMPLEMENTACAO_V03.md), [guia de uso](docs/USO_V03.md)
-e [verificações](docs/VERIFICACAO_V03.md).
-
-**Evoluções dos IDs 01–10:** fundação visual, gestão de acessos, colaboradores e grupos,
-instrumentos versionados, coletas e consolidação protegida. A publicação segue PR revisada
-para `main`, CI aprovada, migrações aditivas e deploy manual do commit aprovado.
-O [diagnóstico da v0.2](docs/DIAGNOSTICO_V02.md) permanece demonstrativo:
-cinco perguntas fictícias, convites de uso único e consolidação coletiva protegida.
-
-**IDs 11 e 12:** métodos e avaliações técnicas versionadas,
-inventário enriquecido, detalhe contextual responsivo e matriz por versão exata.
-Os métodos precisam ser configurados por responsável com capacidade técnica e referência
-de aprovação; o seed normal não fornece método aprovado. Consulte o
-[contrato de implementação](docs/plans/IMPLEMENTACAO_ID11_ID12.md) e as
-[verificações locais](docs/VERIFICACAO_ID11_ID12.md). A disponibilidade online depende da promoção validada.
-
-**IDs 13 e 14:** atribuição opcional de ações a membros ativos,
-“Minhas ações” pela sessão, execução restrita por capacidade e histórico de atribuição.
-A lista e o detalhe apresentam contexto, pendências, prioridade técnica compatível e
-evidências, preservando responsável nominal externo e os contratos legados.
-Execução informada continua distinta de eficácia e encerramento técnico. Consulte o
-[contrato](docs/plans/IMPLEMENTACAO_ID13_ID14.md) e as
-[verificações locais](docs/VERIFICACAO_ID13_ID14.md); a disponibilidade online depende da promoção validada.
-
-**IDs 15 e 16:** pareceres técnicos de eficácia com autoria, revisão
-operacional, critério e provas preservadas. A interface permite preparar, revisar e
-confirmar a análise; o histórico mantém decisões anteriores e sinaliza quando o
-contexto ou uma prova selecionada exige revisão. Registrar exige capacidade técnica
-explícita. Eficácia não encerra automaticamente a ação; reavaliação e fechamento
-são decisões próprias dos IDs 17/18.
-Consulte o [contrato](docs/plans/IMPLEMENTACAO_ID15_ID16.md) e as
-[verificações locais](docs/VERIFICACAO_ID15_ID16.md); a disponibilidade online depende da promoção validada.
-
-**IDs 17 e 18:** reavaliação ligada à avaliação anterior,
-às medidas consideradas e aos pareceres preservados; comparação por versão exata
-do método e consulta histórica completa. Encerramento técnico exige parecer eficaz
-vigente, reavaliação atual que considere a medida e provas válidas, sem substituir
-o estado operacional. Nova ação corretiva depende de confirmação e fica vinculada
-à anterior. Consulte o [contrato](docs/plans/IMPLEMENTACAO_ID17_ID18.md) e as
-[verificações locais](docs/VERIFICACAO_ID17_ID18.md). A disponibilidade online depende da promoção validada.
-
-**IDs 19 e 20:** evidências com chave idempotente,
-tentativa durável, lease e recuperação explícita, com transferência fora da transação
-e revalidação antes da finalização. A central preserva arquivo e descrição durante
-falhas recuperáveis, distingue transmissão de confirmação e consulta o uso técnico
-antes de arquivar. Consulte o [guia de operação](docs/EVIDENCIAS_RECUPERAVEIS_ID19.md),
-o [contrato](docs/plans/IMPLEMENTACAO_ID19_ID20.md) e a
-[verificação](docs/VERIFICACAO_ID19_ID20.md). A promoção segue o [procedimento de release](docs/RELEASE_IDS11_20.md).
+| Área                    | O que é possível fazer                                                                                                         |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Diagnóstico             | Configurar instrumentos, abrir coletas por convite e consultar resultados coletivos com regras de proteção.                    |
+| Riscos e ações          | Registrar riscos e avaliações, acompanhar responsáveis e prazos, anexar evidências, revisar eficácia e registrar reavaliações. |
+| Painel e auditoria      | Navegar por indicadores, filtrar prioridades e consultar o histórico de registros e alterações.                                |
+| Gestão de Pessoas       | Consultar indicadores e estimativas demonstrativas conforme as permissões de RH.                                               |
+| Plataforma e relatórios | Acompanhar a cobertura por empresa com acesso administrativo e gerar PDFs com os recortes autorizados.                         |
 
 [Acessar a homologação ReNR+](https://renr-plus-homologation.onrender.com).
-O ambiente usa somente dados sintéticos e requer acesso autorizado para gestão.
-A versão disponível corresponde ao commit ativo verificado no Render. Cada funcionalidade só fica disponível online após os checks do novo deploy;
-um merge no GitHub não atualiza o serviço automaticamente. O primeiro acesso após inatividade
-pode demorar enquanto o serviço gratuito inicia.
+O ambiente usa dados fictícios. O acesso às áreas de gestão é autorizado por perfil.
+O primeiro acesso após inatividade pode demorar enquanto o serviço inicia.
 
-**Base v0.1:** login, sessão, criação/consulta/edição/inativação de empresas,
-unidades e setores, com frontend integrado à API e persistência no PostgreSQL.
-Administrador altera cadastros; leitor consulta. A autorização limita cada operação
-ao contexto de empresa permitido. A interface adapta-se a desktop e celular e oferece
-modos claro e escuro.
+O produto apoia o trabalho de prevenção. Diagnósticos clínicos e certificação de
+conformidade ficam fora do escopo. As estimativas trabalhistas são demonstrativas e
+o uso de dados reais de RH depende das validações descritas no guia de operação.
 
-Esta base não é o MVP completo. O diagnóstico legado permanece demonstrativo;
-o catálogo/editor e as coletas aplicam versões publicadas com políticas de consolidação próprias.
-Texto livre e relatórios regulamentares permanecem nos próximos incrementos.
-Métodos configurados e decisões técnicas locais dependem das permissões e das
-referências de validação descritas acima. O painel mede registros e preenchimento,
-não grau de risco. Veja [base v0.1](docs/IMPLEMENTACAO_V01.md).
+## Documentação
 
-ReNR+ não realiza diagnóstico clínico nem certifica automaticamente conformidade legal.
-IA permanece fora do MVP; o código de domínio não deverá depender de provedores externos.
+- [Entrega do MVP, critérios P0 e roteiro de demonstração](docs/ENTREGA_MVP.md)
+- [Requisitos do produto](docs/PRD.md)
+- [Gestão de Pessoas, administração da plataforma e relatórios](docs/GESTAO_PESSOAS_PLATAFORMA.md)
+- [Contratos de auditoria](docs/API_AUDITORIA.md) e [indicadores](docs/API_INDICADORES.md)
+- [Guia de ações e evidências](docs/USO_V04_V05.md)
+- [Operação da homologação](docs/DEPLOY_HOMOLOGACAO.md)
 
 ## Começar
 
@@ -168,11 +116,6 @@ scripts/               Preparação segura do ambiente
 docs/                  Documentação do produto e equipe
 ```
 
-Identidade, estrutura organizacional, painel, diagnóstico demonstrativo e auditoria das ações
-administrativas possuem implementação, assim como inventário de riscos e fichas preliminares.
-Ações preventivas e evidências integram a base v0.5. Avaliação de eficácia, reavaliação e
-relatórios de prevenção continuam nos próximos incrementos.
-
 ## Qualidade
 
 ```powershell
@@ -184,6 +127,10 @@ pnpm test:migrations
 pnpm exec playwright install chromium
 pnpm test:e2e
 ```
+
+Para executar `pnpm check`, instale `pypdf==6.14.2` no ambiente Python que inspeciona
+os PDFs nos testes da API. Se o executável tiver outro nome ou caminho, defina
+`PDF_TEST_PYTHON` antes de executar os testes.
 
 `check` gera Prisma e executa lint, tipos, testes e builds. E2E usa os builds e sobe
 web/API automaticamente. O workflow GitHub Actions executa essas verificações nas PRs e nos pushes
@@ -218,38 +165,17 @@ Não existe leitura individual, exportação de respostas ou pontuação de risc
 
 ## Homologação online
 
-O serviço [ReNR+ em homologação](https://renr-plus-homologation.onrender.com) executa no
-Render Free, com banco persistente no Neon Free, sem depender do computador de desenvolvimento.
-React e API usam a mesma origem. A falha B03 de upload foi corrigida em 28/10/2026:
-o storage estava desabilitado na configuração do Render. Upload, download privado,
-hash e persistência após republicação do mesmo commit foram verificados no Supabase.
-Isso não publica o protocolo de recuperação dos IDs 19/20, cuja publicação segue a promoção deste incremento.
-Veja [publicação, verificações e limites](docs/DEPLOY_HOMOLOGACAO.md).
-Novos commits e publicações exigem autorização de Ricardo. Atualizações automáticas
-estão desativadas, e nenhuma credencial online faz parte do repositório.
+O Render serve o frontend e a API na mesma origem. O PostgreSQL fica no Neon e as
+evidências usam armazenamento privado no Supabase. O serviço acompanha a `main` e
+a publicação é manual, com o SHA aprovado no GitHub.
 
-### Fluxo histórico de promoção da v0.3
+Antes de publicar, confirme os checks obrigatórios e aplique somente as migrações
+versionadas pendentes pela conexão direta do Neon com TLS verificado. Depois,
+confirme o SHA ativo e faça as verificações públicas e autenticadas do
+[procedimento de entrega](docs/ENTREGA_MVP.md#publicação-controlada). Em caso de falha,
+volte ao último deploy verificado e preserve o banco.
 
-A sequência é `integracao/v03` → PR revisada para `main` → deploy manual da `main`.
-O serviço existente acompanha `main`, com `autoDeploy` desligado. Um merge não publica automaticamente.
-A integração anterior pertence ao histórico da v0.2.
-
-Aplicar somente a migração versionada com `prisma migrate deploy`, usando a conexão direta
-do banco de homologação e TLS verificado. Não executar seed local, `migrate reset` ou `migrate dev`
-no Neon. O provisionamento demonstrativo é manual, preserva registros/senhas existentes e só deve
-rodar após confirmar host e banco; o container inclui suas dependências de diagnóstico.
-
-Antes de liberar a versão, validar o commit ativo no Render, os oito checks de
-`node scripts/check-hosted.mjs https://renr-plus-homologation.onrender.com` e as jornadas HTTPS de
-login, painel, inventário, diagnóstico, isolamento, permissões e logout. Esses resultados só valem
-para o commit publicado em que foram executados; testes locais ou CI não substituem essa verificação.
-
-Se a publicação falhar, retornar ao último deploy verificado, sem resetar o Neon.
-O diagnóstico acrescentou uma migração aditiva; a descrição histórica de ausência de mudança de schema
-no guia inicial não se aplica a ele. Manter plano Free. Alterações futuras de armazenamento exigem
-verificação do fluxo privado no ambiente publicado; testes locais não a substituem.
-
-## Fundação das próximas evoluções
+## Referências de implementação
 
 Os IDs 01 e 02 consolidam a base visual e a política de compatibilidade, sem
 introduzir as funcionalidades seguintes nem mudar o contrato dos módulos atuais.
@@ -263,9 +189,9 @@ O segundo comando exige o build atual pronto, Git com o histórico da base v0.3 
 
 ## Gestão de acessos — IDs 03 e 04
 
-Implementação local de membros, convites individuais de ativação, capacidades explícitas,
+Gestão de membros, convites individuais de ativação, capacidades explícitas,
 desativação por empresa e histórico com justificativa. ADMIN não recebe poder técnico automaticamente.
-A atribuição persistida às ações pertence ao ID 13; esta entrega não libera escrita global ao executor.
+A atribuição de ações a executores é limitada pelas permissões da empresa.
 
 Consulte [operação e limites](docs/ACESSOS_E_ATIVACAO.md),
 [contrato da API](apps/api/src/modules/access/README.md) e

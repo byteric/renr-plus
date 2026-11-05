@@ -20,6 +20,7 @@ import {
   technicalClosureContextSchema,
   technicalClosureListSchema,
   correctiveActionCreatedSchema,
+  reportSnapshotSchema,
 } from '../../packages/contracts/src/index';
 import { demoPassword } from '../../scripts/e2e-data.mjs';
 
@@ -436,6 +437,43 @@ test('reavaliação e encerramento explícitos preservam origem, provas e contin
       ),
     ).toMatchObject({ status: 'IMPLEMENTED', version: operationalVersion, title: action.title });
 
+    const report = reportSnapshotSchema.parse(
+      await post(`${api}/reports`, {
+        kind: 'SST',
+        sectorId: sector.id,
+        sectionKeys: [
+          'inventory',
+          'technical-evaluations',
+          'actions',
+          'evidence',
+          'efficacy',
+          'reassessments',
+          'closures',
+          'history',
+        ],
+      }),
+    );
+    expect(report.organizationId).toBe(org.id);
+    const reportPath = `${api}/reports/${report.id}`;
+    for (const key of [
+      'inventory',
+      'technical-evaluations',
+      'actions',
+      'evidence',
+      'efficacy',
+      'reassessments',
+      'closures',
+      'history',
+    ]) {
+      expect(report.sections.find((section) => section.key === key)?.rows.length).toBeGreaterThan(
+        0,
+      );
+    }
+    expect(JSON.stringify(report)).not.toContain('objectKey');
+    const pdf = await page.request.get(`${reportPath}/pdf`);
+    expect(pdf.status()).toBe(200);
+    expect((await pdf.body()).subarray(0, 5).toString()).toBe('%PDF-');
+
     const archival = await page.request.patch(
       `${api}/actions/${action.id}/evidence/${evidence.id}`,
       {
@@ -448,6 +486,9 @@ test('reavaliação e encerramento explícitos preservam origem, provas e contin
     );
     expect(archival.status()).toBe(200);
     await page.getByRole('button', { name: 'Atualizar ação', exact: true }).click();
+    const preserved = await page.request.get(reportPath);
+    expect(preserved.status()).toBe(200);
+    expect(reportSnapshotSchema.parse(await preserved.json())).toEqual(report);
     await expect(
       closurePanel.getByText('Prova selecionada arquivada', { exact: true }).first(),
     ).toBeVisible();

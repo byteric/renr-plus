@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 // Isolated presentation checks: synthetic HTTP fixtures, no database or cloud access.
 export default defineConfig({
   testDir: './tests/ui',
+  outputDir: './test-results/ui',
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: 0,

@@ -1,4 +1,14 @@
 import { AssessmentsController } from './modules/assessments/assessments.controller';
+import { PeopleController } from './modules/people/people.controller';
+import { PeopleService } from './modules/people/people.service';
+import { PeopleAnalyticsService } from './modules/people/people-analytics.service';
+import { PlatformController } from './modules/platform/platform.controller';
+import { PlatformService } from './modules/platform/platform.service';
+import { ReportsController } from './modules/reports/reports.controller';
+import { ReportsService } from './modules/reports/reports.service';
+import { AuditController } from './modules/audit/audit.controller';
+import { AuditRepository } from './modules/audit/audit.repository';
+import { AuditService } from './modules/audit/audit.service';
 import { AssessmentsService } from './modules/assessments/assessments.service';
 import { WorkforceController } from './modules/workforce/workforce.controller';
 import { WorkforceService } from './modules/workforce/workforce.service';
@@ -12,6 +22,8 @@ import { IdentityController } from './modules/identity/identity.controller';
 import { IdentityService } from './modules/identity/identity.service';
 import { OrganizationsController } from './modules/organizations/organizations.controller';
 import { OrganizationsService } from './modules/organizations/organizations.service';
+import { ManagementIndicatorsController } from './modules/overview/management-indicators.controller';
+import { ManagementIndicatorsService } from './modules/overview/management-indicators.service';
 import { OverviewController } from './modules/overview/overview.controller';
 import { OverviewRepository } from './modules/overview/overview.repository';
 import { OverviewService } from './modules/overview/overview.service';
@@ -58,6 +70,10 @@ export class AppModule {
     return {
       module: AppModule,
       controllers: [
+        ReportsController,
+        PeopleController,
+        PlatformController,
+        AuditController,
         ActionTechnicalClosuresController,
         RiskReassessmentsController,
         ActionEfficacyController,
@@ -71,6 +87,7 @@ export class AppModule {
         IdentityController,
         OrganizationsController,
         OverviewController,
+        ManagementIndicatorsController,
         DiagnosticsController,
         RisksController,
         RiskOverviewController,
@@ -82,6 +99,12 @@ export class AppModule {
         AccessInvitationController,
       ],
       providers: [
+        ReportsService,
+        PeopleService,
+        PeopleAnalyticsService,
+        PlatformService,
+        AuditRepository,
+        AuditService,
         RiskContinuityService,
         ActionEfficacyService,
         EvaluationMethodsService,
@@ -95,6 +118,7 @@ export class AppModule {
         OrganizationsService,
         OverviewRepository,
         OverviewService,
+        ManagementIndicatorsService,
         DiagnosticsService,
         RisksService,
         RisksRepository,

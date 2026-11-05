@@ -23,6 +23,8 @@ for (const theme of ['light', 'dark'] as const) {
     await page.emulateMedia({ colorScheme: theme, reducedMotion: 'reduce' });
     await page.route('**/api/v1/**', async (route) => {
       const path = new URL(route.request().url()).pathname;
+      if (path === '/api/v1/platform/capabilities')
+        return route.fulfill({ json: { capabilities: [] } });
       const list = (items: unknown[]) => ({ items, total: items.length, page: 1, pageSize: 20 });
       if (path === '/api/v1/health')
         return route.fulfill({ json: { status: 'ok', service: 'renr-api', timestamp: stamp } });

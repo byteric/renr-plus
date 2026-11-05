@@ -65,7 +65,7 @@ export class AccessRepository {
       where: { id: scope.userId },
       select: { name: true },
     });
-    await tx.accessHistory.create({
+    const history = await tx.accessHistory.create({
       data: {
         organizationId: scope.organizationId,
         userId,
@@ -81,6 +81,10 @@ export class AccessRepository {
         actorId: scope.userId,
         action,
         resourceId: userId,
+        resourceType: 'access',
+        reason,
+        referenceType: 'access',
+        referenceId: history.id,
       },
     });
   }

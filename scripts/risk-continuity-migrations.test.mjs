@@ -47,6 +47,8 @@ async function populateTechnicalHistory(target) {
   const { configureApplication } = requireApi('./dist/app.factory.js');
   const { parseEnvironment } = requireApi('./dist/config/env.js');
   const { PrismaService } = requireApi('./dist/database/prisma.service.js');
+  const { PrismaClient } = requireApi('./dist/generated/prisma/client.js');
+  const { PrismaPg } = requireApi('@prisma/adapter-pg');
   const env = parseEnvironment({
     ...process.env,
     NODE_ENV: 'test',
@@ -54,13 +56,63 @@ async function populateTechnicalHistory(target) {
     SERVE_WEB: false,
     STORAGE_ENABLED: false,
   });
-  const module = await Test.createTestingModule({ imports: [AppModule.configure(env)] }).compile();
+  // This fixture intentionally models the pre-ID21 audit writer while exercising
+  // real ID11/15 HTTP commands against the pre-continuity schema. The current
+  // client otherwise selects audit and fiscal columns absent from that schema.
+  // This is historical fixture construction, not a new-app/old-schema claim.
+  const legacyClient = new PrismaClient({
+    adapter: new PrismaPg({ connectionString: target.href, max: 2 }),
+    omit: {
+      membership: { hrCapabilities: true },
+      organization: {
+        fiscalCandidate: true,
+        normalizedFiscalIdentifier: true,
+        fiscalState: true,
+        clientClassification: true,
+        registrationVersion: true,
+      },
+    },
+  });
+  const database = {
+    client: legacyClient,
+    onApplicationShutdown: () => legacyClient.$disconnect(),
+  };
+  const legacyAuditFields = [
+    'id',
+    'actorId',
+    'organizationId',
+    'action',
+    'resourceId',
+    'createdAt',
+  ];
+  database.client = database.client.$extends({
+    query: {
+      auditEvent: {
+        create({ args, query }) {
+          return query({
+            ...args,
+            data: Object.fromEntries(
+              Object.entries(args.data).filter(([field]) => legacyAuditFields.includes(field)),
+            ),
+            select: Object.fromEntries(legacyAuditFields.map((field) => [field, true])),
+          });
+        },
+      },
+    },
+  });
+  const module = await Test.createTestingModule({ imports: [AppModule.configure(env)] })
+    .overrideProvider(PrismaService)
+    .useValue(database)
+    .compile();
   const app = module.createNestApplication({ logger: false });
   try {
     configureApplication(app, env);
     await app.init();
     const prisma = module.get(PrismaService).client;
-    const org = await prisma.organization.create({ data: { name: 'Synthetic migration ID17' } });
+    const org = { id: randomUUID() };
+    await prisma.$executeRaw`
+      INSERT INTO organizations (id, name, updated_at)
+      VALUES (${org.id}::uuid, 'Synthetic migration ID17', CURRENT_TIMESTAMP)`;
     const user = await prisma.user.create({
       data: {
         name: 'Synthetic migration technician',
@@ -68,14 +120,14 @@ async function populateTechnicalHistory(target) {
         passwordHash: 'unused synthetic session',
       },
     });
-    await prisma.membership.create({
-      data: {
-        userId: user.id,
-        organizationId: org.id,
-        role: 'ADMIN',
-        capabilities: ['TECHNICAL_DECISIONS'],
-      },
-    });
+    await prisma.$executeRaw`
+      INSERT INTO memberships (user_id, organization_id, role, capabilities)
+      VALUES (
+        ${user.id}::uuid,
+        ${org.id}::uuid,
+        'ADMIN',
+        ARRAY['TECHNICAL_DECISIONS']::"Capability"[]
+      )`;
     const secret = randomBytes(32).toString('base64url');
     await prisma.session.create({
       data: {

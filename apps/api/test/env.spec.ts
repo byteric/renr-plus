@@ -82,3 +82,23 @@ describe('Environment validation', () => {
     ).toThrow('Invalid environment variables: CORS_ORIGIN');
   });
 });
+describe('People data rollout', () => {
+  it('requires explicit enablement for production client data', () => {
+    const production = {
+      NODE_ENV: 'production',
+      CORS_ORIGIN: 'https://example.test',
+      DATABASE_URL: 'postgresql://local:local@127.0.0.1:5432/test',
+    };
+    expect(parseEnvironment(production)).toMatchObject({ HR_REAL_DATA_ENABLED: false });
+    expect(parseEnvironment({ ...production, HR_REAL_DATA_ENABLED: 'true' })).toMatchObject({
+      HR_REAL_DATA_ENABLED: true,
+    });
+    const demoId = '11111111-1111-4111-8111-111111111111';
+    expect(parseEnvironment({ ...production, HR_DEMO_ORGANIZATION_IDS: demoId })).toMatchObject({
+      HR_DEMO_ORGANIZATION_IDS: [demoId],
+    });
+    expect(() =>
+      parseEnvironment({ ...production, HR_DEMO_ORGANIZATION_IDS: 'DEMONSTRATION' }),
+    ).toThrow();
+  });
+});

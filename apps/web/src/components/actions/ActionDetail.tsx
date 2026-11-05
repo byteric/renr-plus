@@ -24,6 +24,7 @@ import { ActionContext } from './ActionContext';
 import { ActionAssignment } from './ActionAssignment';
 import { ActionEfficacy } from './ActionEfficacy';
 import { ActionTechnicalClosure } from './ActionTechnicalClosure';
+import { DomainHistory } from '../history/DomainHistory';
 
 const events = {
   CREATED: 'Criação',
@@ -124,7 +125,9 @@ export function ActionDetail({
     heading.current?.focus();
   }, [item?.id, editing]);
   const rawReturn = new URLSearchParams(query).get('returnTo') ?? '';
-  const returnTo = /^#\/acoes(?:\?|$)/.test(rawReturn) ? rawReturn : '#/acoes';
+  const fromDashboard = /^#\/painel(?:\?[^#]*)?$/.test(rawReturn);
+  const returnTo = fromDashboard || /^#\/acoes(?:\?|$)/.test(rawReturn) ? rawReturn : '#/acoes';
+  const backLabel = fromDashboard ? 'Voltar ao painel' : 'Voltar às ações';
   function reloadAction() {
     const nextAttempt = attempt + 1;
     if (unavailable) setUnavailable({ ...unavailable, retryAttempt: nextAttempt });
@@ -220,7 +223,7 @@ export function ActionDetail({
         <Button variant="outline" onClick={reloadAction}>
           Atualizar ação
         </Button>
-        <a href={returnTo}>Voltar às ações</a>
+        <a href={returnTo}>{backLabel}</a>
       </StatusMessage>
     );
   if (editing)
@@ -260,7 +263,7 @@ export function ActionDetail({
         href={returnTo}
         onClick={() => sessionStorage.setItem('action-return-focus', id)}
       >
-        ← Voltar às ações
+        ← {backLabel}
       </a>
       <header className="surface risk-detail-header">
         <div>
@@ -603,6 +606,14 @@ export function ActionDetail({
             onUnavailable={(status) => setUnavailable({ status, retryAttempt: null })}
             onContext={setClosure}
             onChanged={() => setAttempt((value) => value + 1)}
+          />
+          <DomainHistory
+            organizationId={organizationId}
+            kind="action"
+            id={id}
+            refreshKey={attempt + item.version}
+            onExpire={onExpire}
+            onUnavailable={(status) => setUnavailable({ status, retryAttempt: null })}
           />
           <section className="surface risk-stack">
             <h3>Histórico de revisões</h3>

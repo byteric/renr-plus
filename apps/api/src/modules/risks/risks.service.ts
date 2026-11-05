@@ -161,7 +161,7 @@ export class RisksService {
         },
         include: riskInclude,
       });
-      await this.repository.audit(tx, scope, risk.id, 'RISK_CREATE');
+      await this.repository.audit(tx, scope, risk.id, 'RISK_CREATE', null, risk.version);
       return toRisk(risk);
     });
   }
@@ -205,6 +205,8 @@ export class RisksService {
         scope,
         id,
         input.status === 'ARCHIVED' ? 'RISK_ARCHIVE' : 'RISK_UPDATE',
+        null,
+        updated.version,
       );
       return toRisk(updated);
     });
@@ -268,7 +270,14 @@ export class RisksService {
         where: { id },
         data: { version: { increment: 1 }, updatedById: scope.userId },
       });
-      await this.repository.audit(tx, scope, evaluation.id, 'RISK_PRELIMINARY_EVALUATION_CREATE');
+      await this.repository.audit(
+        tx,
+        scope,
+        evaluation.id,
+        'RISK_PRELIMINARY_EVALUATION_CREATE',
+        content.rationale,
+        evaluation.sequence,
+      );
       return toEvaluation(evaluation);
     });
   }

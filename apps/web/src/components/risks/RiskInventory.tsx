@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import {
-  riskListQuerySchema,
+  riskWorkspaceQuerySchema,
   riskWorkspaceListSchema,
   sectorListSchema,
   unitListSchema,
-  type RiskListQuery,
+  type RiskWorkspaceQuery,
 } from '@renr/contracts';
 import { Button } from '../ui/button';
 import { Pagination } from '../ui/pagination';
@@ -35,10 +35,13 @@ export function RiskInventory({
 }) {
   const params = new URLSearchParams(query);
   const keys = [...params.keys()];
-  const parsed = riskListQuerySchema.safeParse(
+  const parsed = riskWorkspaceQuerySchema.safeParse(
     new Set(keys).size === keys.length
       ? Object.fromEntries(
-          [...params].filter(([key]) => !['view', 'methodVersionId'].includes(key)),
+          [...params].filter(
+            ([key]) =>
+              key !== 'view' && !(key === 'methodVersionId' && params.get('view') === 'matrix'),
+          ),
         )
       : null,
   );
@@ -90,11 +93,14 @@ export function RiskInventory({
     });
     next.set('page', '1');
     if (params.get('view') === 'matrix') next.set('view', 'matrix');
-    if (params.get('methodVersionId')) next.set('methodVersionId', params.get('methodVersionId')!);
+    for (const key of ['classification', 'methodVersionId', 'levelKey']) {
+      const value = params.get(key);
+      if (value) next.set(key, value);
+    }
     window.location.assign(`#/inventario?${next}`);
   }
   const data = list.data;
-  const filters: RiskListQuery | null = parsed.success ? parsed.data : null;
+  const filters: RiskWorkspaceQuery | null = parsed.success ? parsed.data : null;
   return (
     <div className="risk-stack">
       <div className="risk-toolbar">
@@ -117,8 +123,15 @@ export function RiskInventory({
       <nav className="risk-view-tabs" aria-label="Visualização do inventário">
         {['list', 'matrix'].map((view) => {
           const next = new URLSearchParams(query);
-          if (view === 'list') next.delete('view');
-          else next.set('view', view);
+          if (view === 'list') {
+            if (next.has('view')) next.delete('methodVersionId');
+            next.delete('view');
+          } else {
+            if (!next.has('view')) next.delete('methodVersionId');
+            next.delete('classification');
+            next.delete('levelKey');
+            next.set('view', view);
+          }
           return (
             <a
               key={view}
@@ -246,6 +259,13 @@ export function RiskInventory({
             <option value="WITHOUT">Sem ficha</option>
           </select>
         </div>
+        {(params.has('classification') || params.has('levelKey')) && (
+          <p className="chart-note">
+            {params.has('classification')
+              ? 'Riscos sem classificação vigente'
+              : 'Nível de risco selecionado no painel'}
+          </p>
+        )}
         <div className="filter-actions">
           <Button type="submit">Aplicar filtros</Button>
           <a href="#/inventario">Limpar filtros</a>

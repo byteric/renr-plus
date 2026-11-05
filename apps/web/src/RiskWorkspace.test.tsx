@@ -85,6 +85,7 @@ function arrange(
     publishedMethod?: boolean;
     technicalConflict?: boolean;
     technicalSuccess?: boolean;
+    historyDenied?: boolean;
   } = {},
 ) {
   window.location.hash = hash;
@@ -93,6 +94,10 @@ function arrange(
   const fetcher = vi.fn<typeof fetch>().mockImplementation(async (url, init) => {
     const path = new URL(String(url), 'http://localhost').pathname;
     const method = init?.method ?? 'GET';
+    if (path.endsWith(`/risks/${id}/history`))
+      return options.historyDenied
+        ? new Response('{}', { status: 403 })
+        : new Response(JSON.stringify({ ...list([]), timeZone: 'America/Sao_Paulo' }));
     if (path.endsWith('/reassessment-context'))
       return new Response(
         JSON.stringify({
@@ -314,6 +319,27 @@ function arrange(
   );
   return fetcher;
 }
+it('oferece histórico unificado do risco ao leitor sem consultar auditoria administrativa', async () => {
+  const fetcher = arrange(`/inventario/${id}?section=historico`, { role: 'READER' });
+  expect(await screen.findByRole('heading', { name: risk.factor })).toBeInTheDocument();
+  await userEvent.click(await screen.findByText('Histórico unificado'));
+  expect(await screen.findByRole('heading', { name: 'Histórico unificado' })).toBeInTheDocument();
+  await waitFor(() =>
+    expect(fetcher.mock.calls.some(([url]) => String(url).includes(`/risks/${id}/history?`))).toBe(
+      true,
+    ),
+  );
+  expect(fetcher.mock.calls.some(([url]) => String(url).includes('/audit-events'))).toBe(false);
+});
+
+it('remove o detalhe do risco se a consulta do histórico negar a autorização', async () => {
+  arrange(`/inventario/${id}?section=historico`, { role: 'READER', historyDenied: true });
+  await userEvent.click(await screen.findByText('Histórico unificado'));
+  await waitFor(() =>
+    expect(screen.queryByRole('heading', { name: risk.factor })).not.toBeInTheDocument(),
+  );
+});
+
 afterEach(() => {
   vi.unstubAllGlobals();
   window.location.hash = '/empresas';

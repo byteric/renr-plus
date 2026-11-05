@@ -16,6 +16,7 @@ import {
   technicalRiskEvaluationSummarySchema,
   type RiskDetail,
   type RiskListQuery,
+  type RiskWorkspaceQuery,
   type RiskWorkspace,
   type RiskWorkspaceList,
   type RiskMatrixQuery,
@@ -40,12 +41,12 @@ const evaluationInclude = { author } satisfies Prisma.TechnicalRiskEvaluationInc
 type EvaluationRecord = Prisma.TechnicalRiskEvaluationGetPayload<{
   include: typeof evaluationInclude;
 }>;
-const include = {
+export const riskWorkspaceInclude = {
   ...riskInclude,
   diagnosticCycle: { select: { instrumentVersion: { select: { isDemo: true, usageMode: true } } } },
   technicalEvaluations: { orderBy: { sequence: 'desc' }, take: 1, include: evaluationInclude },
 } satisfies Prisma.RiskInclude;
-type WorkspaceRecord = Prisma.RiskGetPayload<{ include: typeof include }>;
+export type WorkspaceRecord = Prisma.RiskGetPayload<{ include: typeof riskWorkspaceInclude }>;
 type ActionSummary = RiskWorkspace['actionSummary'];
 type Page = { page: number; pageSize: number };
 
@@ -102,6 +103,18 @@ export function evaluationState(
     ? 'CURRENT'
     : 'CONTEXT_CHANGED';
 }
+export function currentRiskLevel(record: WorkspaceRecord) {
+  if (evaluationState(record) !== 'CURRENT') return null;
+  const evaluation = record.technicalEvaluations[0]!;
+  const detail = summary(evaluation);
+  return {
+    methodVersionId: evaluation.methodVersionId,
+    methodName: detail.method.name,
+    methodVersion: detail.method.version,
+    ...detail.level,
+  };
+}
+
 function workspace(record: WorkspaceRecord, actions: ActionSummary): RiskWorkspace {
   const state = evaluationState(record);
   const pending: RiskWorkspace['pendingReasons'] = [];
@@ -131,6 +144,25 @@ function workspace(record: WorkspaceRecord, actions: ActionSummary): RiskWorkspa
   });
 }
 
+export async function* riskWorkspaceRecords(
+  tx: Prisma.TransactionClient,
+  where: Prisma.RiskWhereInput,
+  orderBy: Prisma.RiskOrderByWithRelationInput[] = [{ id: 'asc' }],
+): AsyncGenerator<WorkspaceRecord> {
+  let cursor: string | undefined;
+  while (true) {
+    const records: WorkspaceRecord[] = await tx.risk.findMany({
+      where,
+      include: riskWorkspaceInclude,
+      orderBy,
+      take: 200,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+    });
+    yield* records;
+    if (records.length < 200) break;
+    cursor = records.at(-1)!.id;
+  }
+}
 @Injectable()
 export class RiskWorkspacesService {
   constructor(
@@ -144,7 +176,7 @@ export class RiskWorkspacesService {
   ): Promise<WorkspaceRecord> {
     const record = await tx.risk.findFirst({
       where: { id, organizationId: scope.organizationId },
-      include,
+      include: riskWorkspaceInclude,
     });
     if (!record) throw new NotFoundException();
     return record;
@@ -225,14 +257,38 @@ export class RiskWorkspacesService {
       }
     return result;
   }
-  async list(scope: TechnicalScope, query: RiskListQuery): Promise<RiskWorkspaceList> {
+  async list(scope: TechnicalScope, query: RiskWorkspaceQuery): Promise<RiskWorkspaceList> {
     return this.database.client.$transaction(
       async (tx) => {
         const where = await this.where(tx, scope, query);
+        if (query.classification || query.methodVersionId) {
+          const page: WorkspaceRecord[] = [];
+          let total = 0;
+          const offset = (query.page - 1) * query.pageSize;
+          for await (const record of riskWorkspaceRecords(tx, where, [
+            { createdAt: 'desc' },
+            { id: 'asc' },
+          ])) {
+            const level = currentRiskLevel(record);
+            const matches = query.classification
+              ? !level
+              : level?.methodVersionId === query.methodVersionId && level?.key === query.levelKey;
+            if (!matches) continue;
+            if (total >= offset && page.length < query.pageSize) page.push(record);
+            total++;
+          }
+          const actions = await this.actions(tx, scope, page);
+          return {
+            items: page.map((record) => workspace(record, actions.get(record.id)!)),
+            total,
+            page: query.page,
+            pageSize: query.pageSize,
+          };
+        }
         const [records, total] = await Promise.all([
           tx.risk.findMany({
             where,
-            include,
+            include: riskWorkspaceInclude,
             orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
             skip: (query.page - 1) * query.pageSize,
             take: query.pageSize,
@@ -309,7 +365,7 @@ export class RiskWorkspacesService {
         while (true) {
           const records: WorkspaceRecord[] = await tx.risk.findMany({
             where,
-            include,
+            include: riskWorkspaceInclude,
             orderBy: { id: 'asc' },
             take: 200,
             ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
@@ -597,6 +653,11 @@ export class RiskWorkspacesService {
         actorId: scope.userId,
         resourceId: evaluation.id,
         action: 'risk.technical_evaluation_created',
+        resourceType: 'technical-evaluation',
+        reason: input.rationale,
+        referenceType: 'technical-evaluation',
+        referenceId: evaluation.id,
+        version: evaluation.sequence,
       },
     });
     return toTechnicalEvaluation(evaluation);

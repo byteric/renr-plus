@@ -1261,11 +1261,20 @@
             "maximum": 9007199254740991
           },
           "capabilities": {
-            "maxItems": 2,
+            "maxItems": 8,
             "type": "array",
             "items": {
               "type": "string",
-              "enum": ["EXECUTE_ASSIGNED_ACTIONS", "TECHNICAL_DECISIONS"]
+              "enum": [
+                "EXECUTE_ASSIGNED_ACTIONS",
+                "TECHNICAL_DECISIONS",
+                "HR_PROFILE_READ",
+                "HR_PROFILE_MANAGE",
+                "HR_ANALYTICS_READ",
+                "HR_COMPENSATION_READ",
+                "HR_COMPENSATION_MANAGE",
+                "HR_EXPORT"
+              ]
             }
           },
           "updatedAt": {
@@ -1327,11 +1336,20 @@
                   "maximum": 9007199254740991
                 },
                 "capabilities": {
-                  "maxItems": 2,
+                  "maxItems": 8,
                   "type": "array",
                   "items": {
                     "type": "string",
-                    "enum": ["EXECUTE_ASSIGNED_ACTIONS", "TECHNICAL_DECISIONS"]
+                    "enum": [
+                      "EXECUTE_ASSIGNED_ACTIONS",
+                      "TECHNICAL_DECISIONS",
+                      "HR_PROFILE_READ",
+                      "HR_PROFILE_MANAGE",
+                      "HR_ANALYTICS_READ",
+                      "HR_COMPENSATION_READ",
+                      "HR_COMPENSATION_MANAGE",
+                      "HR_EXPORT"
+                    ]
                   }
                 },
                 "updatedAt": {
@@ -1413,11 +1431,20 @@
             "maxLength": 1000
           },
           "capabilities": {
-            "maxItems": 2,
+            "maxItems": 8,
             "type": "array",
             "items": {
               "type": "string",
-              "enum": ["EXECUTE_ASSIGNED_ACTIONS", "TECHNICAL_DECISIONS"]
+              "enum": [
+                "EXECUTE_ASSIGNED_ACTIONS",
+                "TECHNICAL_DECISIONS",
+                "HR_PROFILE_READ",
+                "HR_PROFILE_MANAGE",
+                "HR_ANALYTICS_READ",
+                "HR_COMPENSATION_READ",
+                "HR_COMPENSATION_MANAGE",
+                "HR_EXPORT"
+              ]
             }
           }
         },
@@ -1441,11 +1468,20 @@
             ]
           },
           "capabilities": {
-            "maxItems": 2,
+            "maxItems": 8,
             "type": "array",
             "items": {
               "type": "string",
-              "enum": ["EXECUTE_ASSIGNED_ACTIONS", "TECHNICAL_DECISIONS"]
+              "enum": [
+                "EXECUTE_ASSIGNED_ACTIONS",
+                "TECHNICAL_DECISIONS",
+                "HR_PROFILE_READ",
+                "HR_PROFILE_MANAGE",
+                "HR_ANALYTICS_READ",
+                "HR_COMPENSATION_READ",
+                "HR_COMPENSATION_MANAGE",
+                "HR_EXPORT"
+              ]
             }
           },
           "canManageAccess": {
@@ -1566,11 +1602,20 @@
             "enum": ["ADMIN", "READER"]
           },
           "capabilities": {
-            "maxItems": 2,
+            "maxItems": 8,
             "type": "array",
             "items": {
               "type": "string",
-              "enum": ["EXECUTE_ASSIGNED_ACTIONS", "TECHNICAL_DECISIONS"]
+              "enum": [
+                "EXECUTE_ASSIGNED_ACTIONS",
+                "TECHNICAL_DECISIONS",
+                "HR_PROFILE_READ",
+                "HR_PROFILE_MANAGE",
+                "HR_ANALYTICS_READ",
+                "HR_COMPENSATION_READ",
+                "HR_COMPENSATION_MANAGE",
+                "HR_EXPORT"
+              ]
             }
           },
           "expiresInHours": {
@@ -1620,11 +1665,20 @@
                   "enum": ["ADMIN", "READER"]
                 },
                 "capabilities": {
-                  "maxItems": 2,
+                  "maxItems": 8,
                   "type": "array",
                   "items": {
                     "type": "string",
-                    "enum": ["EXECUTE_ASSIGNED_ACTIONS", "TECHNICAL_DECISIONS"]
+                    "enum": [
+                      "EXECUTE_ASSIGNED_ACTIONS",
+                      "TECHNICAL_DECISIONS",
+                      "HR_PROFILE_READ",
+                      "HR_PROFILE_MANAGE",
+                      "HR_ANALYTICS_READ",
+                      "HR_COMPENSATION_READ",
+                      "HR_COMPENSATION_MANAGE",
+                      "HR_EXPORT"
+                    ]
                   }
                 },
                 "status": {
@@ -1750,11 +1804,20 @@
             "enum": ["ADMIN", "READER"]
           },
           "capabilities": {
-            "maxItems": 2,
+            "maxItems": 8,
             "type": "array",
             "items": {
               "type": "string",
-              "enum": ["EXECUTE_ASSIGNED_ACTIONS", "TECHNICAL_DECISIONS"]
+              "enum": [
+                "EXECUTE_ASSIGNED_ACTIONS",
+                "TECHNICAL_DECISIONS",
+                "HR_PROFILE_READ",
+                "HR_PROFILE_MANAGE",
+                "HR_ANALYTICS_READ",
+                "HR_COMPENSATION_READ",
+                "HR_COMPENSATION_MANAGE",
+                "HR_EXPORT"
+              ]
             }
           },
           "status": {
@@ -1863,11 +1926,20 @@
                 "enum": ["ADMIN", "READER"]
               },
               "capabilities": {
-                "maxItems": 2,
+                "maxItems": 8,
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "enum": ["EXECUTE_ASSIGNED_ACTIONS", "TECHNICAL_DECISIONS"]
+                  "enum": [
+                    "EXECUTE_ASSIGNED_ACTIONS",
+                    "TECHNICAL_DECISIONS",
+                    "HR_PROFILE_READ",
+                    "HR_PROFILE_MANAGE",
+                    "HR_ANALYTICS_READ",
+                    "HR_COMPENSATION_READ",
+                    "HR_COMPENSATION_MANAGE",
+                    "HR_EXPORT"
+                  ]
                 }
               },
               "status": {

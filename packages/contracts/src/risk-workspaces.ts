@@ -118,7 +118,20 @@ export const riskWorkspaceSchema = riskDetailSchema
       });
   });
 export const riskWorkspaceListSchema = list(riskWorkspaceSchema);
-export const riskWorkspaceQuerySchema = riskListQuerySchema;
+export const riskWorkspaceQuerySchema = riskListQuerySchema
+  .extend({
+    classification: z.literal('UNCLASSIFIED').optional(),
+    methodVersionId: z.uuid().optional(),
+    levelKey: evaluationMethodKeySchema.optional(),
+  })
+  .strict()
+  .refine(
+    (query) =>
+      Boolean(query.methodVersionId) === Boolean(query.levelKey) &&
+      !(query.classification && query.methodVersionId),
+    { path: ['levelKey'], message: 'Informe uma classificação ou o par versão do método e nível.' },
+  );
+export type RiskWorkspaceQuery = z.infer<typeof riskWorkspaceQuerySchema>;
 export const riskMatrixQuerySchema = riskListQuerySchema
   .extend({ methodVersionId: z.uuid() })
   .strict();

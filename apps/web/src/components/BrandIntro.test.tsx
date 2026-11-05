@@ -14,3 +14,15 @@ it('apresenta a jornada rastreável sem exigir interação para acessar o login'
   expect(screen.getByText('Ficha preliminar')).toBeVisible();
   expect(screen.queryByRole('button')).not.toBeInTheDocument();
 });
+
+it('reutiliza o símbolo Percurso aprovado com espaço reservado nos dois temas', () => {
+  const { container } = render(<BrandIntro />);
+  const illustration = container.querySelector('.brand-illustration');
+  expect(illustration).toHaveAttribute('aria-hidden', 'true');
+  for (const asset of ['/brand/renr-plus-symbol.svg', '/brand/renr-plus-symbol-dark.svg']) {
+    const image = illustration?.querySelector(`image[href="${asset}"]`);
+    expect(image).toHaveAttribute('width', '216');
+    expect(image).toHaveAttribute('height', '216');
+  }
+  expect(illustration?.querySelector('svg')).toHaveAttribute('viewBox', '0 0 520 270');
+});

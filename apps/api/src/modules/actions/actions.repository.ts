@@ -168,6 +168,11 @@ export class ActionsRepository {
         actorId: scope.userId,
         resourceId: action.id,
         action: `ACTION_${event}`,
+        resourceType: 'action',
+        reason: changeReason ?? text,
+        referenceType: 'action-revision',
+        referenceId: revision.id,
+        version: revision.version,
       },
     });
     return toRevision(revision);

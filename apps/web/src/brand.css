@@ -24,7 +24,9 @@
   margin: 0;
 }
 .brand-illustration {
+  width: 100%;
   max-width: 340px;
+  aspect-ratio: 52 / 27;
   margin: 12px 0;
 }
 .brand-illustration svg {
@@ -42,23 +44,14 @@
   stroke-width: 2;
   stroke-dasharray: 5 7;
 }
-.brand-shield-shadow {
-  fill: var(--muted);
+.brand-symbol-dark {
+  display: none;
 }
-.brand-shield {
-  fill: #075663;
+.dark .brand-symbol-light {
+  display: none;
 }
-.brand-shield-plane {
-  fill: #26727c;
-}
-.brand-shield-fold {
-  fill: #06444f;
-}
-.brand-check {
-  stroke: #fff;
-  stroke-width: 12;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+.dark .brand-symbol-dark {
+  display: initial;
 }
 .brand-node {
   fill: var(--card);
@@ -66,8 +59,8 @@
   stroke-width: 2;
 }
 .brand-node-end {
-  fill: var(--brand-orange);
-  stroke: var(--brand-orange);
+  fill: var(--brand-lime);
+  stroke: var(--brand-mineral);
 }
 .brand-node-icon {
   stroke: var(--foreground);
@@ -75,14 +68,10 @@
   stroke-linecap: round;
 }
 .brand-node-end + .brand-node-icon {
-  stroke: #153b40;
+  stroke: var(--brand-deep);
 }
 .brand-spark {
-  fill: var(--brand-green);
-}
-.brand-spark-line {
-  stroke: var(--brand-orange);
-  stroke-width: 2;
+  fill: var(--brand-mineral);
 }
 .brand-journey {
   list-style: none;

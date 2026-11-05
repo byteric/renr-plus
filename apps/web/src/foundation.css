@@ -1,4 +1,48 @@
 /* Reusable presentation only. Domain state and authorization stay with each feature. */
+/* Pointer shape communicates editability without disabling native text selection. */
+body {
+  cursor: default;
+}
+:where(
+  a[href],
+  button,
+  select,
+  summary,
+  [role='button'],
+  input[type='button'],
+  input[type='submit'],
+  input[type='reset'],
+  input[type='checkbox'],
+  input[type='radio'],
+  input[type='range'],
+  input[type='color'],
+  input[type='file']
+) {
+  cursor: pointer;
+}
+:where(
+  input:not([type]),
+  input[type='text'],
+  input[type='email'],
+  input[type='password'],
+  input[type='search'],
+  input[type='tel'],
+  input[type='url'],
+  input[type='number'],
+  textarea,
+  [contenteditable=''],
+  [contenteditable='true'],
+  [contenteditable='plaintext-only']
+) {
+  cursor: text;
+}
+:where(input[readonly], textarea[readonly], [contenteditable='false']) {
+  cursor: default;
+}
+:where(button:disabled, input:disabled, select:disabled, textarea:disabled) {
+  cursor: not-allowed;
+}
+
 .status-message {
   min-width: 0;
   padding: var(--space-4);
