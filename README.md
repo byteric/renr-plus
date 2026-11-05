@@ -128,8 +128,9 @@ pnpm exec playwright install chromium
 pnpm test:e2e
 ```
 
-Os testes de navegador que inspecionam os PDFs usam Python com `pypdf==6.14.2`.
-Instale o pacote no ambiente Python utilizado pelos testes.
+Para executar `pnpm check`, instale `pypdf==6.14.2` no ambiente Python que inspeciona
+os PDFs nos testes da API. Se o executável tiver outro nome ou caminho, defina
+`PDF_TEST_PYTHON` antes de executar os testes.
 
 `check` gera Prisma e executa lint, tipos, testes e builds. E2E usa os builds e sobe
 web/API automaticamente. O workflow GitHub Actions executa essas verificações nas PRs e nos pushes
