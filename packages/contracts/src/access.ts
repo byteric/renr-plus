@@ -1,9 +1,18 @@
 import { z } from 'zod';
 
-export const capabilitySchema = z.enum(['EXECUTE_ASSIGNED_ACTIONS', 'TECHNICAL_DECISIONS']);
+export const capabilitySchema = z.enum([
+  'EXECUTE_ASSIGNED_ACTIONS',
+  'TECHNICAL_DECISIONS',
+  'HR_PROFILE_READ',
+  'HR_PROFILE_MANAGE',
+  'HR_ANALYTICS_READ',
+  'HR_COMPENSATION_READ',
+  'HR_COMPENSATION_MANAGE',
+  'HR_EXPORT',
+]);
 const capabilitiesSchema = z
   .array(capabilitySchema)
-  .max(2)
+  .max(capabilitySchema.options.length)
   .refine((values) => new Set(values).size === values.length, 'Duplicate capability');
 const roleSchema = z.enum(['ADMIN', 'READER']);
 const reasonSchema = z.string().trim().min(3).max(1000);

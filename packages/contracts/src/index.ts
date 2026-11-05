@@ -1,4 +1,9 @@
 import { z } from 'zod';
+import { fiscalIdentifierInputSchema } from './fiscal-identifier';
+export * from './fiscal-identifier';
+export * from './people-analytics';
+export * from './platform-administration';
+export * from './reports';
 export * from './diagnostics';
 export * from './risks';
 export * from './risk-overview';
@@ -13,6 +18,7 @@ export * from './action-workspaces';
 export * from './action-efficacy';
 export * from './risk-reassessments';
 export * from './action-technical-closures';
+export * from './audit';
 export { organizationOverviewSchema, type OrganizationOverview } from './overview';
 
 /** Liveness: não implica que PostgreSQL ou armazenamento estejam disponíveis. */
@@ -71,7 +77,7 @@ export const sessionResponseSchema = z.object({
 export const createOrganizationSchema = z
   .object({
     name: nameSchema,
-    fiscalIdentifier: z.string().trim().max(32).nullable().optional(),
+    fiscalIdentifier: fiscalIdentifierInputSchema.nullable().optional(),
     timezone: timezoneSchema.default('America/Sao_Paulo'),
   })
   .strict();
@@ -139,3 +145,4 @@ export type UpdateSector = z.infer<typeof updateSectorSchema>;
 export * from './workforce';
 export * from './instruments';
 export * from './assessment-cycles';
+export * from './management-indicators';
