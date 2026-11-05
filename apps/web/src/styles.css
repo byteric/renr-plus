@@ -54,14 +54,28 @@ a:focus-visible {
   background: var(--background);
 }
 .wordmark {
-  color: var(--foreground);
-  font-size: 32px;
-  font-weight: 800;
-  letter-spacing: -1.8px;
-  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  flex: 0 0 auto;
+  cursor: pointer;
 }
-.wordmark span {
-  color: var(--brand-green);
+.wordmark picture {
+  display: block;
+  width: 180px;
+  height: 57px;
+}
+.wordmark img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+@media (max-width: 600px) {
+  .wordmark picture {
+    width: 40px;
+    height: 40px;
+  }
 }
 .skip-link {
   position: absolute;
@@ -425,6 +439,9 @@ form > button,
   align-self: start;
   position: sticky;
   top: 110px;
+  max-height: calc(100dvh - 126px);
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
 }
 .workspace-nav nav {
   display: flex;
@@ -648,9 +665,6 @@ form > button,
 @media (max-width: 400px) {
   .app-shell {
     padding: 0 16px;
-  }
-  .wordmark {
-    font-size: 28px;
   }
   .header-actions {
     gap: 6px;
@@ -891,6 +905,8 @@ select:focus-visible,
   }
   .workspace-nav {
     position: static;
+    max-height: none;
+    overflow: visible;
   }
   .context select {
     max-width: 420px;

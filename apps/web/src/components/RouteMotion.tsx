@@ -13,7 +13,7 @@ export function RouteMotion({ children, route }: { children: ReactNode; route: s
       gsap.fromTo(
         heading,
         { y: 8 },
-        { y: 0, duration: 0.22, ease: 'power2.out', clearProps: 'transform' },
+        { y: 0, duration: 0.18, ease: 'power2.out', clearProps: 'transform' },
       );
     },
     { scope, dependencies: [route], revertOnUpdate: true },
