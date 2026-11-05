@@ -1,262 +1,237 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import type { ManagementIndicators } from '@renr/contracts';
 import { ManagementDashboard } from './ManagementDashboard';
 
 const organizationId = '10000000-0000-4000-8000-000000000001';
-const otherId = '10000000-0000-4000-8000-000000000002';
-const overview = {
-  organizationId,
-  generatedAt: '2026-10-17T12:00:00.000Z',
-  totals: { total: 8, draft: 2, registered: 6, withEvaluation: 3, withoutEvaluation: 5 },
-  units: [
-    {
-      kind: 'UNIT',
-      unitId: organizationId,
-      name: 'Unidade Recife',
-      isActive: true,
-      total: 8,
-      draft: 2,
-      registered: 6,
-    },
-  ],
+const unitId = '10000000-0000-4000-8000-000000000002';
+const sectorId = '10000000-0000-4000-8000-000000000003';
+const actionId = '10000000-0000-4000-8000-000000000004';
+const methodVersionId = '10000000-0000-4000-8000-000000000005';
+const otherId = '10000000-0000-4000-8000-000000000006';
+const level = {
+  methodVersionId,
+  methodName: 'Matriz',
+  methodVersion: 1,
+  key: 'HIGH',
+  label: 'Alto',
+  count: 1,
 };
-const structure = {
+const snapshot: ManagementIndicators = {
+  organizationId,
   organization: { id: organizationId, name: 'Horizonte', isActive: true },
-  units: { total: 1, active: 1, inactive: 0 },
-  sectors: { total: 2, active: 2, inactive: 0 },
-  unitsWithoutSectors: 0,
-  generatedAt: '2026-10-16T12:00:00.000Z',
+  generatedAt: '2026-10-17T12:00:00.000Z',
+  timeZone: 'America/Sao_Paulo',
+  referenceDate: '2026-10-17',
+  filters: { unitId: null, sectorId: null },
+  structure: {
+    units: { total: 1, active: 1, inactive: 0 },
+    sectors: { total: 1, active: 1, inactive: 0 },
+    employees: { total: 2, active: 2, inactive: 0 },
+  },
+  options: {
+    units: [{ id: unitId, name: 'Recife' }],
+    sectors: [{ id: sectorId, unitId, name: 'Desenvolvimento' }],
+  },
+  risks: {
+    total: 3,
+    classified: 1,
+    unclassified: 2,
+    levels: [level],
+    units: [{ unitId, name: 'Recife', count: 3, unclassified: 2, levels: [level] }],
+  },
+  actions: {
+    total: 3,
+    planned: 1,
+    inProgress: 1,
+    implemented: 1,
+    cancelled: 0,
+    open: 2,
+    overdue: 1,
+    technicalPending: 0,
+    closed: 1,
+    effective: 1,
+  },
+  priorities: {
+    page: 1,
+    pageSize: 5,
+    total: 1,
+    items: [
+      {
+        actionId,
+        unitId,
+        sectorId,
+        riskId: organizationId,
+        title: 'Revisar plantões',
+        dueDate: '2026-10-16',
+        kind: 'OVERDUE',
+      },
+    ],
+  },
+};
+const history = {
+  organizationId,
+  generatedAt: snapshot.generatedAt,
+  timeZone: snapshot.timeZone,
+  filters: snapshot.filters,
+  from: '2026-10-11',
+  to: '2026-10-17',
+  points: Array.from({ length: 7 }, (_, index) => ({
+    date: '2026-10-' + (11 + index),
+    evaluations: index === 6 ? 1 : 0,
+    implementations: 0,
+    closures: 0,
+  })),
 };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 const fetchMock = vi.fn<typeof fetch>();
 const onExpire = vi.fn();
-const registrationPoints = Array.from({ length: 30 }, (_, index) => ({
-  date: new Date(Date.UTC(2026, 8, 18 + index)).toISOString().slice(0, 10),
-  count: index === 29 ? 4 : 0,
-}));
-const registrations = {
-  organizationId,
-  generatedAt: overview.generatedAt,
-  timeZone: 'America/Sao_Paulo',
-  fromDate: '2026-09-18',
-  toDate: '2026-10-17',
-  days: 30,
-  total: 4,
-  points: registrationPoints,
-};
-let registrationHandler: (url: string) => Response;
-let actionHandler: () => Response;
+function mount(hash = '#/painel', canReadEmployees = false) {
+  window.history.replaceState(null, '', hash);
+  return render(
+    <ManagementDashboard
+      organizationId={organizationId}
+      onExpire={onExpire}
+      canReadEmployees={canReadEmployees}
+    />,
+  );
+}
+const nav = () => screen.getByRole('navigation', { name: 'Áreas do painel' });
 beforeEach(() => {
-  actionHandler = () =>
-    json({
-      organizationId,
-      generatedAt: overview.generatedAt,
-      referenceDate: '2026-10-17',
-      timeZone: 'America/Sao_Paulo',
-      totals: {
-        total: 0,
-        planned: 0,
-        inProgress: 0,
-        implemented: 0,
-        cancelled: 0,
-        open: 0,
-        overdue: 0,
-      },
-    });
-  registrationHandler = (url) => {
-    const days = Number(new URL(url, 'http://localhost').searchParams.get('days') ?? '30');
-    const points = registrationPoints.slice(-days);
-    return json({ ...registrations, days, fromDate: points[0]!.date, points });
-  };
-  fetchMock
-    .mockReset()
-    .mockImplementation(async (url) =>
-      json(String(url).endsWith('/risk-overview') ? overview : structure),
-    );
   onExpire.mockReset();
-  vi.stubGlobal('fetch', (url: string, init?: RequestInit) =>
-    String(url).endsWith('/action-overview')
-      ? Promise.resolve(actionHandler())
-      : String(url).includes('/risk-registrations')
-        ? Promise.resolve(registrationHandler(String(url)))
-        : fetchMock(url, init),
-  );
+  fetchMock.mockReset().mockImplementation(async (url) => {
+    const parsed = new URL(String(url), 'http://localhost');
+    return parsed.pathname.endsWith('/history')
+      ? json(history)
+      : json({
+          ...snapshot,
+          filters: {
+            unitId: parsed.searchParams.get('unitId'),
+            sectorId: parsed.searchParams.get('sectorId'),
+          },
+        });
+  });
+  vi.stubGlobal('fetch', fetchMock);
 });
-afterEach(() => vi.unstubAllGlobals());
-
-it('apresenta medidas por estado e atraso real em links para o recorte correto', async () => {
-  actionHandler = () =>
-    json({
-      organizationId,
-      generatedAt: overview.generatedAt,
-      referenceDate: '2026-10-17',
-      timeZone: 'America/Sao_Paulo',
-      totals: {
-        total: 10,
-        planned: 4,
-        inProgress: 3,
-        implemented: 2,
-        cancelled: 1,
-        open: 7,
-        overdue: 2,
-      },
-    });
-  render(<ManagementDashboard organizationId={organizationId} onExpire={onExpire} />);
-  const metrics = await screen.findByRole('list', { name: 'Indicadores das ações' });
-  expect(within(metrics).getByRole('link', { name: /Atrasadas.*2/ })).toHaveAttribute(
-    'href',
-    '#/acoes?page=1&overdue=true',
-  );
-  expect(within(metrics).getByRole('link', { name: /Em execução.*3/ })).toHaveAttribute(
-    'href',
-    '#/acoes?page=1&status=IN_PROGRESS',
-  );
+afterEach(() => {
+  vi.unstubAllGlobals();
+  window.history.replaceState(null, '', '/');
 });
 
-it('mostra série diária real, período e fuso, incluindo dias sem cadastros', async () => {
-  render(<ManagementDashboard organizationId={organizationId} onExpire={onExpire} />);
-  expect(await screen.findByRole('heading', { name: 'Cadastros de riscos por dia' })).toBeVisible();
-  expect(await screen.findByRole('img', { name: /4 cadastros.*America\/Sao_Paulo/ })).toBeVisible();
-  await userEvent.click(screen.getByText('Ver cadastros por dia', { exact: true }));
-  const table = screen.getByRole('table', { name: 'Cadastros diários de riscos' });
-  expect(within(table).getAllByRole('row')).toHaveLength(31);
-  expect(within(table).getAllByRole('cell', { name: '0' })).toHaveLength(29);
-  await userEvent.selectOptions(screen.getByLabelText('Período de cadastros'), '7');
-  await waitFor(() =>
-    expect(
-      within(screen.getByRole('table', { name: 'Cadastros diários de riscos' })).getAllByRole(
-        'row',
-      ),
-    ).toHaveLength(8),
+it('abre apenas a Visão geral e navega por áreas mantendo o recorte na URL', async () => {
+  mount('#/painel?unitId=' + unitId + '&area=invalida', true);
+  expect(within(nav()).getByRole('link', { name: 'Visão geral' })).toHaveAttribute(
+    'aria-current',
+    'page',
   );
-  expect(screen.getByText(/inclui rascunhos, registrados e arquivados/i)).toBeVisible();
+  expect(await screen.findByRole('list', { name: 'Indicadores principais' })).toBeVisible();
+  expect(screen.queryByRole('heading', { name: 'Estrutura cadastrada' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: 'Evolução no período' })).not.toBeInTheDocument();
+  expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/history'))).toBe(false);
+  await userEvent.click(within(nav()).getByRole('link', { name: 'Estrutura' }));
+  await waitFor(() => expect(window.location.hash).toContain('area=estrutura'));
+  expect(window.location.hash).toContain('unitId=' + unitId);
+  expect(within(nav()).getByRole('link', { name: 'Estrutura' })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+  expect(await screen.findByRole('link', { name: 'Colaboradores' })).toBeVisible();
+  expect(screen.queryByRole('list', { name: 'Indicadores principais' })).not.toBeInTheDocument();
 });
 
-it('não representa a série de outra empresa como dados válidos e permite nova leitura', async () => {
-  registrationHandler = () => json({ ...registrations, organizationId: otherId });
-  render(<ManagementDashboard organizationId={organizationId} onExpire={onExpire} />);
-  expect(await screen.findByRole('button', { name: 'Atualizar série de cadastros' })).toBeVisible();
-  expect(screen.queryByRole('img', { name: /cadastros entre/ })).not.toBeInTheDocument();
-  registrationHandler = () => json(registrations);
-  await userEvent.click(screen.getByRole('button', { name: 'Atualizar série de cadastros' }));
-  expect(await screen.findByRole('img', { name: /4 cadastros/ })).toBeVisible();
+it('envia o setor com a unidade e abre a lista de atrasos no mesmo recorte', async () => {
+  mount();
+  await userEvent.selectOptions(await screen.findByLabelText('Setor'), sectorId);
+  await waitFor(() => expect(window.location.hash).toContain('unitId=' + unitId));
+  expect(await screen.findByRole('link', { name: /Ações atrasadas.*1/ })).toHaveAttribute(
+    'href',
+    '#/acoes?unitId=' + unitId + '&sectorId=' + sectorId + '&page=1&overdue=true',
+  );
+  const link = screen.getByRole('link', { name: 'Revisar plantões' });
+  expect(new URLSearchParams(link.getAttribute('href')?.split('?')[1]).get('returnTo')).toBe(
+    window.location.hash,
+  );
 });
 
-it('apresenta KPIs reais, gráficos reconciliados e filtros sem herdar estado anterior', async () => {
-  render(<ManagementDashboard organizationId={organizationId} onExpire={onExpire} />);
-  expect(screen.getByText('Carregando indicadores do inventário…')).toBeVisible();
-  const metrics = await screen.findByRole('list', { name: 'Indicadores do inventário' });
-  expect(within(metrics).getByRole('link', { name: /Registros ativos.*8/ })).toHaveAttribute(
+it('mantém o gráfico, a tabela e os links de nível ligados ao mesmo DTO', async () => {
+  mount('#/painel?area=riscos&dias=7');
+  const chart = await screen.findByRole('region', { name: 'Distribuição por nível' });
+  const link = within(chart).getByRole('link', { name: 'Alto · Matriz v1 1' });
+  expect(link).toHaveAttribute(
     'href',
-    '#/inventario?page=1',
+    '#/inventario?page=1&methodVersionId=' + methodVersionId + '&levelKey=HIGH',
   );
-  expect(within(metrics).getByRole('link', { name: /Rascunhos.*2/ })).toHaveAttribute(
-    'href',
-    '#/inventario?page=1&status=DRAFT',
-  );
-  expect(within(metrics).getByRole('link', { name: /Registrados.*6/ })).toHaveAttribute(
-    'href',
-    '#/inventario?page=1&status=REGISTERED',
-  );
-  expect(within(metrics).getByRole('link', { name: /Sem ficha.*5/ })).toHaveAttribute(
-    'href',
-    '#/inventario?page=1&evaluationPresence=WITHOUT',
-  );
-  expect(screen.getByRole('img', { name: /3 de 8/ })).toBeVisible();
-  expect(await screen.findByRole('heading', { name: 'Horizonte' })).toBeVisible();
-  expect(screen.getByText(/Snapshot do inventário/)).toBeVisible();
+  await userEvent.click(within(chart).getByText('Ver valores em tabela'));
+  expect(within(chart).getByRole('row', { name: 'Alto · Matriz v1 1' })).toBeVisible();
+  expect(
+    await screen.findByRole('img', { name: 'Avaliações técnicas registradas: 1' }),
+  ).toBeVisible();
+  await userEvent.click(screen.getByText('Ver eventos por dia'));
+  expect(screen.getByRole('row', { name: '17/10/2026 1' })).toBeVisible();
 });
 
-it('orienta seleção sem consultar dados quando não há empresa', () => {
-  render(<ManagementDashboard organizationId={null} onExpire={onExpire} />);
-  expect(screen.getByRole('link', { name: /Selecionar empresa/ })).toHaveAttribute(
-    'href',
-    '#/empresas',
-  );
-  expect(fetchMock).not.toHaveBeenCalled();
-});
-
-it('mostra vazio real sem fabricar conclusão no anel', async () => {
+it('retém o retrato atual quando o histórico falha e permite reconsultar só a série', async () => {
   fetchMock.mockImplementation(async (url) =>
-    json(
-      String(url).endsWith('/risk-overview')
-        ? {
-            ...overview,
-            totals: { total: 0, draft: 0, registered: 0, withEvaluation: 0, withoutEvaluation: 0 },
-            units: [],
-          }
-        : structure,
-    ),
+    String(url).includes('/history') ? json({}, 503) : json(snapshot),
   );
-  render(<ManagementDashboard organizationId={organizationId} onExpire={onExpire} />);
-  expect(await screen.findByText('Sem registros')).toBeVisible();
-  expect(screen.getByText('Seu inventário começa pelo primeiro registro')).toBeVisible();
-  expect(screen.queryByText('100%')).not.toBeInTheDocument();
+  mount('#/painel?area=acoes');
+  expect(await screen.findByRole('alert')).toHaveTextContent('Histórico indisponível');
+  expect(screen.getByRole('heading', { name: 'Ações preventivas' })).toBeVisible();
+  expect(screen.getByRole('link', { name: 'Revisar plantões' })).toBeVisible();
+  fetchMock.mockImplementation(async () => json({ ...history, points: [] }));
+  await userEvent.click(screen.getByRole('button', { name: 'Tentar carregar histórico' }));
+  expect(await screen.findByText(/Nenhum evento registrado/)).toBeVisible();
+  expect(screen.queryByRole('img')).not.toBeInTheDocument();
 });
 
-it.each([
-  ['inválido', {}],
-  ['inconsistente', { ...overview, totals: { ...overview.totals, total: 99 } }],
-  ['de outra empresa', { ...overview, organizationId: otherId }],
-])('rejeita payload %s e não mostra KPIs', async (_name, body) => {
-  fetchMock.mockImplementation(async (url) =>
-    json(String(url).endsWith('/risk-overview') ? body : structure),
+it('trata erro do retrato sem mostrar totais e informa expiração da sessão', async () => {
+  fetchMock.mockResolvedValueOnce(json({}, 503)).mockResolvedValueOnce(json({}, 401));
+  mount();
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'Serviço temporariamente indisponível',
   );
-  render(<ManagementDashboard organizationId={organizationId} onExpire={onExpire} />);
-  expect(await screen.findByRole('alert')).toHaveTextContent(/Não foi possível/);
-  expect(screen.queryByRole('list', { name: 'Indicadores do inventário' })).not.toBeInTheDocument();
-});
-
-it('oferece recuperação manual após falha do inventário', async () => {
-  let failed = true;
-  fetchMock.mockImplementation(async (url) =>
-    String(url).endsWith('/risk-overview')
-      ? failed
-        ? json({}, 503)
-        : json(overview)
-      : json(structure),
-  );
-  render(<ManagementDashboard organizationId={organizationId} onExpire={onExpire} />);
-  expect(await screen.findByRole('alert')).toHaveTextContent(/temporariamente indisponível/);
-  failed = false;
-  await userEvent.setup().click(screen.getByRole('button', { name: 'Tentar novamente' }));
-  expect(await screen.findByRole('list', { name: 'Indicadores do inventário' })).toBeVisible();
-});
-
-it('expira sessão quando a API do inventário responde 401', async () => {
-  fetchMock.mockImplementation(async (url) =>
-    String(url).endsWith('/risk-overview') ? json({}, 401) : json(structure),
-  );
-  render(<ManagementDashboard organizationId={organizationId} onExpire={onExpire} />);
+  expect(screen.queryByRole('list', { name: 'Indicadores principais' })).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }));
   await waitFor(() => expect(onExpire).toHaveBeenCalledOnce());
-  expect(screen.queryByRole('list', { name: 'Indicadores do inventário' })).not.toBeInTheDocument();
 });
 
-it('limpa dados e aborta a consulta antiga imediatamente ao trocar de empresa', async () => {
-  const view = render(<ManagementDashboard organizationId={organizationId} onExpire={onExpire} />);
-  await screen.findByRole('list', { name: 'Indicadores do inventário' });
-  let resolve!: (response: Response) => void;
-  fetchMock.mockImplementation((url) =>
-    String(url).endsWith('/risk-overview')
-      ? new Promise((done) => {
+it('ignora resultados atrasados após a troca da empresa', async () => {
+  let resolve!: (value: Response) => void;
+  fetchMock
+    .mockImplementationOnce(
+      () =>
+        new Promise((done) => {
           resolve = done;
-        })
-      : Promise.resolve(
-          json({ ...structure, organization: { ...structure.organization, id: otherId } }),
-        ),
-  );
+        }),
+    )
+    .mockResolvedValueOnce(json({}, 403));
+  const view = mount();
   view.rerender(<ManagementDashboard organizationId={otherId} onExpire={onExpire} />);
-  expect(screen.queryByRole('list', { name: 'Indicadores do inventário' })).not.toBeInTheDocument();
-  expect(screen.getByText('Carregando indicadores do inventário…')).toBeVisible();
-  const call = fetchMock.mock.calls.find(
-    ([url]) => String(url).includes(otherId) && String(url).endsWith('/risk-overview'),
-  )!;
-  const signal = call[1]?.signal;
-  const resolvePrevious = resolve;
-  view.rerender(<ManagementDashboard organizationId={organizationId} onExpire={onExpire} />);
-  expect(signal?.aborted).toBe(true);
-  await act(async () => resolvePrevious(json({ ...overview, organizationId: otherId })));
-  expect(screen.queryByRole('list', { name: 'Indicadores do inventário' })).not.toBeInTheDocument();
-  view.unmount();
+  expect(await screen.findByRole('alert')).toHaveTextContent('Você não tem permissão');
+  await act(async () => resolve(json(snapshot)));
+  expect(screen.queryByRole('heading', { name: 'Horizonte' })).not.toBeInTheDocument();
+});
+
+it('omite controles e números do cadastro de colaboradores para leitores', async () => {
+  fetchMock.mockImplementation(async () =>
+    json({
+      ...snapshot,
+      structure: { ...snapshot.structure, employees: null },
+    }),
+  );
+  mount('#/painel?area=estrutura');
+  expect(await screen.findByRole('heading', { name: 'Estrutura cadastrada' })).toBeVisible();
+  expect(screen.queryByText('Colaboradores')).not.toBeInTheDocument();
+});
+
+it('preserva filtros inválidos para validação e oferece recuperação sem mostrar totais globais', async () => {
+  fetchMock.mockImplementation(async (url) => {
+    const query = new URL(String(url), 'http://localhost').searchParams;
+    return query.get('unitId') === 'invalida' ? json({}, 400) : json(snapshot);
+  });
+  mount('#/painel?unitId=invalida');
+  expect(await screen.findByRole('alert')).toHaveTextContent('Confira os campos informados');
+  expect(screen.queryByRole('list', { name: 'Indicadores principais' })).not.toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Limpar filtros' })).toHaveAttribute('href', '#/painel');
 });

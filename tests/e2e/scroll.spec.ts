@@ -36,7 +36,7 @@ test('movimento reduzido preserva conteúdo, foco, PageDown e retorno do drawer'
   await navigateWorkspace(page, 'Painel');
   const heading = page.getByRole('heading', { name: 'Painel', exact: true });
   await expect(heading).toBeFocused();
-  await expect(page.getByRole('list', { name: 'Indicadores do inventário' })).toBeVisible();
+  await expect(page.getByRole('list', { name: 'Indicadores principais' })).toBeVisible();
   const initial = await page.evaluate(() => scrollY);
   await page.keyboard.press('PageDown');
   await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(initial);

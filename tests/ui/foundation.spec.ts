@@ -129,6 +129,8 @@ async function openWorkspace(
   await page.emulateMedia({ colorScheme: theme, reducedMotion: 'reduce' });
   await page.route('**/api/v1/**', async (route) => {
     const path = new URL(route.request().url()).pathname;
+    if (path === '/api/v1/platform/capabilities')
+      return route.fulfill({ json: { capabilities: [] } });
     if (path === '/api/v1/health') {
       await route.fulfill({ json: { status: 'ok', service: 'renr-api', timestamp: stamp } });
     } else if (path === '/api/v1/auth/session') {

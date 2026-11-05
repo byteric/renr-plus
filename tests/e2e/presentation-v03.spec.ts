@@ -18,9 +18,9 @@ test('leitura ampliada e interação mantêm o fluxo com CPU reduzida', async ({
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Empresas', exact: true })).toBeVisible();
   await navigateWorkspace(page, 'Painel');
-  await expect(page.getByRole('list', { name: 'Indicadores do inventário' })).toBeVisible();
+  await expect(page.getByRole('list', { name: 'Indicadores principais' })).toBeVisible();
   await expect(
-    page.getByRole('heading', { name: 'Cadastros de riscos por dia', exact: true }),
+    page.getByRole('heading', { name: 'Prioridades de acompanhamento', exact: true }),
   ).toBeVisible();
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.evaluate(() => {
@@ -29,7 +29,7 @@ test('leitura ampliada e interação mantêm o fluxo com CPU reduzida', async ({
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(
     true,
   );
-  await page.getByRole('link', { name: 'Ver inventário', exact: true }).click();
+  await page.getByRole('link', { name: /Riscos no inventário/ }).click();
   await expect(page.getByRole('heading', { name: 'Inventário', exact: true })).toBeVisible();
   await page.getByLabel('Buscar no inventário', { exact: true }).fill('fictício');
   await page.getByRole('button', { name: 'Aplicar filtros', exact: true }).click();

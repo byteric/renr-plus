@@ -8,6 +8,10 @@ import {
   actionOverviewSchema,
   actionRevisionListSchema,
   evidenceSchema,
+  managementIndicatorHistorySchema,
+  managementIndicatorsSchema,
+  actionWorkspaceListSchema,
+  riskWorkspaceListSchema,
 } from '@renr/contracts';
 import { AppModule } from '../src/app.module';
 import { configureApplication } from '../src/app.factory';
@@ -169,6 +173,114 @@ describeDatabase('Actions and private attachments against local PostgreSQL and M
     if (db) await db.client.session.deleteMany({ where: { userId: { in: [userId, readerId] } } });
     if (app) await app.close();
   }, 15000);
+  it('reconciles the current filtered snapshot with source lists and protects the roster', async () => {
+    const records = [];
+    for (let index = 0; index < 7; index++) {
+      const response = await post()
+        .send({ ...input, title: 'Prioridade fictícia ' + index, dueDate: '2000-01-01' })
+        .expect(201);
+      records.push(actionDetailSchema.parse(response.body));
+    }
+    await patch(records[0]!.id)
+      .send({
+        expectedVersion: 1,
+        status: 'IN_PROGRESS',
+        changeReason: 'Início da execução fictícia.',
+      })
+      .expect(200);
+    await patch(records[0]!.id)
+      .send({
+        expectedVersion: 2,
+        status: 'IMPLEMENTED',
+        changeReason: 'Fim da execução fictícia.',
+        implementationNote: 'Relato fictício de execução completa.',
+      })
+      .expect(200);
+    await patch(records[1]!.id)
+      .send({
+        expectedVersion: 1,
+        status: 'CANCELLED',
+        changeReason: 'Cancelamento da ação fictícia.',
+      })
+      .expect(200);
+    const query = `sectorId=${sectorId}`;
+    const get = (path: string, session = cookie) =>
+      api().get(`${base}/${path}`).set('Cookie', session);
+    const snapshot = managementIndicatorsSchema.parse(
+      (await get(`management-indicators?${query}`).expect(200)).body,
+    );
+    expect(snapshot.filters).toEqual({ unitId, sectorId });
+    expect(snapshot.actions).toMatchObject({
+      overdue: 5,
+      open: 5,
+      cancelled: 1,
+      effective: 0,
+      technicalPending: 1,
+    });
+    expect(snapshot.priorities.total).toBe(6);
+    expect(snapshot.priorities.items.map((item) => item.kind)).toEqual(Array(5).fill('OVERDUE'));
+    const second = managementIndicatorsSchema.parse(
+      (await get(`management-indicators?${query}&page=2`).expect(200)).body,
+    );
+    expect(second.priorities.items).toEqual([
+      expect.objectContaining({ actionId: records[0]!.id, kind: 'TECHNICAL_PENDING' }),
+    ]);
+    const overdue = actionWorkspaceListSchema.parse(
+      (await get(`action-workspaces?${query}&overdue=true`).expect(200)).body,
+    );
+    expect(overdue.total).toBe(snapshot.actions.overdue);
+    const unclassified = riskWorkspaceListSchema.parse(
+      (await get(`risk-workspaces?${query}&classification=UNCLASSIFIED`).expect(200)).body,
+    );
+    expect(unclassified.total).toBe(snapshot.risks.unclassified);
+    const reader = managementIndicatorsSchema.parse(
+      (await get('management-indicators', readerCookie).expect(200)).body,
+    );
+    expect(reader.structure.employees).toBeNull();
+    await get(`management-indicators?unitId=${foreignOrg}`).expect(404);
+  });
+
+  it.each([
+    ['+03:00', '2020-10-01T21:30:00.000Z', '2020-10-01', '2020-10-03', '2020-10-02'],
+    ['America/Havana', '2020-11-01T04:30:00.000Z', '2020-11-01', '2020-11-03', '2020-11-01'],
+  ])(
+    'counts events in civil dates for %s without counting action creation',
+    async (zone, time, from, to, eventDate) => {
+      const created = actionDetailSchema.parse((await post().send(input).expect(201)).body);
+      await db.client.actionRevision.create({
+        data: {
+          organizationId: orgId,
+          actionId: created.id,
+          authorId: userId,
+          version: 2,
+          event: 'IMPLEMENTED',
+          snapshot: { status: 'IMPLEMENTED' },
+          createdAt: new Date(time),
+        },
+      });
+      const url = `${base}/management-indicators/history?sectorId=${sectorId}&from=${from}&to=${to}`;
+      try {
+        await db.client.organization.update({ where: { id: orgId }, data: { timezone: zone } });
+        const response = await api().get(url).set('Cookie', cookie).expect(200);
+        expect(managementIndicatorHistorySchema.parse(response.body).points).toEqual(
+          Array.from({ length: 3 }, (_, index) => {
+            const date = new Date(Date.parse(from) + index * 86_400_000).toISOString().slice(0, 10);
+            return {
+              date,
+              evaluations: 0,
+              implementations: Number(date === eventDate),
+              closures: 0,
+            };
+          }),
+        );
+      } finally {
+        await db.client.organization.update({
+          where: { id: orgId },
+          data: { timezone: 'America/Sao_Paulo' },
+        });
+      }
+    },
+  );
   it('validates strict creation and origin permissions without partial persistence', async () => {
     const before = await db.client.action.count({ where: { organizationId: orgId } });
     for (const payload of [

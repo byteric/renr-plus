@@ -38,12 +38,18 @@ jobs:
         with:
           node-version: '24'
           cache: pnpm
+      - name: Instalar leitor de PDF para os testes
+        run: |
+          python3 -m venv "$RUNNER_TEMP/renr-pdf-tests"
+          "$RUNNER_TEMP/renr-pdf-tests/bin/python" -m pip install --disable-pip-version-check pypdf==6.14.2
+          echo "PDF_TEST_PYTHON=$RUNNER_TEMP/renr-pdf-tests/bin/python" >> "$GITHUB_ENV"
       - run: pnpm install --frozen-lockfile
       - run: pnpm setup:local
       - name: Preparar MinIO privado de teste
         run: docker compose --env-file .env -f infra/compose.yaml up -d --build --wait --wait-timeout 120 minio
       - run: pnpm infra:verify
       - run: node --test scripts/start-production.test.mjs scripts/homologation-config.test.mjs scripts/homologation-data.test.mjs scripts/prisma-datasource.test.mjs scripts/check-hosted.test.mjs
+      - run: pnpm prisma:validate
       - run: pnpm check
       - run: pnpm format:check
       - run: pnpm db:deploy
@@ -57,6 +63,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: resultados-e2e
-          path: test-results/
+          name: capturas-ui-sinteticas
+          path: test-results/ui/**/*.png
+          if-no-files-found: ignore
           retention-days: 7

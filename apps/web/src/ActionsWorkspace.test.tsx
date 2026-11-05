@@ -141,6 +141,8 @@ function arrange(
   window.location.hash = hash;
   const fetcher = vi.fn<typeof fetch>().mockImplementation(async (url, init) => {
     const path = new URL(String(url), 'http://localhost').pathname;
+    if (path.endsWith(`/actions/${id}/history`))
+      return json({ ...page([]), timeZone: 'America/Sao_Paulo' });
     if (path.endsWith('/efficacy'))
       return json(operationalEfficacyContext(currentAction as Record<string, unknown>));
     if (path.endsWith('/closure-context'))
@@ -216,6 +218,18 @@ function arrange(
   );
   return fetcher;
 }
+it('oferece histórico unificado da ação ao leitor sem consultar auditoria administrativa', async () => {
+  const fetcher = arrange(`/acoes/${id}`, 'READER');
+  await userEvent.click(await screen.findByText('Histórico unificado'));
+  expect(await screen.findByRole('heading', { name: 'Histórico unificado' })).toBeInTheDocument();
+  await waitFor(() =>
+    expect(
+      fetcher.mock.calls.some(([url]) => String(url).includes(`/actions/${id}/history?`)),
+    ).toBe(true),
+  );
+  expect(fetcher.mock.calls.some(([url]) => String(url).includes('/audit-events'))).toBe(false);
+});
+
 afterEach(() => {
   vi.unstubAllGlobals();
   window.location.hash = '/empresas';

@@ -31,6 +31,17 @@ async function expectReachable(control: Locator) {
   expect(box!.y).toBeGreaterThanOrEqual(header!.y + header!.height);
 }
 
+test('o botão Entrar continua clicável após rolar em uma janela baixa', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 360 });
+  await openLogin(page);
+  const submit = page.getByRole('button', { name: 'Entrar', exact: true });
+  await submit.evaluate((element) =>
+    window.scrollTo(0, element.getBoundingClientRect().top + scrollY - 12),
+  );
+  expect(await page.evaluate(() => scrollY)).toBeGreaterThan(0);
+  await submit.click({ trial: true, timeout: 2500 });
+});
+
 for (const theme of ['light', 'dark'] as const) {
   test.describe(`login no tema ${theme}`, () => {
     test.use({ colorScheme: theme });

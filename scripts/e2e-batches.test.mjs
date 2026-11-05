@@ -2,10 +2,36 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { e2eBatches } from './e2e-batches.mjs';
 
-test('runs all desktop and mobile journeys in separate API lifetimes against the built frontend', () => {
+test('runs the full desktop and mobile suites in four isolated compiled batches', () => {
   assert.deepEqual(e2eBatches([]), [
-    ['test', '--config=playwright.production.config.ts', '--project=desktop'],
-    ['test', '--config=playwright.production.config.ts', '--project=mobile'],
+    [
+      'test',
+      '--config=playwright.production.config.ts',
+      '--project=desktop',
+      '--shard=1/2',
+      '--output=test-results/e2e-desktop-1',
+    ],
+    [
+      'test',
+      '--config=playwright.production.config.ts',
+      '--project=desktop',
+      '--shard=2/2',
+      '--output=test-results/e2e-desktop-2',
+    ],
+    [
+      'test',
+      '--config=playwright.production.config.ts',
+      '--project=mobile',
+      '--shard=1/2',
+      '--output=test-results/e2e-mobile-1',
+    ],
+    [
+      'test',
+      '--config=playwright.production.config.ts',
+      '--project=mobile',
+      '--shard=2/2',
+      '--output=test-results/e2e-mobile-2',
+    ],
   ]);
 });
 test('keeps a caller-selected project, filter and config without duplicating the run', () => {

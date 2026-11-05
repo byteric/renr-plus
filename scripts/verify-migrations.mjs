@@ -27,21 +27,27 @@ const admin = new Pool({ connectionString: adminUrl.toString(), max: 1 });
 const testPool = new Pool({ connectionString: testUrl.toString(), max: 1 });
 let created = false;
 
-async function pnpm(args) {
-  await new Promise((resolvePromise, reject) => {
+async function pnpm(args, captureOutput = false) {
+  return new Promise((resolvePromise, reject) => {
+    let output = '';
     const child = spawn(
       process.execPath,
       [resolve(root, 'node_modules/pnpm/bin/pnpm.cjs'), ...args],
       {
         cwd: root,
         env: { ...environment, DATABASE_URL: testUrl.toString() },
-        stdio: 'inherit',
+        stdio: captureOutput ? ['ignore', 'pipe', 'inherit'] : 'inherit',
         windowsHide: true,
       },
     );
+    child.stdout?.on('data', (chunk) => {
+      output += chunk;
+    });
     child.once('error', () => reject(new Error('Não foi possível iniciar a verificação.')));
-    child.once('exit', (code) =>
-      code === 0 ? resolvePromise() : reject(new Error('Verificação de migração ou seed falhou.')),
+    child.once('close', (code) =>
+      code === 0
+        ? resolvePromise(output)
+        : reject(new Error('Verificação de migração ou seed falhou.')),
     );
   });
 }
@@ -52,6 +58,28 @@ try {
   created = true;
   await pnpm(['db:deploy']);
   await pnpm(['db:deploy']);
+  const schemaDiff = await pnpm(
+    [
+      '--filter',
+      '@renr/api',
+      'exec',
+      'prisma',
+      'migrate',
+      'diff',
+      '--from-config-datasource',
+      '--to-schema',
+      'prisma/schema.prisma',
+      '--script',
+    ],
+    true,
+  );
+  if (
+    /ALTER TABLE "(actions|action_revisions|action_evidence)"\s+[^;]*(?:ADD|DROP) CONSTRAINT/i.test(
+      schemaDiff,
+    )
+  )
+    throw new Error('Schema Prisma diverge das constraints de ações, revisões ou evidências.');
+  console.log('Constraints de ações, revisões e evidências compatíveis com o schema Prisma.');
   await pnpm(['db:seed']);
   const actionSnapshot = async () =>
     JSON.stringify(

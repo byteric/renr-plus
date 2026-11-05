@@ -18,6 +18,9 @@ import {
   correctiveActionCreatedSchema,
   correctiveActionListSchema,
   evidenceSchema,
+  managementIndicatorsSchema,
+  managementIndicatorHistorySchema,
+  riskWorkspaceListSchema,
   type ActionDetail,
   type RiskDetail,
   type TechnicalRiskEvaluation,
@@ -76,6 +79,10 @@ describeDatabase('ID17 reassessment and technical closure', () => {
   const closureContext = async (id: string, actor = 'tech') =>
     technicalClosureContextSchema.parse(
       (await get(`/actions/${id}/closure-context`, actor).expect(200)).body,
+    );
+  const indicators = async () =>
+    managementIndicatorsSchema.parse(
+      (await get(`/management-indicators?sectorId=${sectorId}`).expect(200)).body,
     );
   const actionFields = {
     title: 'Synthetic measure ID17',
@@ -473,6 +480,7 @@ describeDatabase('ID17 reassessment and technical closure', () => {
     ).toEqual(record.baseline);
     const context = await closureContext(record.action.id);
     expect(context.permissions.canClose).toBe(true);
+    const beforeClosing = await indicators();
     const closed = technicalClosureSchema.parse(
       (
         await post(
@@ -483,6 +491,41 @@ describeDatabase('ID17 reassessment and technical closure', () => {
       ).body,
     );
     expect(closed.validity).toBe('CURRENT');
+    const afterClosing = await indicators();
+    expect(afterClosing.actions.closed).toBe(beforeClosing.actions.closed + 1);
+    expect(afterClosing.actions.technicalPending).toBe(beforeClosing.actions.technicalPending - 1);
+    expect(afterClosing.actions.effective).toBe(beforeClosing.actions.effective);
+    expect(afterClosing.risks.classified).toBeGreaterThan(0);
+    for (const level of afterClosing.risks.levels) {
+      const query = new URLSearchParams({
+        sectorId,
+        methodVersionId: level.methodVersionId,
+        levelKey: level.key,
+      });
+      const source = riskWorkspaceListSchema.parse(
+        (await get(`/risk-workspaces?${query}`).expect(200)).body,
+      );
+      expect(source.total).toBe(level.count);
+    }
+    const date = afterClosing.referenceDate;
+    const history = managementIndicatorHistorySchema.parse(
+      (
+        await get(
+          `/management-indicators/history?sectorId=${sectorId}&from=${date}&to=${date}`,
+        ).expect(200)
+      ).body,
+    );
+    expect(history.points).toEqual([
+      expect.objectContaining({
+        date,
+        evaluations: expect.any(Number),
+        implementations: expect.any(Number),
+        closures: expect.any(Number),
+      }),
+    ]);
+    expect(history.points[0]!.closures).toBeGreaterThanOrEqual(1);
+    expect(history.points[0]!.implementations).toBeGreaterThanOrEqual(1);
+    expect(history.points[0]!.evaluations).toBeGreaterThanOrEqual(2);
     expect(closed.proofPackage).toEqual(record.opinion.proofPackage);
     expect(await currentAction(record.action.id)).toEqual(before);
     expect((await closureContext(record.action.id)).blockingReasons).toContain('ALREADY_CLOSED');
@@ -1052,6 +1095,7 @@ describeDatabase('ID17 reassessment and technical closure', () => {
       expect(usage.items[0]).toMatchObject({ kind: 'TECHNICAL_CLOSURE', id: closed.id });
       const pageTwo = (await get(`${usageRoute}?pageSize=1&page=2`).expect(200)).body;
       expect(pageTwo.items[0]).toMatchObject({ kind: 'OPINION', id: record.opinion.id });
+      const withProof = await indicators();
       await patch(`/actions/${record.action.id}/evidence/${file.id}`, {
         expectedVersion: (await currentAction(record.action.id)).version,
         changeReason: 'Synthetic selected proof withdrawn, requiring a new technical review.',
@@ -1059,6 +1103,10 @@ describeDatabase('ID17 reassessment and technical closure', () => {
       const context = await closureContext(record.action.id);
       expect(context.latest?.validity).toBe('REVIEW_REQUIRED');
       expect(context.latest?.reviewReasons).toContain('SELECTED_EVIDENCE_ARCHIVED');
+      const withoutProof = await indicators();
+      expect(withoutProof.actions.closed).toBe(withProof.actions.closed - 1);
+      expect(withoutProof.actions.effective).toBe(withProof.actions.effective - 1);
+      expect(withoutProof.actions.technicalPending).toBe(withProof.actions.technicalPending + 1);
       expect(context.latest?.proofPackage).toEqual(closed.proofPackage);
       expect(
         (await get(`/actions/${record.action.id}/technical-closures/${closed.id}`).expect(200)).body
