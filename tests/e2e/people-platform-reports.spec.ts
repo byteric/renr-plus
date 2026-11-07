@@ -56,6 +56,8 @@ test('relatório PEOPLE congela o recorte nominal e revalida escopo e permissão
   await page.getByLabel('Incluir detalhes nominais').check();
   await page.getByLabel('Incluir dados financeiros').check();
   const sections = page.getByRole('group', { name: 'Seções da emissão' });
+  await expect(sections).toHaveCount(0);
+  await page.getByText('Personalizar seções', { exact: true }).click();
   for (const label of Object.values(peopleReportSectionLabels)) {
     if (label !== peopleReportSectionLabels['people-population']) {
       await sections.getByRole('checkbox', { name: label, exact: true }).uncheck();
@@ -136,10 +138,16 @@ test('relatório PLATFORM exige concessão global e expõe somente catálogo e a
   expect((await page.request.get(platformApi)).status()).toBe(403);
 
   await hr.allowPlatform();
-  await page.reload();
+  await page.goto('/');
+  await expect(page).toHaveURL(/#\/plataforma$/);
   await expect(
-    page.getByRole('heading', { name: 'Relatórios da plataforma', exact: true }),
+    page.getByRole('heading', { name: 'Administração da plataforma', level: 1 }),
   ).toBeVisible();
+  await navigateWorkspace(page, 'Relatórios da plataforma');
+  await expect(
+    page.getByRole('heading', { name: 'Relatórios da plataforma', level: 1 }),
+  ).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Emissão e consulta global' })).toBeVisible();
   await page.getByLabel('Nome ou CNPJ').fill(hr.org.name);
   await page.getByLabel('Classificação').selectOption('DEMONSTRATION');
   await page.getByLabel('Estado fiscal').selectOption('MISSING');

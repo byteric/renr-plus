@@ -63,10 +63,12 @@ export function usePresentationMotion(scope: RefObject<HTMLElement | null>, data
               if (entry && !entry.isIntersecting) finish();
             });
       observer?.observe(root);
+      root.addEventListener('focusin', finish);
       preference.addEventListener?.('change', reduced);
       document.addEventListener('visibilitychange', visibility);
       return () => {
         observer?.disconnect();
+        root.removeEventListener('focusin', finish);
         preference.removeEventListener?.('change', reduced);
         document.removeEventListener('visibilitychange', visibility);
       };

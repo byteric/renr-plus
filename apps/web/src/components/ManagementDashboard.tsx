@@ -283,7 +283,10 @@ function DashboardContent({
             <>
               <RiskDistribution data={data.risks} filters={applied} listHref={listHref} />
               <p className="chart-note">
-                Resultados de questionários seguem as regras de privacidade em Coletas.
+                <a className="underline" href="#/coletas?status=CLOSED">
+                  Consultar resultados por coleta
+                </a>
+                . A exibição segue as regras de privacidade em Coletas.
               </p>
             </>
           )}

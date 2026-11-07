@@ -27,7 +27,15 @@ async function login(page: Page, email = 'admin1@renr.example') {
   await page.goto('/');
   await page.getByLabel('E-mail', { exact: true }).fill(email);
   await page.getByLabel('Senha', { exact: true }).fill(demoPassword());
+  const authenticated = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === '/api/v1/auth/sessions' &&
+      response.request().method() === 'POST',
+  );
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
+  expect((await authenticated).status(), 'The structure journey requires a successful login').toBe(
+    201,
+  );
   await expect(page.getByRole('heading', { name: 'Empresas', exact: true })).toBeVisible();
 }
 async function findCompany(page: Page, name: string) {

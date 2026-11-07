@@ -83,3 +83,14 @@ it('conclui animação ao ocultar aba ou mudar preferência sem ocultar números
   expect(value.style.transform).toBe('');
   expect(value).toBeVisible();
 });
+
+it('deixa o conteúdo no estado final assim que alguém navega para um controle', () => {
+  vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: false }));
+  render(<Probe />);
+  const value = screen.getByText('1');
+  expect(value.style.transform).not.toBe('');
+  const input = screen.getByRole('textbox');
+  act(() => input.focus());
+  expect(value.style.transform).toBe('');
+  expect(input).toHaveFocus();
+});

@@ -17,6 +17,7 @@ import {
 } from '../../packages/contracts/src/index';
 import { demoPassword } from '../../scripts/e2e-data.mjs';
 import { cleanupAssessmentFixture } from '../../scripts/assessments-e2e-data.mjs';
+import { navigateWorkspace } from './navigation';
 
 const headers = { Origin: 'http://127.0.0.1:5173' };
 const url = (org: string, tail: string) => `/api/v1/organizations/${org}/${tail}`;
@@ -161,12 +162,11 @@ test('organiza coleta, corrige antes do envio, recupera resposta perdida e encer
   );
   await page.getByRole('button', { name: 'Salvar rascunho', exact: true }).click();
   const cycle = assessmentCycleSchema.parse(await (await created).json());
+  const revisedName = 'Coleta sintética revisada';
   await page.getByRole('button', { name: 'Editar rascunho', exact: true }).click();
-  await page.getByLabel('Nome da coleta', { exact: true }).fill('Coleta sintética revisada');
+  await page.getByLabel('Nome da coleta', { exact: true }).fill(revisedName);
   await page.getByRole('button', { name: 'Salvar rascunho', exact: true }).click();
-  await expect(
-    page.getByRole('heading', { name: 'Coleta sintética revisada', exact: true }),
-  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: revisedName, exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Abrir coleta', exact: true }).click();
   await expect(page.getByText(/fixad|fixos|fixa|congelad/i).first()).toBeVisible();
   await page.getByLabel('Confirmação da abertura', { exact: true }).fill('ABRIR');
@@ -252,13 +252,23 @@ test('organiza coleta, corrige antes do envio, recupera resposta perdida e encer
   await page.getByLabel('Confirmação do encerramento', { exact: true }).fill('ENCERRAR');
   await page.getByRole('button', { name: 'Confirmar encerramento', exact: true }).click();
   await expect(
-    page.getByRole('heading', { name: 'Resultado suprimido', exact: true }),
+    page.getByRole('heading', { name: 'Resultado protegido', exact: true }),
   ).toBeVisible();
   await expect(page.getByText(/Envios consolidados:/)).toHaveCount(0);
   const results = assessmentResultsSchema.parse(
     await (await page.request.get(url(company.id, `assessment-cycles/${cycle.id}/results`))).json(),
   );
   expect(results.node.availability).toBe('SUPPRESSED');
+  await navigateWorkspace(page, 'Painel');
+  await page
+    .getByRole('navigation', { name: 'Áreas do painel' })
+    .getByRole('link', { name: 'Riscos', exact: true })
+    .click();
+  await page.getByRole('link', { name: 'Consultar resultados por coleta' }).click();
+  await expect(page.getByLabel('Situação da coleta')).toHaveValue('CLOSED');
+  await page.getByRole('button', { name: `Abrir coleta ${revisedName}`, exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Resultado protegido' })).toBeVisible();
+  await expect(page.getByText(/Envios consolidados:/)).toHaveCount(0);
   await page.getByRole('button', { name: 'Consolidação gerencial', exact: true }).click();
   await page
     .getByRole('combobox', { name: 'Instrumento da coleta', exact: true })
@@ -271,7 +281,7 @@ test('organiza coleta, corrige antes do envio, recupera resposta perdida e encer
     .selectOption({ index: 1 });
   await page.getByRole('button', { name: 'Consultar consolidação', exact: true }).click();
   await expect(
-    page.getByRole('heading', { name: 'Resultado suprimido', exact: true }),
+    page.getByRole('heading', { name: 'Resultado protegido', exact: true }),
   ).toBeVisible();
   await expect(page.getByText(/zero risco/i)).toHaveCount(0);
 });

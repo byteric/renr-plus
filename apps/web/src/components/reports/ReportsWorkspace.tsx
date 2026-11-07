@@ -173,6 +173,7 @@ function ReportsContent({
   const sectionLabels = draft.kind === 'SST' ? sstReportSectionLabels : peopleReportSectionLabels;
   const allSections = Object.keys(sectionLabels);
   const selectedSections = sectionKeys ?? allSections;
+  const sectionOptions = useRef<HTMLDetailsElement>(null);
   const [revision, setRevision] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
   const [created, setCreated] = useState<ReportSnapshot | null>(null);
@@ -310,12 +311,19 @@ function ReportsContent({
       ? createPlatformReportSchema.safeParse(payload(value)).success
       : createTenantReportSchema.safeParse(payload(value)).success;
   }
+  function validateSections() {
+    if (platform || selectedSections.length) return true;
+    const options = sectionOptions.current;
+    if (options) {
+      options.open = true;
+      options.querySelector('summary')?.focus();
+    }
+    setError('Selecione ao menos uma seção.');
+    return false;
+  }
   function apply(event: FormEvent) {
     event.preventDefault();
-    if (!platform && !selectedSections.length) {
-      setError('Selecione ao menos uma seção.');
-      return;
-    }
+    if (!validateSections()) return;
     if (!validate(draft) || (!platform && draft.kind === 'PEOPLE' && !people)) {
       setError('Confira os filtros e as permissões antes de emitir.');
       return;
@@ -323,10 +331,7 @@ function ReportsContent({
     navigate({ ...draft, invalid: false, page: 1 });
   }
   async function emit() {
-    if (!platform && !selectedSections.length) {
-      setError('Selecione ao menos uma seção.');
-      return;
-    }
+    if (!validateSections()) return;
     if (
       pending ||
       invalid ||
@@ -375,7 +380,7 @@ function ReportsContent({
       <header>
         <p className="eyebrow">PERCURSO · {platform ? 'ESCOPO GLOBAL' : 'RELATÓRIOS'}</p>
         <h2 id="reports-title">
-          {platform ? 'Relatórios da plataforma' : 'Relatórios da empresa'}
+          {platform ? 'Emissão e consulta global' : 'Relatórios da empresa'}
         </h2>
         {!platform && organizationName && (
           <p>
@@ -383,8 +388,8 @@ function ReportsContent({
           </p>
         )}
         <p>
-          Cada emissão preserva um snapshot. A prévia e o PDF usam os mesmos dados, sem consultar
-          indicadores atuais.
+          Cada emissão guarda os dados daquele momento. A prévia e o PDF mostram as mesmas
+          informações.
         </p>
       </header>
       <form className="reports-filters" onSubmit={apply} aria-label="Filtros de emissão">
@@ -511,20 +516,28 @@ function ReportsContent({
           </label>
         )}
         {!platform && (
-          <fieldset className="report-section-options">
-            <legend>Seções da emissão</legend>
-            {Object.entries(sectionLabels).map(([key, label]) => (
-              <label className="reports-check" key={key}>
-                <input
-                  type="checkbox"
-                  value={key}
-                  checked={selectedSections.includes(key)}
-                  onChange={(event) => toggleSection(key, event.target.checked)}
-                />
-                {label}
-              </label>
-            ))}
-          </fieldset>
+          <details className="report-section-disclosure" ref={sectionOptions}>
+            <summary>
+              <span>Personalizar seções</span>{' '}
+              <small>
+                {selectedSections.length} de {allSections.length} selecionadas
+              </small>
+            </summary>
+            <fieldset className="report-section-options">
+              <legend>Seções da emissão</legend>
+              {Object.entries(sectionLabels).map(([key, label]) => (
+                <label className="reports-check" key={key}>
+                  <input
+                    type="checkbox"
+                    value={key}
+                    checked={selectedSections.includes(key)}
+                    onChange={(event) => toggleSection(key, event.target.checked)}
+                  />
+                  {label}
+                </label>
+              ))}
+            </fieldset>
+          </details>
         )}
         <Button type="submit">Aplicar filtros</Button>
         <Button
@@ -550,12 +563,6 @@ function ReportsContent({
           Limpar filtros
         </Button>
       </form>
-      {!platform && !people && (
-        <p>
-          Emissão de Gestão de Pessoas exige exportação e leitura de indicadores de RH. Detalhes
-          nominais e financeiros exigem permissões adicionais.
-        </p>
-      )}
       {(error || invalid) && (
         <StatusMessage tone="error">
           {error ||
@@ -570,6 +577,12 @@ function ReportsContent({
           Atualizar lista de relatórios
         </Button>
       </div>
+      {!platform && !people && (
+        <p>
+          Emissão de Gestão de Pessoas exige exportação e leitura de indicadores de RH. Detalhes
+          nominais e financeiros exigem permissões adicionais.
+        </p>
+      )}
       {notice && <StatusMessage tone="success">{notice}</StatusMessage>}
       {list.loading && (
         <StatusMessage tone="loading">Carregando relatórios emitidos…</StatusMessage>

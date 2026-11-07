@@ -8,7 +8,7 @@ const labels = {
   COLLECTING: 'Coleta em andamento',
   NO_RESPONSES: 'Nenhuma resposta recebida',
   AVAILABLE: 'Resultado coletivo disponível',
-  SUPPRESSED: 'Resultado suprimido',
+  SUPPRESSED: 'Resultado protegido',
 };
 const notices = {
   NOT_STARTED: 'Abra o ciclo após conferir o instrumento, o grupo e a política.',
@@ -19,7 +19,7 @@ const notices = {
   AVAILABLE:
     'Os valores representam envios consolidados. A soma entre ciclos não representa pessoas únicas nem uma classificação de risco.',
   SUPPRESSED:
-    'A política protege este recorte e os totais que poderiam revelar seus dados por diferença. Contagens e distribuições permanecem ocultas.',
+    'A política de privacidade oculta a contagem e a distribuição deste recorte. Totais que permitiriam deduzir essas respostas também ficam protegidos.',
 };
 const percentage = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 });
 function ResultNode({ node, depth = 0 }: { node: AssessmentResultNode; depth?: number }) {
@@ -101,8 +101,8 @@ export function AssessmentResults({ value }: { value: ResultsData }) {
   return (
     <div className="assessment-results">
       <p className="input-hint">
-        Limiar desta política: {value.minimumResponses} envios. O limiar, isoladamente, não garante
-        anonimato.
+        Mínimo configurado para divulgação: {value.minimumResponses} envios. A política também
+        protege resultados que permitiriam deduzir respostas de grupos menores.
       </p>
       <ResultNode node={value.node} />
     </div>

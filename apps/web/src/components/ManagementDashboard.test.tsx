@@ -171,6 +171,14 @@ it('mantém o gráfico, a tabela e os links de nível ligados ao mesmo DTO', asy
   expect(screen.getByRole('row', { name: '17/10/2026 1' })).toBeVisible();
 });
 
+it('oferece acesso a resultados por coleta mantendo o painel no recorte operacional', async () => {
+  mount('#/painel?area=riscos&unitId=' + unitId);
+  expect(
+    await screen.findByRole('link', { name: 'Consultar resultados por coleta' }),
+  ).toHaveAttribute('href', '#/coletas?status=CLOSED');
+  expect(screen.getByText(/regras de privacidade/)).toBeVisible();
+});
+
 it('retém o retrato atual quando o histórico falha e permite reconsultar só a série', async () => {
   fetchMock.mockImplementation(async (url) =>
     String(url).includes('/history') ? json({}, 503) : json(snapshot),

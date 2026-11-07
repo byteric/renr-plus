@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { expect, it } from 'vitest';
 import type { SessionResponse } from '@renr/contracts';
 import { WorkspaceNavigation } from './WorkspaceNavigation';
@@ -21,7 +22,42 @@ const session: SessionResponse = {
   expiresAt: '2099-01-01T00:00:00.000Z',
 };
 
-it('shows People and platform navigation only for their explicit grants', () => {
+it('mantém o grupo da página atual e abre somente mais um grupo por teclado', async () => {
+  const user = userEvent.setup();
+  const props = { session, unitId: null, pending: false, onSelect: () => undefined };
+  const view = render(<WorkspaceNavigation {...props} route="inventario" />);
+  const context = screen.getByRole('combobox', { name: 'Empresa ativa' });
+  const navigation = screen.getByRole('navigation', { name: 'Estrutura organizacional' });
+  expect(
+    context.compareDocumentPosition(navigation) & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+  const menu = within(navigation);
+  const registration = menu.getByRole('button', { name: 'Cadastros' });
+  const prevention = menu.getByRole('button', { name: 'Avaliação e prevenção' });
+  const management = menu.getByRole('button', { name: 'Gestão' });
+  expect(menu.getByRole('link', { name: 'Painel' })).toBeVisible();
+  expect(menu.getByRole('link', { name: 'Inventário' })).toHaveAttribute('aria-current', 'page');
+  expect(registration).toHaveAttribute('aria-expanded', 'false');
+  expect(prevention).toHaveAttribute('aria-expanded', 'true');
+  expect(menu.queryByRole('link', { name: 'Empresas' })).not.toBeInTheDocument();
+  expect(menu.queryByRole('button', { name: 'Plataforma' })).not.toBeInTheDocument();
+
+  registration.focus();
+  await user.keyboard('{Enter}');
+  expect(registration).toHaveFocus();
+  expect(menu.getByRole('link', { name: 'Empresas' })).toBeVisible();
+  await user.click(management);
+  expect(registration).toHaveAttribute('aria-expanded', 'false');
+  expect(prevention).toHaveAttribute('aria-expanded', 'true');
+  expect(menu.getByRole('link', { name: 'Auditoria' })).toBeVisible();
+
+  await user.click(menu.getByRole('link', { name: 'Auditoria' }));
+  view.rerender(<WorkspaceNavigation {...props} route="auditoria" />);
+  expect(prevention).toHaveAttribute('aria-expanded', 'false');
+  expect(menu.getByRole('link', { name: 'Auditoria' })).toHaveAttribute('aria-current', 'page');
+});
+
+it('oferece Gestão de Pessoas e Plataforma conforme suas concessões', async () => {
   const props = {
     session,
     route: 'pessoas',
@@ -38,6 +74,7 @@ it('shows People and platform navigation only for their explicit grants', () => 
     'href',
     '#/pessoas',
   );
+  await userEvent.click(screen.getByRole('button', { name: 'Plataforma' }));
   expect(screen.getByRole('link', { name: 'Administração da plataforma' })).toHaveAttribute(
     'href',
     '#/plataforma',
@@ -62,7 +99,7 @@ it('oferece acesso direto ao inventário e identifica a etapa atual', () => {
   const link = screen.getByRole('link', { name: 'Inventário' });
   expect(link).toHaveAttribute('href', '#/inventario');
   expect(link).toHaveAttribute('aria-current', 'page');
-  expect(screen.getByRole('link', { name: 'Diagnóstico' })).toHaveAttribute(
+  expect(screen.getByRole('link', { name: 'Diagnóstico demonstrativo' })).toHaveAttribute(
     'href',
     '#/diagnostico',
   );
@@ -151,7 +188,7 @@ it('distingue a navegação global de relatórios da empresa e indica a rota atu
     'aria-current',
     'page',
   );
-  expect(screen.getByRole('link', { name: 'Relatórios' })).not.toHaveAttribute('aria-current');
+  expect(screen.queryByRole('link', { name: 'Relatórios' })).not.toBeInTheDocument();
   expect(screen.queryByLabelText('Empresa ativa')).not.toBeInTheDocument();
   view.rerender(<WorkspaceNavigation {...props} platformCapabilities={['MANAGE_GRANTS']} />);
   expect(screen.queryByRole('link', { name: 'Relatórios da plataforma' })).not.toBeInTheDocument();

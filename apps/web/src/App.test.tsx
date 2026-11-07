@@ -127,6 +127,39 @@ async function enter() {
   return user;
 }
 describe('acesso e estrutura organizacional', () => {
+  it('abre primeiro o painel da plataforma para quem tem leitura global', async () => {
+    window.history.replaceState(null, '', '#/');
+    authenticated = true;
+    const original = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation(async (input, options) =>
+      String(input).endsWith('/platform/capabilities')
+        ? json({ capabilities: ['READ_OVERVIEW'] })
+        : original(input, options),
+    );
+    render(<App />);
+    expect(
+      await screen.findByRole('heading', { name: 'Administração da plataforma', level: 1 }),
+    ).toBeVisible();
+    expect(window.location.hash).toBe('#/plataforma');
+    expect(
+      fetchMock.mock.calls.some(([path]) => String(path).includes('/organizations?page=')),
+    ).toBe(false);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Cadastros' }));
+    await user.click(screen.getByRole('link', { name: 'Empresas' }));
+    expect(await screen.findByRole('heading', { name: 'Empresas', level: 1 })).toBeVisible();
+  });
+
+  it('mantém a entrada da empresa para quem não tem leitura global', async () => {
+    window.history.replaceState(null, '', '#/');
+    authenticated = true;
+    render(<App />);
+    expect(await screen.findByRole('heading', { name: 'Empresas', level: 1 })).toBeVisible();
+    expect(fetchMock.mock.calls.some(([path]) => String(path).includes('/platform/overview'))).toBe(
+      false,
+    );
+  });
+
   it('apresenta a jornada preventiva junto do acesso, sem esconder o formulário', async () => {
     render(<App />);
     expect(await screen.findByRole('heading', { level: 1, name: 'Acesse o ReNR+' })).toBeVisible();
@@ -176,13 +209,13 @@ describe('acesso e estrutura organizacional', () => {
     authenticated = true;
     render(<App />);
     expect(await screen.findByLabelText('Empresa ativa')).toHaveValue(organizationId);
-    expect(screen.getByRole('link', { name: 'Diagnóstico' })).toHaveAttribute(
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Abrir navegação' }));
+    const menu = await screen.findByRole('dialog', { name: 'Navegação' });
+    expect(within(menu).getByRole('link', { name: 'Diagnóstico demonstrativo' })).toHaveAttribute(
       'href',
       '#/diagnostico',
     );
-    const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: 'Abrir navegação' }));
-    expect(await screen.findByRole('dialog', { name: 'Navegação' })).toBeInTheDocument();
     await user.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(screen.getByRole('button', { name: 'Abrir navegação' })).toHaveFocus();

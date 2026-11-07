@@ -327,7 +327,9 @@ it('perfil leitor consulta ciclo e agregados sem controles administrativos', asy
     }),
   );
   render(<App />);
-  expect(await screen.findByRole('heading', { name: 'Diagnóstico', level: 1 })).toBeInTheDocument();
+  expect(
+    await screen.findByRole('heading', { name: 'Diagnóstico demonstrativo', level: 1 }),
+  ).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Novo ciclo' })).not.toBeInTheDocument();
   await userEvent
     .setup()

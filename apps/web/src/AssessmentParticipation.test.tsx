@@ -141,7 +141,7 @@ it('valida obrigatórias, permite corrigir a revisão e envia os três tipos sem
   expect(Object.values(localStorage)).not.toContain(code);
 });
 
-it.each([503, -1])(
+it.each([503, -1, 429])(
   'mantém o payload e segredo em RAM para repetir exatamente após falha %s',
   async (status) => {
     failure = status;
@@ -150,7 +150,9 @@ it.each([503, -1])(
     await requiredAnswers(user);
     await user.click(screen.getByRole('button', { name: 'Revisar respostas' }));
     await user.click(screen.getByRole('button', { name: 'Confirmar envio' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent(/confirmar|confirmação/i);
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      status === 429 ? /aguarde antes de reenviar/i : /confirmar|confirmação/i,
+    );
     expect(screen.queryByRole('button', { name: 'Corrigir respostas' })).not.toBeInTheDocument();
     expect(sent).toHaveLength(1);
     failure = 0;

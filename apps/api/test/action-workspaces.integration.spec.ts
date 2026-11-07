@@ -415,7 +415,7 @@ describeDatabase('ID13 assignments and restricted operational execution', () => 
     ).toBe(results[0]!.status === 200 ? executor : admin);
   });
   itStorage(
-    'allows assigned upload and private byte-identical download but keeps archival administrative',
+    'allows assigned upload and private download, rejects foreign tenants and keeps archival administrative',
     async () => {
       const action = await createLegacy();
       const assigned = actionDetailSchema.parse(
@@ -424,11 +424,47 @@ describeDatabase('ID13 assignments and restricted operational execution', () => 
       const uploaded = await upload(action.id, assigned.version).expect(201);
       expect(uploaded.body.sha256).toBe(createHash('sha256').update(bytes).digest('hex'));
       expect(uploaded.body).not.toHaveProperty('objectKey');
-      const downloaded = await get(
-        `/actions/${action.id}/evidence/${uploaded.body.id}/download`,
-        executorCookie,
-      ).expect(200);
+      const downloadPath = `/actions/${action.id}/evidence/${uploaded.body.id}/download`;
+      const downloaded = await get(downloadPath, executorCookie).expect(200);
       expect(downloaded.body).toEqual(bytes);
+      expect(downloaded.headers['cache-control']).toBe('private, no-store');
+
+      const foreign = await db.client.organization.create({
+        data: { name: `Synthetic foreign evidence ${randomUUID()}` },
+      });
+      const foreignAdmin = await db.client.user.create({
+        data: {
+          name: 'Synthetic foreign administrator',
+          email: `${randomUUID()}@example.test`,
+          passwordHash: 'unused',
+        },
+      });
+      await db.client.membership.create({
+        data: { organizationId: foreign.id, userId: foreignAdmin.id, role: 'ADMIN' },
+      });
+      const foreignToken = randomBytes(32).toString('base64url');
+      await db.client.session.create({
+        data: {
+          userId: foreignAdmin.id,
+          activeOrganizationId: foreign.id,
+          tokenHash: createHash('sha256').update(foreignToken).digest('hex'),
+          expiresAt: new Date(Date.now() + 3600000),
+        },
+      });
+      const foreignCookie = `renr_session=${foreignToken}`;
+      const readObject = jest.spyOn(app.get(EvidenceStorage), 'get');
+      try {
+        await get(downloadPath, foreignCookie).expect(404).expect('Content-Type', /json/);
+        await request(app.getHttpServer())
+          .get(`/api/v1/organizations/${foreign.id}${downloadPath}`)
+          .set('Cookie', foreignCookie)
+          .expect(404)
+          .expect('Content-Type', /json/);
+        expect(readObject).not.toHaveBeenCalled();
+      } finally {
+        readObject.mockRestore();
+      }
+
       await patch(
         `/actions/${action.id}/evidence/${uploaded.body.id}`,
         {

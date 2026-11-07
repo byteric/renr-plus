@@ -7,6 +7,7 @@ import {
   type RiskWorkspaceQuery,
 } from '@renr/contracts';
 import { Button } from '../ui/button';
+import { FilterDisclosure } from '../ui/filter-disclosure';
 import { Pagination } from '../ui/pagination';
 import { StatusMessage } from '../ui/status-message';
 import { StatusBadge } from '../ui/status-badge';
@@ -34,6 +35,9 @@ export function RiskInventory({
   revision?: number;
 }) {
   const params = new URLSearchParams(query);
+  const additionalFilters = ['unitId', 'sectorId', 'status', 'evaluationPresence'].filter((name) =>
+    params.get(name),
+  ).length;
   const keys = [...params.keys()];
   const parsed = riskWorkspaceQuerySchema.safeParse(
     new Set(keys).size === keys.length
@@ -157,108 +161,110 @@ export function RiskInventory({
             placeholder="Nome do fator de risco"
           />
         </div>
-        <div>
-          <label htmlFor="filter-unit">Unidade</label>
-          <select
-            id="filter-unit"
-            name="unitId"
-            value={unitId}
-            onChange={(event) => {
-              setUnitId(event.target.value);
-              setSectorId('');
-              setSectorPage(1);
-            }}
-          >
-            <option value="">Todas as unidades</option>
-            {units.data?.items.map((unit) => (
-              <option key={unit.id} value={unit.id}>
-                {unit.name}
-                {!unit.isActive ? ' (inativa)' : ''}
-              </option>
-            ))}
-            {unitId && !units.data?.items.some((unit) => unit.id === unitId) && (
-              <option value={unitId}>Unidade selecionada</option>
+        <FilterDisclosure activeCount={additionalFilters}>
+          <div>
+            <label htmlFor="filter-unit">Unidade</label>
+            <select
+              id="filter-unit"
+              name="unitId"
+              value={unitId}
+              onChange={(event) => {
+                setUnitId(event.target.value);
+                setSectorId('');
+                setSectorPage(1);
+              }}
+            >
+              <option value="">Todas as unidades</option>
+              {units.data?.items.map((unit) => (
+                <option key={unit.id} value={unit.id}>
+                  {unit.name}
+                  {!unit.isActive ? ' (inativa)' : ''}
+                </option>
+              ))}
+              {unitId && !units.data?.items.some((unit) => unit.id === unitId) && (
+                <option value={unitId}>Unidade selecionada</option>
+              )}
+            </select>
+            {units.data && units.data.total > 50 && (
+              <div className="lookup-pages">
+                <Button
+                  variant="outline"
+                  disabled={unitPage === 1}
+                  onClick={() => setUnitPage(unitPage - 1)}
+                >
+                  Unidades anteriores
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={unitPage * 50 >= units.data.total}
+                  onClick={() => setUnitPage(unitPage + 1)}
+                >
+                  Mais unidades
+                </Button>
+              </div>
             )}
-          </select>
-          {units.data && units.data.total > 50 && (
-            <div className="lookup-pages">
-              <Button
-                variant="outline"
-                disabled={unitPage === 1}
-                onClick={() => setUnitPage(unitPage - 1)}
-              >
-                Unidades anteriores
-              </Button>
-              <Button
-                variant="outline"
-                disabled={unitPage * 50 >= units.data.total}
-                onClick={() => setUnitPage(unitPage + 1)}
-              >
-                Mais unidades
-              </Button>
-            </div>
-          )}
-        </div>
-        <div>
-          <label htmlFor="filter-sector">Setor</label>
-          <select
-            id="filter-sector"
-            name="sectorId"
-            disabled={!unitId && !sectorId}
-            value={sectorId}
-            onChange={(event) => setSectorId(event.target.value)}
-          >
-            <option value="">Todos os setores</option>
-            {sectors.data?.items.map((sector) => (
-              <option key={sector.id} value={sector.id}>
-                {sector.name}
-                {!sector.isActive ? ' (inativo)' : ''}
-              </option>
-            ))}
-            {sectorId && !sectors.data?.items.some((sector) => sector.id === sectorId) && (
-              <option value={sectorId}>Setor selecionado</option>
+          </div>
+          <div>
+            <label htmlFor="filter-sector">Setor</label>
+            <select
+              id="filter-sector"
+              name="sectorId"
+              disabled={!unitId && !sectorId}
+              value={sectorId}
+              onChange={(event) => setSectorId(event.target.value)}
+            >
+              <option value="">Todos os setores</option>
+              {sectors.data?.items.map((sector) => (
+                <option key={sector.id} value={sector.id}>
+                  {sector.name}
+                  {!sector.isActive ? ' (inativo)' : ''}
+                </option>
+              ))}
+              {sectorId && !sectors.data?.items.some((sector) => sector.id === sectorId) && (
+                <option value={sectorId}>Setor selecionado</option>
+              )}
+            </select>
+            {sectors.data && sectors.data.total > 50 && (
+              <div className="lookup-pages">
+                <Button
+                  variant="outline"
+                  disabled={sectorPage === 1}
+                  onClick={() => setSectorPage(sectorPage - 1)}
+                >
+                  Setores anteriores
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={sectorPage * 50 >= sectors.data.total}
+                  onClick={() => setSectorPage(sectorPage + 1)}
+                >
+                  Mais setores
+                </Button>
+              </div>
             )}
-          </select>
-          {sectors.data && sectors.data.total > 50 && (
-            <div className="lookup-pages">
-              <Button
-                variant="outline"
-                disabled={sectorPage === 1}
-                onClick={() => setSectorPage(sectorPage - 1)}
-              >
-                Setores anteriores
-              </Button>
-              <Button
-                variant="outline"
-                disabled={sectorPage * 50 >= sectors.data.total}
-                onClick={() => setSectorPage(sectorPage + 1)}
-              >
-                Mais setores
-              </Button>
-            </div>
-          )}
-        </div>
-        <div>
-          <label htmlFor="filter-status">Estado do registro</label>
-          <select id="filter-status" name="status" defaultValue={params.get('status') ?? ''}>
-            <option value="">Não arquivados</option>
-            <option value="DRAFT">Rascunhos</option>
-            <option value="REGISTERED">Registrados</option>
-            <option value="ARCHIVED">Arquivados</option>
-          </select>
-        </div>
-        <div>
-          <label htmlFor="filter-evaluation">Ficha preliminar</label>
-          <select
-            id="filter-evaluation"
-            name="evaluationPresence"
-            defaultValue={params.get('evaluationPresence') ?? ''}
-          >
-            <option value="">Com e sem ficha</option>
-            <option value="WITH">Com ficha</option>
-            <option value="WITHOUT">Sem ficha</option>
-          </select>
-        </div>
+          </div>
+          <div>
+            <label htmlFor="filter-status">Estado do registro</label>
+            <select id="filter-status" name="status" defaultValue={params.get('status') ?? ''}>
+              <option value="">Não arquivados</option>
+              <option value="DRAFT">Rascunhos</option>
+              <option value="REGISTERED">Registrados</option>
+              <option value="ARCHIVED">Arquivados</option>
+            </select>
+          </div>
+          <div>
+            <label htmlFor="filter-evaluation">Ficha preliminar</label>
+            <select
+              id="filter-evaluation"
+              name="evaluationPresence"
+              defaultValue={params.get('evaluationPresence') ?? ''}
+            >
+              <option value="">Com e sem ficha</option>
+              <option value="WITH">Com ficha</option>
+              <option value="WITHOUT">Sem ficha</option>
+            </select>
+          </div>
+        </FilterDisclosure>
         {(params.has('classification') || params.has('levelKey')) && (
           <p className="chart-note">
             {params.has('classification')

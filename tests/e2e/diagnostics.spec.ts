@@ -8,6 +8,7 @@ import {
 } from '../../packages/contracts/src/index';
 import { demoPassword } from '../../scripts/e2e-data.mjs';
 import { cleanupDiagnosticCycles } from './diagnostic-data';
+import { navigateWorkspace } from './navigation';
 
 const organizationId = '10000000-0000-4000-8000-000000000001';
 const test = base.extend<{ cyclesToClean: { id: string; name: string }[] }>({
@@ -37,12 +38,6 @@ async function login(page: Page, email = 'admin1@renr.example') {
     await expect(page.getByRole('heading', { name: 'Unidades', exact: true })).toBeVisible();
   }
 }
-async function navigate(page: Page, name: string) {
-  const trigger = page.getByRole('button', { name: 'Abrir navegação', exact: true });
-  if (await trigger.isVisible()) await trigger.click();
-  await page.getByRole('link', { name, exact: true }).click();
-}
-
 test('ciclo real percorre criação, convite, resposta, encerramento e consolidação', async ({
   page,
   request,
@@ -51,7 +46,7 @@ test('ciclo real percorre criação, convite, resposta, encerramento e consolida
   const errors: string[] = [];
   page.on('pageerror', (failure) => errors.push(failure.message));
   await login(page);
-  await navigate(page, 'Diagnóstico');
+  await navigateWorkspace(page, 'Diagnóstico demonstrativo');
   await page.getByRole('button', { name: 'Novo ciclo', exact: true }).click();
   const name = `e2e-v02-Demonstração ${randomUUID().slice(0, 8)}`;
   await page.getByLabel('Nome do ciclo', { exact: true }).fill(name);
@@ -200,7 +195,9 @@ test('participação pública funciona sem sessão e não aceita código inváli
 
 test('leitor consulta diagnóstico sem controles administrativos', async ({ page }) => {
   await login(page, 'reader@renr.example');
-  await navigate(page, 'Diagnóstico');
-  await expect(page.getByRole('heading', { name: 'Diagnóstico', exact: true })).toBeVisible();
+  await navigateWorkspace(page, 'Diagnóstico demonstrativo');
+  await expect(
+    page.getByRole('heading', { name: 'Diagnóstico demonstrativo', exact: true }),
+  ).toBeVisible();
   await expect(page.getByRole('button', { name: 'Novo ciclo', exact: true })).toHaveCount(0);
 });
