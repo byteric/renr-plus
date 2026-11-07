@@ -130,6 +130,29 @@ afterEach(() => {
 });
 const show = () => render(<Structure session={session} onSession={vi.fn()} onExpire={vi.fn()} />);
 
+it.each([
+  ['colaboradores', 'Buscar colaboradores', 'Situação dos colaboradores'],
+  ['grupos', 'Buscar grupos', 'Situação dos grupos'],
+])('mantém busca visível e recolhe filtros adicionais em %s', async (route, search, status) => {
+  window.history.replaceState(null, '', `#/${route}`);
+  show();
+  const user = userEvent.setup();
+  const summary = await screen.findByText('Mais filtros', { exact: true });
+  const disclosure = summary.closest('details');
+  expect(disclosure).not.toHaveAttribute('open');
+  expect(screen.getByLabelText(search).closest('details')).toBeNull();
+
+  await user.click(summary);
+  await user.selectOptions(screen.getByLabelText(status), 'false');
+  await user.click(screen.getByRole('button', { name: 'Aplicar filtros' }));
+  expect(window.location.hash).toContain('isActive=false');
+  expect(screen.getByText('1 filtro adicional ativo')).toBeInTheDocument();
+
+  await user.click(screen.getByRole('button', { name: 'Limpar filtros' }));
+  expect(window.location.hash).toBe(`#/${route}`);
+  expect(disclosure).not.toHaveAttribute('open');
+});
+
 it('lista colaboradores e abre cadastro mínimo sem dados clínicos', async () => {
   show();
   expect(

@@ -11,6 +11,7 @@ import {
 import { request, RequestError } from '../../lib/api';
 import { useWorkforceData } from './useWorkforceData';
 import { Button } from '../ui/button';
+import { FilterDisclosure } from '../ui/filter-disclosure';
 import { StatusMessage } from '../ui/status-message';
 import { StatusBadge } from '../ui/status-badge';
 import { Pagination } from '../ui/pagination';
@@ -97,6 +98,9 @@ function WorkforceManager({
   const employee = kind === 'colaboradores';
   const [filters, setFilters] = useState(readRoute);
   const [draft, setDraft] = useState(filters);
+  const additionalFilters = [filters.isActive, filters.unitId, filters.sectorId].filter(
+    Boolean,
+  ).length;
   const [attempt, setAttempt] = useState(0);
   const [denied, setDenied] = useState(false);
   const [notice, setNotice] = useState('');
@@ -325,40 +329,42 @@ function WorkforceManager({
                 onChange={(event) => setDraft({ ...draft, search: event.target.value })}
               />
             </div>
-            <div>
-              <label htmlFor="workforce-status">
-                Situação {employee ? 'dos colaboradores' : 'dos grupos'}
-              </label>
-              <select
-                id="workforce-status"
-                value={draft.isActive}
-                onChange={(event) => setDraft({ ...draft, isActive: event.target.value })}
-              >
-                <option value="">Todos</option>
-                <option value="true">Ativos</option>
-                <option value="false">Inativos</option>
-              </select>
-            </div>
-            <ReferenceSelect
-              kind="unit"
-              includeInactive
-              organizationId={organizationId}
-              value={draft.unitId}
-              label="Filtrar por unidade"
-              onExpire={onExpire}
-              onChange={(value) => setDraft({ ...draft, unitId: value, sectorId: '' })}
-            />
-            <ReferenceSelect
-              key={draft.unitId}
-              kind="sector"
-              includeInactive
-              organizationId={organizationId}
-              unitId={draft.unitId}
-              value={draft.sectorId}
-              label="Filtrar por setor"
-              onExpire={onExpire}
-              onChange={(value) => setDraft({ ...draft, sectorId: value })}
-            />
+            <FilterDisclosure activeCount={additionalFilters}>
+              <div>
+                <label htmlFor="workforce-status">
+                  Situação {employee ? 'dos colaboradores' : 'dos grupos'}
+                </label>
+                <select
+                  id="workforce-status"
+                  value={draft.isActive}
+                  onChange={(event) => setDraft({ ...draft, isActive: event.target.value })}
+                >
+                  <option value="">Todos</option>
+                  <option value="true">Ativos</option>
+                  <option value="false">Inativos</option>
+                </select>
+              </div>
+              <ReferenceSelect
+                kind="unit"
+                includeInactive
+                organizationId={organizationId}
+                value={draft.unitId}
+                label="Filtrar por unidade"
+                onExpire={onExpire}
+                onChange={(value) => setDraft({ ...draft, unitId: value, sectorId: '' })}
+              />
+              <ReferenceSelect
+                key={draft.unitId}
+                kind="sector"
+                includeInactive
+                organizationId={organizationId}
+                unitId={draft.unitId}
+                value={draft.sectorId}
+                label="Filtrar por setor"
+                onExpire={onExpire}
+                onChange={(value) => setDraft({ ...draft, sectorId: value })}
+              />
+            </FilterDisclosure>
             <div className="form-actions">
               <Button type="submit">Aplicar filtros</Button>
               <Button

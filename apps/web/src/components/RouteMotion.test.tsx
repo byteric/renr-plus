@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { RouteMotion } from './RouteMotion';
 afterEach(() => vi.unstubAllGlobals());
@@ -50,4 +50,22 @@ it('reverte estilos GSAP no teardown', () => {
   expect(animated?.style.transform).not.toBe('');
   view.unmount();
   expect(animated?.style.transform).toBe('');
+});
+
+it('conclui a transição imediatamente quando a preferência muda para movimento reduzido', () => {
+  const preference = Object.assign(new EventTarget(), { matches: false });
+  vi.stubGlobal('matchMedia', vi.fn().mockReturnValue(preference));
+  render(
+    <RouteMotion route="one">
+      <h1>Etapa em transição</h1>
+    </RouteMotion>,
+  );
+  const heading = screen.getByRole('heading');
+  expect(heading.style.transform).not.toBe('');
+  act(() => {
+    preference.matches = true;
+    preference.dispatchEvent(new Event('change'));
+  });
+  expect(heading.style.transform).toBe('');
+  expect(heading).toBeVisible();
 });

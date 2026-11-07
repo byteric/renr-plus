@@ -8,7 +8,7 @@ de demonstração, preservando registros existentes. Uma empresa nova sem instru
 
 ## Percorrer
 
-1. Entre como administrador e confirme a empresa ativa. Abra **Diagnóstico → Novo ciclo**.
+1. Entre como administrador e confirme a empresa ativa. Abra **Diagnóstico demonstrativo → Novo ciclo**.
 2. Informe nome, unidade/setor, início anterior ao momento atual e término futuro. Crie, consulte e abra o ciclo.
 3. Emita convites. Guarde os códigos, exibidos somente nessa operação. Copie o link de participação e compartilhe cada código separadamente.
 4. Em outro navegador ou contexto, abra `/#/participar`, informe um código e responda às cinco perguntas fictícias. Confirme o envio e repita com participantes de teste distintos.

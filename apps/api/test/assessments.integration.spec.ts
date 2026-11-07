@@ -32,8 +32,8 @@ describeDatabase('Assessment HTTP contract', () => {
       .set('Cookie', cookie)
       .set('Origin', env.CORS_ORIGIN)
       .send(body);
-  const get = (route: string) =>
-    request(app.getHttpServer()).get(path(route)).set('Cookie', cookie);
+  const get = (route: string, session = cookie) =>
+    request(app.getHttpServer()).get(path(route)).set('Cookie', session);
   const publicPost = (route: string, body: object) =>
     request(app.getHttpServer()).post(`/api/v1/assessment-participation/${route}`).send(body);
   beforeAll(async () => {
@@ -91,7 +91,7 @@ describeDatabase('Assessment HTTP contract', () => {
   });
   afterAll(async () => {
     if (db && org) {
-      await db.client.session.deleteMany({ where: { userId: user } });
+      await db.client.session.deleteMany({ where: { activeOrganizationId: org } });
       await db.client.membership.updateMany({
         where: { organizationId: org },
         data: { isActive: false },
@@ -385,6 +385,60 @@ describeDatabase('Assessment HTTP contract', () => {
       ).expect(200)
     ).body;
     expect(family.node).toMatchObject({ availability: 'SUPPRESSED', responseCount: null });
+    const individualResponses = await db.client.assessmentResponse.findMany({
+      where: { organizationId: org, cycleId: { in: [cycle.id, safe.id] } },
+      select: { id: true, answers: { select: { id: true } } },
+    });
+    const individualIds = individualResponses.flatMap(({ id, answers }) => [
+      id,
+      ...answers.map((answer) => answer.id),
+    ]);
+    const readerProfiles = [
+      { name: 'Manager', hrCapabilities: [] },
+      { name: 'HR', hrCapabilities: ['HR_ANALYTICS_READ', 'HR_PROFILE_READ'] },
+    ] as const;
+    for (const { name, hrCapabilities } of readerProfiles) {
+      const reader = await db.client.user.create({
+        data: {
+          name: `Assessment ${name}`,
+          email: `${randomUUID()}@example.test`,
+          passwordHash: 'unused',
+        },
+      });
+      await db.client.membership.create({
+        data: {
+          organizationId: org,
+          userId: reader.id,
+          role: 'READER',
+          hrCapabilities: [...hrCapabilities],
+        },
+      });
+      const token = randomUUID().replaceAll('-', '') + 'b'.repeat(11);
+      await db.client.session.create({
+        data: {
+          userId: reader.id,
+          activeOrganizationId: org,
+          tokenHash: createHash('sha256').update(token).digest('hex'),
+          expiresAt: new Date(Date.now() + 3600000),
+        },
+      });
+      const readerCookie = `renr_session=${token}`;
+      for (const [route, expected] of [
+        [`assessment-cycles/${cycle.id}/results`, results],
+        [`assessment-cycles/${safe.id}/results`, safeResult],
+      ] as const) {
+        const response = await get(route, readerCookie).expect(200);
+        expect(assessmentResultsSchema.parse(response.body)).toEqual(expected);
+        for (const id of individualIds) expect(response.text).not.toContain(id);
+      }
+      const response = await get(
+        `assessment-consolidation?instrumentVersionId=${instrument}&policyVersionId=${policy.id}`,
+        readerCookie,
+      ).expect(200);
+      const projection = assessmentConsolidationSchema.parse(response.body);
+      expect(projection.node).toMatchObject({ availability: 'SUPPRESSED', responseCount: null });
+      for (const id of individualIds) expect(response.text).not.toContain(id);
+    }
     await get(
       `assessment-consolidation?instrumentVersionId=${instrument}&policyVersionId=${policy.id}&cycleId=${safe.id}`,
     ).expect(400);

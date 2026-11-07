@@ -59,6 +59,36 @@ const props = {
   onExpire: vi.fn(),
 };
 afterEach(() => vi.unstubAllGlobals());
+it('orienta sobre pré-requisitos vazios sem remover o preenchimento nem exibir paginação inútil', async () => {
+  const user = userEvent.setup();
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => json(list([]))),
+  );
+  render(
+    <AssessmentCycleForm
+      organizationId={org}
+      initial={null}
+      onExpire={vi.fn()}
+      onSaved={vi.fn()}
+      onCancel={vi.fn()}
+    />,
+  );
+  await user.type(screen.getByLabelText('Nome da coleta'), 'Coleta em preparação');
+  for (const [label, href] of [
+    ['Abrir Grupos de avaliação em nova aba', '#/grupos'],
+    ['Abrir Instrumentos em nova aba', '#/instrumentos'],
+    ['Abrir Políticas de consolidação em nova aba', '#/coletas?view=policies'],
+  ] as const) {
+    const link = await screen.findByRole('link', { name: label });
+    expect(link).toHaveAttribute('href', href);
+    expect(link).toHaveAttribute('target', '_blank');
+  }
+  expect(screen.queryByRole('navigation', { name: 'Páginas de grupos' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Próximos instrumentos' })).not.toBeInTheDocument();
+  expect(screen.getByLabelText('Nome da coleta')).toHaveValue('Coleta em preparação');
+});
+
 it('hidrata seleções originais fora da primeira página sem descartá-las', async () => {
   vi.stubGlobal(
     'fetch',
@@ -112,11 +142,13 @@ it('pagina resultados brutos mesmo quando a página não tem versões publicadas
   await waitFor(() =>
     expect(screen.getByRole('button', { name: 'Próximas versões' })).toBeEnabled(),
   );
+  expect(screen.getByText(/nenhuma versão publicada nesta página/i)).toBeVisible();
   expect(
     screen.queryByRole('option', { name: /Versão publicada original/ }),
   ).not.toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: 'Próximas versões' }));
   expect(await screen.findByRole('option', { name: /Versão publicada original/ })).toBeVisible();
+  expect(screen.queryByText(/nenhuma versão publicada nesta página/i)).not.toBeInTheDocument();
   expect(urls.some((url) => url.includes('page=2'))).toBe(true);
   await user.selectOptions(screen.getByLabelText('Instrumento da coleta'), '');
   expect(change).toHaveBeenLastCalledWith('', '');

@@ -35,13 +35,13 @@
 .registration-filters {
   display: grid;
   gap: var(--space-4);
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   padding: var(--space-4);
   align-items: start;
   margin-bottom: var(--space-4);
 }
 .registration-filters {
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
 }
 .workforce-filters .form-actions {
@@ -161,7 +161,6 @@
   overflow-wrap: anywhere;
 }
 @media (max-width: 750px) {
-  .workforce-filters,
   .registration-filters,
   .workforce-location {
     grid-template-columns: minmax(0, 1fr);

@@ -194,10 +194,24 @@ beforeEach(() => {
   vi.stubGlobal('fetch', fetchMock);
 });
 
+it('começa pelos totais com filtros recolhidos e permite consultar grupos de indicadores', async () => {
+  grants = ['HR_ANALYTICS_READ'];
+  const user = userEvent.setup();
+  render(<PeopleWorkspace organizationId={organizationId} onExpire={vi.fn()} />);
+  expect(await screen.findByRole('heading', { name: 'Visão de pessoas' })).toBeVisible();
+  expect(screen.getByLabelText('Unidade', { exact: true })).not.toBeVisible();
+  expect(screen.getByText('Total de registros', { exact: true })).toBeVisible();
+  expect(screen.getByText('Idade média', { exact: true })).not.toBeVisible();
+  await user.click(screen.getByText('Perfil', { exact: true }));
+  expect(screen.getByRole('heading', { name: 'Idade média' })).toBeVisible();
+  expect(screen.getByRole('table', { name: 'Distribuição de gênero' })).toBeVisible();
+});
+
 it('filtra por referências legíveis e recupera somente filtros não sensíveis na URL', async () => {
   grants = ['HR_ANALYTICS_READ'];
   const user = userEvent.setup();
   render(<PeopleWorkspace organizationId={organizationId} onExpire={vi.fn()} />);
+  await user.click(await screen.findByText('Filtros de Pessoas', { exact: true }));
   await screen.findByRole('option', { name: 'Unidade Sintética' });
   await user.selectOptions(screen.getByLabelText('Unidade'), unitId);
   await screen.findByRole('option', { name: 'Setor Sintético' });
@@ -320,11 +334,14 @@ it.each(['unitId=invalido', `unitId=${unitId}&unitId=${sectorId}`, 'competence=2
 
 it('distingue indicador desconhecido, suprimido e proibido e oferece tabela dos gráficos', async () => {
   grants = ['HR_ANALYTICS_READ'];
+  const user = userEvent.setup();
   render(<PeopleWorkspace organizationId={organizationId} onExpire={vi.fn()} />);
   expect(await screen.findByRole('heading', { name: 'Visão de pessoas' })).toBeVisible();
+  await user.click(screen.getByText('Vínculo e remuneração', { exact: true }));
   expect(await screen.findByText('Dados insuficientes')).toBeVisible();
   expect(screen.getAllByText('Suprimido por privacidade').length).toBeGreaterThan(0);
   expect(screen.getByText('Sem permissão')).toBeVisible();
+  await user.click(screen.getByText('Perfil', { exact: true }));
   const table = screen.getByRole('table', { name: 'Distribuição de gênero' });
   expect(within(table).getByText('7')).toBeVisible();
   expect(within(table).getByText('Não divulgado')).toBeVisible();
@@ -577,6 +594,7 @@ it.each([true, false])(
     );
     const user = userEvent.setup();
     render(<PeopleWorkspace organizationId={organizationId} onExpire={vi.fn()} />);
+    await user.click(await screen.findByText('Unidades e setores', { exact: true }));
     await screen.findByRole('table', { name: 'Setor' });
     if (!authorized) {
       expect(

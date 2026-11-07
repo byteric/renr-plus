@@ -13,13 +13,15 @@ test('Gestão de Pessoas filtra, registra RH e remove o cadastro após revogaç�
   await navigateWorkspace(page, 'Gestão de Pessoas');
 
   await expect(page.getByRole('heading', { name: 'Visão de pessoas' })).toBeVisible();
-  await expect(page.getByText(/2 registros · 1 ativos · 1 inativos/)).toBeVisible();
+  const totals = page.getByRole('region', { name: 'Registros no recorte' });
+  await expect(totals.getByText('2', { exact: true })).toBeVisible();
+  await page.getByText('Filtros de Pessoas', { exact: true }).click();
   await page.getByLabel('Unidade', { exact: true }).selectOption(hr.unit.id);
   await page.getByLabel('Setor', { exact: true }).selectOption(hr.sector.id);
   await page.getByLabel('Situação').selectOption('true');
   await page.getByLabel('Competência').fill('2026-11');
   await page.getByRole('button', { name: 'Aplicar filtros' }).click();
-  await expect(page.getByText(/1 registros · 1 ativos · 0 inativos/)).toBeVisible();
+  await expect(totals.getByText('0', { exact: true })).toBeVisible();
   await expect(page).toHaveURL(/competence=2026-11/);
 
   await page.getByRole('button', { name: 'Colaboradores', exact: true }).click();

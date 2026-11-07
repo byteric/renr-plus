@@ -6,6 +6,7 @@ import {
   sectorListSchema,
 } from '@renr/contracts';
 import { Button } from '../ui/button';
+import { FilterDisclosure } from '../ui/filter-disclosure';
 import { Pagination } from '../ui/pagination';
 import { StatusMessage } from '../ui/status-message';
 import { StatusBadge } from '../ui/status-badge';
@@ -16,14 +17,21 @@ export function ActionList({
   organizationId,
   query,
   onExpire,
+  onOpenDetail,
+  takeReturnPosition,
 }: {
   organizationId: string;
   query: string;
   onExpire: () => void;
+  onOpenDetail?: (id: string) => void;
+  takeReturnPosition?: (query: string) => { id: string; top: number } | null;
 }) {
   const params = new URLSearchParams(query);
   const parsed = actionWorkspaceQuerySchema.safeParse(Object.fromEntries(params));
   const duplicates = [...params.keys()].some((key) => params.getAll(key).length > 1);
+  const additionalFilters = ['unitId', 'sectorId', 'status'].filter((name) =>
+    params.get(name),
+  ).length;
   const [attempt, setAttempt] = useState(0);
   const [unitId, setUnitId] = useState(params.get('unitId') ?? '');
   const data = useActionData(
@@ -63,12 +71,14 @@ export function ActionList({
   const returnTo = `#/acoes${query ? `?${query}` : ''}`;
   useEffect(() => {
     if (!data.data) return;
-    const id = sessionStorage.getItem('action-return-focus');
+    const position = takeReturnPosition?.(query);
+    const id = position?.id ?? sessionStorage.getItem('action-return-focus');
     if (id) {
-      document.getElementById(`action-${id}`)?.focus();
+      document.getElementById(`action-${id}`)?.focus({ preventScroll: Boolean(position) });
       sessionStorage.removeItem('action-return-focus');
     }
-  }, [data.data]);
+    if (position) window.scrollTo({ top: position.top, behavior: 'instant' });
+  }, [data.data, query, takeReturnPosition]);
   return (
     <div className="risk-stack actions-workspace">
       <div className="risk-toolbar">
@@ -93,51 +103,53 @@ export function ActionList({
         {params.get('riskId') && (
           <input type="hidden" name="riskId" value={params.get('riskId') ?? ''} />
         )}
-        <div>
-          <label htmlFor="action-unit">Unidade</label>
-          <select
-            id="action-unit"
-            name="unitId"
-            value={unitId}
-            onChange={(event) => setUnitId(event.target.value)}
-          >
-            <option value="">Todas</option>
-            {units.data?.items.map((unit) => (
-              <option key={unit.id} value={unit.id}>
-                {unit.name}
-                {!unit.isActive ? ' · Inativa' : ''}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label htmlFor="action-sector">Setor</label>
-          <select
-            key={unitId}
-            id="action-sector"
-            name="sectorId"
-            defaultValue={params.get('sectorId') ?? ''}
-          >
-            <option value="">Todos</option>
-            {sectors.data?.items.map((sector) => (
-              <option key={sector.id} value={sector.id}>
-                {sector.name}
-                {!sector.isActive ? ' · Inativo' : ''}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label htmlFor="action-status">Estado</label>
-          <select id="action-status" name="status" defaultValue={params.get('status') ?? ''}>
-            <option value="">Todos</option>
-            {Object.entries(actionLabels).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </div>
+        <FilterDisclosure activeCount={additionalFilters}>
+          <div>
+            <label htmlFor="action-unit">Unidade</label>
+            <select
+              id="action-unit"
+              name="unitId"
+              value={unitId}
+              onChange={(event) => setUnitId(event.target.value)}
+            >
+              <option value="">Todas</option>
+              {units.data?.items.map((unit) => (
+                <option key={unit.id} value={unit.id}>
+                  {unit.name}
+                  {!unit.isActive ? ' · Inativa' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="action-sector">Setor</label>
+            <select
+              key={unitId}
+              id="action-sector"
+              name="sectorId"
+              defaultValue={params.get('sectorId') ?? ''}
+            >
+              <option value="">Todos</option>
+              {sectors.data?.items.map((sector) => (
+                <option key={sector.id} value={sector.id}>
+                  {sector.name}
+                  {!sector.isActive ? ' · Inativo' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="action-status">Estado</label>
+            <select id="action-status" name="status" defaultValue={params.get('status') ?? ''}>
+              <option value="">Todos</option>
+              {Object.entries(actionLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </FilterDisclosure>
         <div className="actions-checks">
           <label>
             <input
@@ -167,7 +179,7 @@ export function ActionList({
             Somente atrasadas
           </label>
         </div>
-        <div className="record-actions">
+        <div className="record-actions filter-actions">
           <Button type="submit">Aplicar filtros</Button>
           <a href="#/acoes?page=1">Limpar filtros</a>
         </div>
@@ -226,6 +238,17 @@ export function ActionList({
                       <a
                         id={`action-${item.id}`}
                         href={`#/acoes/${item.id}?returnTo=${encodeURIComponent(returnTo)}&returnFocus=${item.id}`}
+                        onClick={(event) => {
+                          if (
+                            event.button === 0 &&
+                            !event.metaKey &&
+                            !event.ctrlKey &&
+                            !event.altKey &&
+                            !event.shiftKey
+                          ) {
+                            onOpenDetail?.(item.id);
+                          }
+                        }}
                       >
                         {item.title}
                       </a>

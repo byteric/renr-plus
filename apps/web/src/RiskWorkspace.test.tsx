@@ -629,6 +629,15 @@ it('restaura o filtro de setor após consulta assíncrona e o limpa ao trocar a 
   await waitFor(() => expect(window.location.hash).not.toContain('sectorId='));
 });
 
+it('exibe a busca e os resultados sem abrir os filtros adicionais', async () => {
+  arrange('/inventario');
+  expect(await screen.findByLabelText('Buscar no inventário')).toBeVisible();
+  expect(screen.getByLabelText('Ficha preliminar', { exact: true })).not.toBeVisible();
+  expect(await screen.findByRole('link', { name: risk.factor })).toBeVisible();
+  await userEvent.click(screen.getByText('Mais filtros', { exact: true }));
+  expect(screen.getByLabelText('Ficha preliminar', { exact: true })).toBeVisible();
+});
+
 it('exige releitura antes de repetir arquivamento após conflito de versão', async () => {
   const fetcher = arrange(`/inventario/${id}`, { patchConflicts: true });
   await userEvent.click(await screen.findByRole('button', { name: 'Arquivar risco' }));
