@@ -2,13 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { e2eBatches } from './e2e-batches.mjs';
 
-test('runs the full desktop and mobile suites in four isolated compiled batches', () => {
+test('isolates persona logins from the normal desktop and mobile batches', () => {
   assert.deepEqual(e2eBatches([]), [
     [
       'test',
       '--config=playwright.production.config.ts',
       '--project=desktop',
       '--shard=1/2',
+      '--grep-invert=@personas',
       '--output=test-results/e2e-desktop-1',
     ],
     [
@@ -16,13 +17,22 @@ test('runs the full desktop and mobile suites in four isolated compiled batches'
       '--config=playwright.production.config.ts',
       '--project=desktop',
       '--shard=2/2',
+      '--grep-invert=@personas',
       '--output=test-results/e2e-desktop-2',
+    ],
+    [
+      'test',
+      '--config=playwright.production.config.ts',
+      '--project=desktop',
+      '--grep=@personas',
+      '--output=test-results/e2e-desktop-personas',
     ],
     [
       'test',
       '--config=playwright.production.config.ts',
       '--project=mobile',
       '--shard=1/2',
+      '--grep-invert=@personas',
       '--output=test-results/e2e-mobile-1',
     ],
     [
@@ -30,7 +40,15 @@ test('runs the full desktop and mobile suites in four isolated compiled batches'
       '--config=playwright.production.config.ts',
       '--project=mobile',
       '--shard=2/2',
+      '--grep-invert=@personas',
       '--output=test-results/e2e-mobile-2',
+    ],
+    [
+      'test',
+      '--config=playwright.production.config.ts',
+      '--project=mobile',
+      '--grep=@personas',
+      '--output=test-results/e2e-mobile-personas',
     ],
   ]);
 });

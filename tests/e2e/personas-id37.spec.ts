@@ -95,7 +95,7 @@ async function openCollectiveSurvey(
   );
 }
 
-test('ID 37 ativa, isola e revoga cada acesso de demonstração', async ({
+test('ID 37 ativa, isola e revoga cada acesso de demonstração @personas', async ({
   browser,
   page,
   scenario,
