@@ -231,8 +231,23 @@ it('oferece histórico unificado da ação ao leitor sem consultar auditoria adm
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
   window.location.hash = '/empresas';
+});
+
+it('volta à mesma posição e ao mesmo link ao fechar o detalhe de uma ação filtrada', async () => {
+  const scroll = vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
+  vi.spyOn(window, 'scrollY', 'get').mockReturnValue(640);
+  arrange('#/acoes?q=Reorganizar');
+  await userEvent.click(await screen.findByRole('link', { name: action.title }, { timeout: 5000 }));
+  await userEvent.click(
+    await screen.findByRole('link', { name: /voltar às ações/i }, { timeout: 5000 }),
+  );
+  const link = await screen.findByRole('link', { name: action.title });
+  await waitFor(() => expect(link).toHaveFocus());
+  expect(window.location.hash).toBe('#/acoes?q=Reorganizar');
+  expect(scroll).toHaveBeenCalledWith({ top: 640, behavior: 'instant' });
 });
 
 it('oferece Minhas ações como filtro pessoal persistido no endereço', async () => {
@@ -241,6 +256,23 @@ it('oferece Minhas ações como filtro pessoal persistido no endereço', async (
   await userEvent.click(personal);
   await userEvent.click(screen.getByRole('button', { name: 'Aplicar filtros' }));
   expect(window.location.hash).toContain('assignedTo=me');
+});
+
+it('recolhe opções secundárias e preserva o estado escolhido ao buscar', async () => {
+  arrange('#/acoes');
+  const search = await screen.findByLabelText('Buscar título ou responsável');
+  const status = screen.getByLabelText('Estado', { exact: true });
+  expect(search).toBeVisible();
+  expect(status).not.toBeVisible();
+  const disclosure = screen.getByText('Mais filtros', { exact: true });
+  await userEvent.click(disclosure);
+  await userEvent.selectOptions(status, 'PLANNED');
+  await userEvent.click(disclosure);
+  await userEvent.type(search, 'Equipe');
+  await userEvent.click(screen.getByRole('button', { name: 'Aplicar filtros' }));
+  await waitFor(() => expect(window.location.hash).toContain('status=PLANNED'));
+  expect(window.location.hash).toContain('q=Equipe');
+  expect(await screen.findByText('1 filtro adicional ativo')).toBeVisible();
 });
 
 it('cria com atribuição atômica sem substituir o responsável nominal', async () => {

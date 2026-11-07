@@ -71,6 +71,17 @@ it('bloqueia relatórios globais sem concessão antes de consultar snapshots', a
     '/api/v1/platform/capabilities',
   ]);
 });
+it('identifica a área de emissão global com um título próprio', async () => {
+  const fallback = fetchMock.getMockImplementation()!;
+  fetchMock.mockImplementation(async (input, init) =>
+    String(input).endsWith('/platform/capabilities')
+      ? json({ capabilities: ['READ_OVERVIEW'] })
+      : fallback(input, init),
+  );
+  render(<ReportsWorkspace platform organizationId={null} onExpire={vi.fn()} />);
+  const workspace = await screen.findByRole('region', { name: 'Emissão e consulta global' });
+  expect(within(workspace).getByRole('button', { name: 'Emitir relatório' })).toBeVisible();
+});
 it('mostra o snapshot congelado sem consultar indicadores atuais e restringe emissão PEOPLE', async () => {
   const user = userEvent.setup();
   render(<ReportsWorkspace organizationId={organizationId} onExpire={vi.fn()} />);
@@ -169,7 +180,7 @@ it('omite opções exclusivas de RH ao alternar para SST', async () => {
   await user.click(screen.getByRole('button', { name: 'Emitir relatório' }));
   expect(issue).toHaveBeenCalledWith({ kind: 'SST' });
 });
-it('envia somente as seções SST selecionadas e não emite uma seleção vazia', async () => {
+it('recolhe a personalização inicial e permite emitir com todas as seções padrão', async () => {
   const fallback = fetchMock.getMockImplementation()!;
   const issue = vi.fn();
   fetchMock.mockImplementation(async (input, init) => {
@@ -179,15 +190,38 @@ it('envia somente as seções SST selecionadas e não emite uma seleção vazia'
   });
   const user = userEvent.setup();
   render(<ReportsWorkspace organizationId={organizationId} onExpire={vi.fn()} />);
+  const sections = (await screen.findByText('Seções da emissão')).closest('fieldset');
+  expect(sections).not.toBeVisible();
+  expect(screen.getByText('13 de 13 selecionadas')).toBeVisible();
+  await user.click(screen.getByRole('button', { name: 'Emitir relatório' }));
+  expect(issue).toHaveBeenCalledWith({ kind: 'SST' });
+});
+it('envia somente as seções SST selecionadas e reabre a personalização vazia', async () => {
+  const fallback = fetchMock.getMockImplementation()!;
+  const issue = vi.fn();
+  fetchMock.mockImplementation(async (input, init) => {
+    if (init?.method !== 'POST') return fallback(input, init);
+    issue(JSON.parse(String(init.body)));
+    return json(snapshot, 201);
+  });
+  const user = userEvent.setup();
+  render(<ReportsWorkspace organizationId={organizationId} onExpire={vi.fn()} />);
+  const customize = await screen.findByText('Personalizar seções');
+  await user.click(customize);
   const sections = await screen.findByRole('group', { name: 'Seções da emissão' });
   const choices = within(sections).getAllByRole('checkbox');
   expect(choices.length).toBeGreaterThan(1);
   for (const choice of choices) await user.click(choice);
+  await user.click(customize);
   const emit = screen.getByRole('button', { name: 'Emitir relatório' });
   await user.click(emit);
   expect(issue).not.toHaveBeenCalled();
   expect(screen.getByText('Selecione ao menos uma seção.')).toBeVisible();
+  expect(sections).toBeVisible();
+  expect(customize.closest('summary')).toHaveFocus();
   await user.click(choices[0]!);
+  await user.click(customize);
+  expect(screen.getByText(`1 de ${choices.length} selecionadas`)).toBeVisible();
   await user.click(emit);
   expect(issue).toHaveBeenCalledWith({
     kind: 'SST',
@@ -210,6 +244,7 @@ it('emite o subconjunto de Pessoas mantendo opções de RH autorizadas separadas
   });
   const user = userEvent.setup();
   render(<ReportsWorkspace organizationId={organizationId} onExpire={vi.fn()} />);
+  await user.click(await screen.findByText('Personalizar seções'));
   const sections = await screen.findByRole('group', { name: 'Seções da emissão' });
   const choices = within(sections).getAllByRole('checkbox') as HTMLInputElement[];
   await user.click(choices[0]!);

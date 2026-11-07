@@ -63,7 +63,10 @@ it('restaura busca, situação e página pela URL sem modificar os registros', a
   window.location.hash = '/unidades?search=Recife&isActive=false&page=2';
   render(<Structure session={session} onSession={vi.fn()} onExpire={vi.fn()} />);
   expect(await screen.findByLabelText('Buscar cadastros')).toHaveValue('Recife');
-  expect(screen.getByLabelText('Situação dos cadastros')).toHaveValue('false');
+  const status = screen.getByLabelText('Situação dos cadastros');
+  expect(status).toBeVisible();
+  expect(status).toHaveValue('false');
+  expect(screen.getByText('1 filtro adicional ativo')).toBeVisible();
   await waitFor(() =>
     expect(
       fetchMock.mock.calls.some(([path]) => {
@@ -76,6 +79,25 @@ it('restaura busca, situação e página pela URL sem modificar os registros', a
       }),
     ).toBe(true),
   );
+});
+
+it('recolhe a situação sem filtro ativo e conta apenas a situação aplicada', async () => {
+  render(<Structure session={session} onSession={vi.fn()} onExpire={vi.fn()} />);
+  const user = userEvent.setup();
+  expect(await screen.findByLabelText('Buscar cadastros')).toBeVisible();
+  const status = screen.getByLabelText('Situação dos cadastros');
+  expect(status).not.toBeVisible();
+  expect(screen.getByRole('button', { name: 'Aplicar filtros' })).toBeVisible();
+
+  await user.click(screen.getByText('Mais filtros', { exact: true }));
+  expect(status).toBeVisible();
+  await user.selectOptions(status, 'false');
+  expect(screen.queryByText('1 filtro adicional ativo')).not.toBeInTheDocument();
+  expect(window.location.hash).not.toContain('isActive=');
+
+  await user.click(screen.getByRole('button', { name: 'Aplicar filtros' }));
+  expect(window.location.hash).toContain('isActive=false');
+  expect(screen.getByText('1 filtro adicional ativo')).toBeVisible();
 });
 
 it('aplica uma nova busca, reinicia a página e explica o impacto da desativação', async () => {

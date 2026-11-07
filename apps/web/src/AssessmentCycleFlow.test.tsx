@@ -60,6 +60,9 @@ it('preserva o rascunho e a revisão original após conflito e revalidação', a
   await user.type(screen.getByLabelText('Nome da coleta'), 'Rascunho preservado');
   await user.click(screen.getByRole('button', { name: 'Salvar rascunho' }));
   expect(await screen.findByText(/Seu rascunho foi preservado/)).toBeVisible();
+  const current = screen.getByRole('link', { name: 'Consultar versão atual em outra aba' });
+  expect(current).toHaveAttribute('href', `#/coletas?cycle=${id}`);
+  expect(current).toHaveAttribute('target', '_blank');
   view.rerender(<Form {...props} initial={{ ...cycle, revision: 9, name: 'Revalidação' }} />);
   expect(screen.getByLabelText('Nome da coleta')).toHaveValue('Rascunho preservado');
   await user.click(screen.getByRole('button', { name: 'Salvar rascunho' }));

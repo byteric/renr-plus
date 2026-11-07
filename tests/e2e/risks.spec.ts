@@ -200,6 +200,7 @@ test('inventário persiste, protege conflito, preserva duas fichas e arquiva sem
   await expect(
     page.getByRole('heading', { name: 'Nenhum registro neste recorte', exact: true }),
   ).toBeVisible();
+  await page.getByText('Mais filtros', { exact: true }).click();
   await page.getByLabel('Estado do registro', { exact: true }).selectOption('ARCHIVED');
   await page.getByRole('button', { name: 'Aplicar filtros', exact: true }).click();
   await expect(page.getByRole('link', { name: remoteName, exact: true })).toBeVisible();

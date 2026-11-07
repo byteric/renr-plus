@@ -90,7 +90,8 @@ it('mostra supressão e a versão fixa do ciclo sem transformar dados protegidos
     return response({ items: [], total: 0, page: 1, pageSize: 20 });
   });
   render(<Structure session={session} onSession={vi.fn()} onExpire={vi.fn()} />);
-  expect(await screen.findByRole('heading', { name: 'Resultado suprimido' })).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { name: 'Resultado protegido' })).toBeInTheDocument();
+  expect(screen.getByText(/oculta a contagem e a distribuição/i)).toBeVisible();
   expect(screen.getByText(/Organização das atividades.*v2/)).toBeInTheDocument();
   expect(screen.queryByText(/Envios consolidados:/)).not.toBeInTheDocument();
   expect(
