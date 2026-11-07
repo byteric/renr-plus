@@ -136,6 +136,7 @@ export async function captureSst(
   )
     throw new ReportScopeTooLargeException();
   const riskNames = new Map(risks.map((risk) => [risk.id, risk.factor]));
+  const archivedRiskCount = risks.filter((risk) => risk.status === 'ARCHIVED').length;
   const actionNames = new Map(actions.map((action) => [action.id, action.title]));
   const riskName = (id: string) => riskNames.get(id) ?? id;
   const actionName = (id: string) => actionNames.get(id) ?? id;
@@ -156,6 +157,9 @@ export async function captureSst(
         ].join('\n'),
         text(r.sourceKind) + '\n' + text(r.sourceNote) + '\n' + text(r.diagnosticCycleId),
       ]),
+      [
+        `Contagem do painel (riscos não arquivados) · ${risks.length - archivedRiskCount}. Arquivados incluídos no relatório · ${archivedRiskCount}.`,
+      ],
     ),
     section(
       'technical-evaluations',
