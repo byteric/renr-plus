@@ -139,12 +139,30 @@
   white-space: normal;
 }
 
-.report-section-options {
+.report-section-disclosure {
   grid-column: 1 / -1;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+}
+.report-section-disclosure > summary {
+  min-height: var(--control-min-height);
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+  font-weight: 650;
+}
+.report-section-disclosure > summary:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+.report-section-disclosure small {
+  color: var(--muted-foreground);
+  font-weight: 400;
+}
+.report-section-options {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
   column-gap: var(--space-4);
-  margin: 0;
+  margin: var(--space-1) var(--space-3) var(--space-3);
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--border);
   border-radius: var(--radius-control);

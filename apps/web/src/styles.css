@@ -20,7 +20,6 @@
 
 body {
   margin: 0;
-  min-width: 320px;
   background: var(--background);
   color: var(--foreground);
   font-size: var(--font-body);
@@ -434,14 +433,14 @@ form > button,
   padding: 38px 0 64px;
 }
 .workspace-nav {
+  display: flex;
+  flex-direction: column;
   padding-right: 24px;
   border-right: 1px solid var(--border);
   align-self: start;
   position: sticky;
   top: 110px;
   max-height: calc(100dvh - 126px);
-  overflow-y: auto;
-  overscroll-behavior-y: contain;
 }
 .workspace-nav nav {
   display: flex;
@@ -451,11 +450,22 @@ form > button,
 }
 .workspace-nav nav a {
   color: var(--muted-foreground);
-  padding: 12px;
+  padding: 10px 12px;
   border-radius: 8px;
   text-decoration: none;
   font-size: 14px;
   font-weight: 600;
+}
+.workspace-nav-group {
+  display: grid;
+  gap: 2px;
+}
+.workspace-nav-group > .panel-label {
+  margin: var(--space-2) 0 var(--space-1);
+  padding-inline: 12px;
+}
+.workspace-nav > .context {
+  flex: none;
 }
 .workspace-nav nav a[aria-current='page'] {
   background: var(--primary);
@@ -720,8 +730,15 @@ select:focus-visible,
 .context span {
   margin-top: 10px;
 }
+.desktop-navigation {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  margin-top: var(--space-3);
+  padding: 6px;
+}
 .desktop-navigation nav {
-  margin: 24px 0;
+  margin: 0;
 }
 .mobile-nav-trigger {
   display: none;
@@ -754,7 +771,9 @@ select:focus-visible,
   margin-top: 26px;
 }
 .sheet-content nav a {
-  padding: 13px 16px;
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
   color: var(--foreground);
   border-radius: 6px;
   text-decoration: none;
@@ -898,10 +917,12 @@ select:focus-visible,
   }
   .mobile-nav-trigger {
     display: inline-flex;
+    align-self: flex-start;
+    margin-top: var(--space-3);
   }
   .context {
     display: block;
-    margin-top: 18px;
+    margin-top: 0;
   }
   .workspace-nav {
     position: static;
