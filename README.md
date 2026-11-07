@@ -28,6 +28,8 @@ o uso de dados reais de RH depende das validações descritas no guia de operaç
 ## Documentação
 
 - [Entrega do MVP, critérios P0 e roteiro de demonstração](docs/ENTREGA_MVP.md)
+- [Acessos do piloto por persona, validade e revogação](docs/ACESSOS_PILOTO_ID37.md)
+- [Decisões de SST e RH para o aceite](docs/VALIDACAO_SST_RH.md)
 - [Requisitos do produto](docs/PRD.md)
 - [Gestão de Pessoas, administração da plataforma e relatórios](docs/GESTAO_PESSOAS_PLATAFORMA.md)
 - [Contratos de auditoria](docs/API_AUDITORIA.md) e [indicadores](docs/API_INDICADORES.md)

@@ -11,6 +11,8 @@ import {
   hrProfileSchema,
   employmentPeriodListSchema,
   clientRegistrationSchema,
+  managementIndicatorsSchema,
+  platformClientListSchema,
   platformOverviewSchema,
   employeeListSchema,
   settlementResultSchema,
@@ -31,6 +33,7 @@ describeDatabase('People access, fiscal registration and platform boundaries', (
     platform: string;
   let env: ReturnType<typeof parseEnvironment>;
   let fiscalIdentifier: string;
+  let suffix: string;
   const cookies: Record<string, string> = {};
   const get = (path: string, who = 'hr') =>
     request(app.getHttpServer())
@@ -49,6 +52,8 @@ describeDatabase('People access, fiscal registration and platform boundaries', (
       .send(body);
   };
   const base = () => `/organizations/${org}/employees/${employee}`;
+  const syntheticCnpj = (prefix: string) =>
+    Array.from({ length: 100 }, (_, i) => prefix + String(i).padStart(2, '0')).find(validCnpj)!;
   beforeAll(async () => {
     env = parseEnvironment({ ...process.env, NODE_ENV: 'test' });
     localDatabaseUrl(env.DATABASE_URL);
@@ -56,12 +61,9 @@ describeDatabase('People access, fiscal registration and platform boundaries', (
       imports: [AppModule.configure(env)],
     }).compile();
     db = module.get(PrismaService);
-    const suffix = randomUUID();
+    suffix = randomUUID();
     const fiscalBase = 'A' + suffix.replaceAll('-', '').slice(0, 11).toUpperCase();
-    fiscalIdentifier = Array.from(
-      { length: 100 },
-      (_, i) => fiscalBase + String(i).padStart(2, '0'),
-    ).find(validCnpj)!;
+    fiscalIdentifier = syntheticCnpj(fiscalBase);
     org = (await db.client.organization.create({ data: { name: 'People tenant ' + suffix } })).id;
     foreign = (await db.client.organization.create({ data: { name: 'Foreign tenant ' + suffix } }))
       .id;
@@ -85,7 +87,7 @@ describeDatabase('People access, fiscal registration and platform boundaries', (
     sector = local.s.id;
     employee = local.e.id;
     foreignEmployee = (await fixture(foreign)).e.id;
-    for (const key of ['admin', 'hr', 'platform']) {
+    for (const key of ['admin', 'hr', 'platform', 'foreign-admin']) {
       const user = await db.client.user.create({
         data: {
           name: 'Synthetic ' + key,
@@ -96,12 +98,13 @@ describeDatabase('People access, fiscal registration and platform boundaries', (
       if (key === 'admin') admin = user.id;
       if (key === 'hr') hr = user.id;
       if (key === 'platform') platform = user.id;
+      const organizationId = key === 'foreign-admin' ? foreign : org;
       if (key !== 'platform')
         await db.client.membership.create({
           data: {
             userId: user.id,
-            organizationId: org,
-            role: key === 'admin' ? 'ADMIN' : 'READER',
+            organizationId,
+            role: key === 'hr' ? 'READER' : 'ADMIN',
             hrCapabilities:
               key === 'hr'
                 ? [
@@ -122,7 +125,7 @@ describeDatabase('People access, fiscal registration and platform boundaries', (
       await db.client.session.create({
         data: {
           userId: user.id,
-          activeOrganizationId: key === 'platform' ? null : org,
+          activeOrganizationId: key === 'platform' ? null : organizationId,
           tokenHash: createHash('sha256').update(token).digest('hex'),
           expiresAt: new Date(Date.now() + 3600000),
         },
@@ -343,7 +346,7 @@ describeDatabase('People access, fiscal registration and platform boundaries', (
     const overview = (await get(`/organizations/${org}/people-overview`).expect(200)).body;
     expect(overview.metrics.salaryMassCents).toMatchObject({ state: 'FORBIDDEN', value: null });
   });
-  it('catalogs clients without exposing nominal or financial people data', async () => {
+  it('shows both clients to the platform while each client can read only its own dashboard', async () => {
     const registration = clientRegistrationSchema.parse(
       (await get(`/organizations/${org}/client-registration`, 'admin').expect(200)).body,
     );
@@ -371,14 +374,47 @@ describeDatabase('People access, fiscal registration and platform boundaries', (
       'patch',
       'platform',
     ).expect(200);
+    const foreignRegistration = clientRegistrationSchema.parse(
+      (await get(`/organizations/${foreign}/client-registration`, 'foreign-admin').expect(200))
+        .body,
+    );
+    await write(
+      '/platform/clients/' + foreign,
+      {
+        expectedVersion: foreignRegistration.version,
+        reason: 'Synthetic second client confirmation',
+        fiscalIdentifier: syntheticCnpj('B' + fiscalIdentifier.slice(1, 12)),
+        clientClassification: 'CLIENT',
+        isActive: true,
+      },
+      'patch',
+      'platform',
+    ).expect(200);
     const overview = platformOverviewSchema.parse(
       (await get('/platform/overview', 'platform').expect(200)).body,
     );
-    expect(overview.validatedCnpjs).toBeGreaterThan(0);
-    const catalog = (await get('/platform/clients?pageSize=1', 'platform').expect(200)).body;
-    expect(catalog.total).toBeGreaterThan(0);
+    expect(overview.validatedCnpjs).toBeGreaterThanOrEqual(2);
+    const catalog = platformClientListSchema.parse(
+      (await get(`/platform/clients?search=${suffix}`, 'platform').expect(200)).body,
+    );
+    expect(catalog.total).toBe(2);
+    expect(catalog.items.map((item) => item.organizationId)).toEqual(
+      expect.arrayContaining([org, foreign]),
+    );
     expect(JSON.stringify(catalog)).not.toContain('Synthetic developer');
     expect(JSON.stringify(catalog)).not.toContain('salaryCents');
+    const dashboard = (id: string) => `/organizations/${id}/management-indicators`;
+    for (const [session, own, other] of [
+      ['admin', org, foreign],
+      ['foreign-admin', foreign, org],
+    ] as const) {
+      const response = await get(dashboard(own), session).expect(200);
+      expect(managementIndicatorsSchema.parse(response.body).organizationId).toBe(own);
+      await get(dashboard(other), session).expect(404);
+      await get('/platform/overview', session).expect(403);
+    }
+    await get(dashboard(org), 'platform').expect(404);
+    await get(dashboard(foreign), 'platform').expect(404);
     await db.client.platformGrant.update({
       where: { userId_capability: { userId: platform, capability: 'READ_OVERVIEW' } },
       data: { isActive: false },

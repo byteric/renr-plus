@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import {
   instrumentListSchema,
   instrumentSchema,
@@ -21,6 +21,9 @@ export type AssessmentReferenceFieldsProps = {
   attempt?: number;
   onExpire: () => void;
 };
+function showPagination(page: number, data: { total: number; pageSize: number } | null) {
+  return page > 1 || (data !== null && data.total > data.pageSize);
+}
 export function AssessmentReferenceFields({
   organizationId,
   instrumentId,
@@ -35,6 +38,7 @@ export function AssessmentReferenceFields({
   const [instrumentPage, setInstrumentPage] = useState(1);
   const [versionPage, setVersionPage] = useState(1);
   const [policyPage, setPolicyPage] = useState(1);
+  const hint = useId();
   const root = `/organizations/${organizationId}`;
   const instruments = useWorkforceData(
     `${root}/instruments?page=${instrumentPage}&pageSize=20`,
@@ -102,6 +106,24 @@ export function AssessmentReferenceFields({
     !policyItems.some((p) => p.id === policyVersionId)
   )
     policyItems.push(policy.data);
+  const instrumentMissing =
+    instruments.data?.total === 0 &&
+    !instruments.loading &&
+    !instruments.error &&
+    !identity.loading &&
+    !instrumentItems.length;
+  const versionMissing =
+    !!versions.data &&
+    !versions.loading &&
+    !versions.error &&
+    !version.loading &&
+    !versionItems.length;
+  const policyMissing =
+    !!policies.data &&
+    !policies.loading &&
+    !policies.error &&
+    !policy.loading &&
+    !policyItems.length;
   const errors = [
     instruments.error,
     identity.error,
@@ -117,6 +139,7 @@ export function AssessmentReferenceFields({
           Instrumento da coleta
           <select
             value={instrumentId}
+            aria-describedby={instrumentMissing ? `${hint}-instrument` : undefined}
             disabled={disabled || instruments.loading}
             onChange={(e) => {
               setVersionPage(1);
@@ -134,22 +157,33 @@ export function AssessmentReferenceFields({
             ))}
           </select>
         </label>
-        <Pagination
-          label="Páginas de instrumentos"
-          previousLabel="Instrumentos anteriores"
-          nextLabel="Próximos instrumentos"
-          page={instrumentPage}
-          pageSize={instruments.data?.pageSize ?? 20}
-          total={instruments.data?.total ?? 0}
-          pending={disabled || instruments.loading}
-          onPageChange={setInstrumentPage}
-        />
+        {instrumentMissing && (
+          <p id={`${hint}-instrument`} className="field-hint">
+            Nenhum instrumento no catálogo.{' '}
+            <a href="#/instrumentos" target="_blank" rel="noopener">
+              Abrir Instrumentos em nova aba
+            </a>
+          </p>
+        )}
+        {showPagination(instrumentPage, instruments.data) && (
+          <Pagination
+            label="Páginas de instrumentos"
+            previousLabel="Instrumentos anteriores"
+            nextLabel="Próximos instrumentos"
+            page={instrumentPage}
+            pageSize={instruments.data?.pageSize ?? 20}
+            total={instruments.data?.total ?? 0}
+            pending={disabled || instruments.loading}
+            onPageChange={setInstrumentPage}
+          />
+        )}
       </div>
       <div>
         <label>
           Versão publicada do instrumento
           <select
             value={instrumentVersionId}
+            aria-describedby={versionMissing ? `${hint}-version` : undefined}
             disabled={disabled || !instrumentId || versions.loading}
             onChange={(e) => onInstrumentChange(instrumentId, e.target.value)}
           >
@@ -166,22 +200,33 @@ export function AssessmentReferenceFields({
             ))}
           </select>
         </label>
-        <Pagination
-          label="Páginas de versões"
-          previousLabel="Versões anteriores"
-          nextLabel="Próximas versões"
-          page={versionPage}
-          pageSize={versions.data?.pageSize ?? 20}
-          total={versions.data?.total ?? 0}
-          pending={disabled || versions.loading || !instrumentId}
-          onPageChange={setVersionPage}
-        />
+        {versionMissing && (
+          <p id={`${hint}-version`} className="field-hint">
+            Nenhuma versão publicada nesta página.{' '}
+            <a href="#/instrumentos" target="_blank" rel="noopener">
+              Abrir Instrumentos em nova aba
+            </a>
+          </p>
+        )}
+        {instrumentId && showPagination(versionPage, versions.data) && (
+          <Pagination
+            label="Páginas de versões"
+            previousLabel="Versões anteriores"
+            nextLabel="Próximas versões"
+            page={versionPage}
+            pageSize={versions.data?.pageSize ?? 20}
+            total={versions.data?.total ?? 0}
+            pending={disabled || versions.loading}
+            onPageChange={setVersionPage}
+          />
+        )}
       </div>
       <div>
         <label>
           Política de consolidação
           <select
             value={policyVersionId}
+            aria-describedby={policyMissing ? `${hint}-policy` : undefined}
             disabled={disabled || policies.loading}
             onChange={(e) => onPolicyChange(e.target.value)}
           >
@@ -196,16 +241,26 @@ export function AssessmentReferenceFields({
             ))}
           </select>
         </label>
-        <Pagination
-          label="Páginas de políticas publicadas"
-          previousLabel="Políticas anteriores"
-          nextLabel="Próximas políticas"
-          page={policyPage}
-          pageSize={policies.data?.pageSize ?? 20}
-          total={policies.data?.total ?? 0}
-          pending={disabled || policies.loading}
-          onPageChange={setPolicyPage}
-        />
+        {policyMissing && (
+          <p id={`${hint}-policy`} className="field-hint">
+            Nenhuma política publicada nesta página.{' '}
+            <a href="#/coletas?view=policies" target="_blank" rel="noopener">
+              Abrir Políticas de consolidação em nova aba
+            </a>
+          </p>
+        )}
+        {showPagination(policyPage, policies.data) && (
+          <Pagination
+            label="Páginas de políticas publicadas"
+            previousLabel="Políticas anteriores"
+            nextLabel="Próximas políticas"
+            page={policyPage}
+            pageSize={policies.data?.pageSize ?? 20}
+            total={policies.data?.total ?? 0}
+            pending={disabled || policies.loading}
+            onPageChange={setPolicyPage}
+          />
+        )}
       </div>
       {errors.length > 0 && <p role="alert">{errors[0]}</p>}
     </div>

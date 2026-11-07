@@ -12,6 +12,8 @@ import {
   type SessionResponse,
 } from '@renr/contracts';
 import { Button } from './ui/button';
+import { FilterDisclosure } from './ui/filter-disclosure';
+import { StatusMessage } from './ui/status-message';
 import { request, RequestError } from '../lib/api';
 import { Diagnostics } from './Diagnostics';
 import { WorkspaceNavigation } from './WorkspaceNavigation';
@@ -65,6 +67,7 @@ type RecordItem = Organization | Unit | Sector;
 type Route = {
   kind:
     | Kind
+    | 'home'
     | 'painel'
     | 'diagnostico'
     | 'inventario'
@@ -82,7 +85,9 @@ type Route = {
   unitId: string | null;
 };
 function readRoute(): Route {
-  const parts = window.location.hash.replace(/^#\/?/, '').split('?')[0]?.split('/') ?? [];
+  const hash = window.location.hash;
+  if (!hash || hash === '#/') return { kind: 'home', unitId: null };
+  const parts = hash.replace(/^#\/?/, '').split('?')[0]?.split('/') ?? [];
   if (parts[0] === 'pessoas' || parts[0] === 'relatorios') return { kind: parts[0], unitId: null };
   if (parts[0] === 'plataforma')
     return { kind: parts[1] === 'relatorios' ? 'platform-reports' : 'plataforma', unitId: null };
@@ -101,7 +106,7 @@ function readRoute(): Route {
     return { kind: 'setores', unitId: parts[1] ?? null };
   return { kind: 'empresas', unitId: null };
 }
-const titles: Record<Route['kind'], string> = {
+const titles: Record<Exclude<Route['kind'], 'home'>, string> = {
   pessoas: 'Gestão de Pessoas',
   plataforma: 'Administração da plataforma',
   relatorios: 'Relatórios',
@@ -111,7 +116,7 @@ const titles: Record<Route['kind'], string> = {
   colaboradores: 'Colaboradores',
   grupos: 'Grupos de avaliação',
   painel: 'Painel',
-  diagnostico: 'Diagnóstico',
+  diagnostico: 'Diagnóstico demonstrativo',
   inventario: 'Inventário',
   acoes: 'Ações',
   acessos: 'Acessos',
@@ -171,6 +176,7 @@ export function Structure({
       ? (access.data?.capabilities ?? [])
       : [];
   const platformCapabilities = globalAccess.data?.capabilities ?? [];
+  const canReadPlatform = platformCapabilities.includes('READ_OVERVIEW');
   const isRegistration =
     route.kind === 'empresas' || route.kind === 'unidades' || route.kind === 'setores';
   const registrationSingular =
@@ -186,6 +192,10 @@ export function Structure({
   const loadKey = `${session.activeOrganizationId}-${listPath}-${JSON.stringify(filters)}-${attempt}`;
   const loading = !!listPath && loadedKey !== loadKey;
   const listing = loadedKey === loadKey ? loadedListing : null;
+  useEffect(() => {
+    if (route.kind !== 'home' || globalAccess.loading || readRoute().kind !== 'home') return;
+    window.location.replace(canReadPlatform ? '#/plataforma' : '#/empresas');
+  }, [route.kind, globalAccess.loading, canReadPlatform]);
   useEffect(() => {
     const change = () => {
       const next = readRoute();
@@ -291,6 +301,8 @@ export function Structure({
     if (!item) return listPath ?? '';
     return `/${route.kind === 'empresas' ? 'organizations' : route.kind === 'unidades' ? 'units' : 'sectors'}/${encodeURIComponent(item.id)}`;
   }
+  if (route.kind === 'home')
+    return <StatusMessage tone="loading">Preparando seu espaço de trabalho…</StatusMessage>;
   return (
     <div className="workspace">
       <WorkspaceNavigation
@@ -507,19 +519,21 @@ export function Structure({
                       onChange={(event) => setSearchDraft(event.target.value)}
                     />
                   </div>
-                  <div>
-                    <label htmlFor="registration-status">Situação dos cadastros</label>
-                    <select
-                      id="registration-status"
-                      value={statusDraft}
-                      onChange={(event) => setStatusDraft(event.target.value)}
-                    >
-                      <option value="">Todos</option>
-                      <option value="true">Ativos</option>
-                      <option value="false">Inativos</option>
-                    </select>
-                  </div>
                   <Button type="submit">Aplicar filtros</Button>
+                  <FilterDisclosure activeCount={filters.isActive ? 1 : 0}>
+                    <div>
+                      <label htmlFor="registration-status">Situação dos cadastros</label>
+                      <select
+                        id="registration-status"
+                        value={statusDraft}
+                        onChange={(event) => setStatusDraft(event.target.value)}
+                      >
+                        <option value="">Todos</option>
+                        <option value="true">Ativos</option>
+                        <option value="false">Inativos</option>
+                      </select>
+                    </div>
+                  </FilterDisclosure>
                 </form>
               )}
               {confirmation && (

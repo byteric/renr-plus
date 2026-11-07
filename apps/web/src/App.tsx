@@ -218,7 +218,7 @@ export function App() {
   const expire = useCallback(() => {
     setSession(null);
     setNotice('Sua sessão terminou. Entre novamente para continuar.');
-    window.location.hash = '/empresas';
+    window.location.hash = '/';
   }, []);
   useEffect(() => {
     if (!session || publicRoute === 'participar' || publicRoute === 'responder') return;
@@ -233,7 +233,7 @@ export function App() {
       await send('/auth/session', { method: 'DELETE' });
       setSession(null);
       setNotice('Você saiu com segurança.');
-      window.location.hash = '/empresas';
+      window.location.hash = '/';
     } catch (error) {
       if (error instanceof RequestError && error.status === 401) expire();
       else
@@ -258,7 +258,7 @@ export function App() {
         Ir para conteúdo
       </a>
       <header className="site-header">
-        <a className="wordmark" href="#/empresas" aria-label="ReNR+ início">
+        <a className="wordmark" href="#/" aria-label="ReNR+ início">
           <picture>
             <source
               media="(max-width: 600px)"

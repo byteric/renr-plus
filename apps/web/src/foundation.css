@@ -116,3 +116,29 @@ body {
   font-variant-numeric: tabular-nums;
   padding: var(--space-2);
 }
+.filter-disclosure {
+  grid-column: 1 / -1;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+}
+.filter-disclosure > summary {
+  min-height: var(--control-min-height);
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+  font-weight: 650;
+}
+.filter-disclosure > summary:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+.filter-disclosure small {
+  margin-inline-start: var(--space-2);
+  color: var(--muted-foreground);
+  font-weight: 400;
+}
+.filter-disclosure-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+  gap: var(--space-3);
+  padding: 0 var(--space-3) var(--space-3);
+}

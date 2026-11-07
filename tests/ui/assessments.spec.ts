@@ -310,7 +310,7 @@ for (const theme of ['light', 'dark'] as const) {
     await mock(page, theme, true);
     await page.goto(`/#/coletas?cycle=${cycleId}`);
     await expect(
-      page.getByRole('heading', { name: 'Resultado suprimido', exact: true }),
+      page.getByRole('heading', { name: 'Resultado protegido', exact: true }),
     ).toBeVisible();
     await expect(page.getByText(/Envios consolidados:/)).toHaveCount(0);
     await expect(page.getByRole('meter')).toHaveCount(0);

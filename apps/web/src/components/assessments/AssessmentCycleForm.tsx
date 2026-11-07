@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import {
   assessmentCycleSchema,
   assessmentGroupListSchema,
@@ -46,7 +46,8 @@ function CycleEditor({
   const [page, setPage] = useState(1);
   const [attempt, setAttempt] = useState(0);
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<{ message: string; currentCycleId?: string } | null>(null);
+  const groupHint = useId();
   const controller = useRef<AbortController | null>(null);
   const mounted = useRef(true);
   useEffect(() => {
@@ -78,6 +79,12 @@ function CycleEditor({
     !items.some((item) => item.id === group)
   )
     items.push(selected.data);
+  const groupMissing =
+    groups.data?.total === 0 &&
+    !groups.loading &&
+    !groups.error &&
+    !selected.loading &&
+    !items.length;
   async function save() {
     if (controller.current || (original?.status && original.status !== 'DRAFT')) return;
     const base = {
@@ -92,15 +99,16 @@ function CycleEditor({
       ? updateAssessmentCycleSchema.safeParse({ ...base, expectedRevision: original.revision })
       : createAssessmentCycleSchema.safeParse(base);
     if (!parsed.success) {
-      setError(
-        'Confira nome, grupo, versões publicadas e período. O fim deve ser posterior ao início.',
-      );
+      setError({
+        message:
+          'Confira nome, grupo, versões publicadas e período. O fim deve ser posterior ao início.',
+      });
       return;
     }
     const active = new AbortController();
     controller.current = active;
     setPending(true);
-    setError('');
+    setError(null);
     try {
       const cycle = await request(
         `${root}/assessment-cycles${original ? `/${original.id}` : ''}`,
@@ -118,13 +126,16 @@ function CycleEditor({
     } catch (failure) {
       if (!mounted.current) return;
       if (failure instanceof RequestError && failure.status === 401) onExpire();
-      setError(
-        failure instanceof RequestError && failure.status === 409
-          ? 'O ciclo mudou no servidor. Seu rascunho foi preservado; consulte a versão atual antes de decidir como continuar.'
-          : failure instanceof Error
-            ? failure.message
-            : 'Não foi possível salvar a coleta.',
-      );
+      if (failure instanceof RequestError && failure.status === 409 && original) {
+        setError({
+          message: 'A coleta mudou. Seu rascunho foi preservado nesta aba.',
+          currentCycleId: original.id,
+        });
+      } else {
+        setError({
+          message: failure instanceof Error ? failure.message : 'Não foi possível salvar a coleta.',
+        });
+      }
     } finally {
       controller.current = null;
       if (mounted.current) setPending(false);
@@ -155,6 +166,7 @@ function CycleEditor({
         <select
           required
           value={group}
+          aria-describedby={groupMissing ? groupHint : undefined}
           disabled={pending || groups.loading}
           onChange={(event) => setGroup(event.target.value)}
         >
@@ -171,14 +183,24 @@ function CycleEditor({
           ))}
         </select>
       </label>
-      <Pagination
-        label="Páginas de grupos"
-        page={page}
-        pageSize={groups.data?.pageSize ?? 20}
-        total={groups.data?.total ?? 0}
-        pending={pending || groups.loading}
-        onPageChange={setPage}
-      />
+      {groupMissing && (
+        <p id={groupHint} className="field-hint">
+          Nenhum grupo ativo nesta empresa.{' '}
+          <a href="#/grupos" target="_blank" rel="noopener">
+            Abrir Grupos de avaliação em nova aba
+          </a>
+        </p>
+      )}
+      {(page > 1 || (groups.data && groups.data.total > groups.data.pageSize)) && (
+        <Pagination
+          label="Páginas de grupos"
+          page={page}
+          pageSize={groups.data?.pageSize ?? 20}
+          total={groups.data?.total ?? 0}
+          pending={pending || groups.loading}
+          onPageChange={setPage}
+        />
+      )}
       {(groups.error || selected.error) && <p role="alert">{groups.error || selected.error}</p>}
       <AssessmentReferenceFields
         organizationId={organizationId}
@@ -220,7 +242,17 @@ function CycleEditor({
           />
         </label>
       </div>
-      {error && <p role="alert">{error}</p>}
+      {error && <p role="alert">{error.message}</p>}
+      {error?.currentCycleId && (
+        <a
+          className="underline"
+          href={`#/coletas?cycle=${error.currentCycleId}`}
+          target="_blank"
+          rel="noopener"
+        >
+          Consultar versão atual em outra aba
+        </a>
+      )}
       <div className="assessment-cycle-actions">
         <Button type="submit" disabled={pending}>
           {pending ? 'Salvando…' : 'Salvar rascunho'}

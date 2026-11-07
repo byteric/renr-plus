@@ -200,6 +200,7 @@ function PeopleContent({
     revision,
   );
   const listQuery = queryFor(filters, true);
+  const activeFilterCount = queryFor(filters).size;
   const employees = usePeopleData(
     canList && !filters.invalid && filters.area === 'employees'
       ? `/organizations/${organizationId}/people/employees?${listQuery}`
@@ -281,65 +282,77 @@ function PeopleContent({
           Colaboradores
         </Button>
       </nav>
-      <form className="people-filters" onSubmit={apply} aria-label="Filtros de Pessoas">
-        <ReferenceSelect
-          kind="unit"
-          label="Unidade"
-          organizationId={organizationId}
-          value={draft.unitId}
-          initialLabel={drillLabel?.id === draft.unitId ? drillLabel.label : undefined}
-          onChange={(unitId) => setDraft({ ...draft, unitId, sectorId: '' })}
-          onExpire={onExpire}
-          includeInactive
-        />
-        <ReferenceSelect
-          key={draft.unitId}
-          kind="sector"
-          label="Setor"
-          organizationId={organizationId}
-          unitId={draft.unitId}
-          value={draft.sectorId}
-          initialLabel={drillLabel?.id === draft.sectorId ? drillLabel.label : undefined}
-          onChange={(sectorId) => setDraft({ ...draft, sectorId })}
-          onExpire={onExpire}
-          includeInactive
-        />
-        <label>
-          Situação
-          <select
-            value={draft.isActive}
-            onChange={(event) => setDraft({ ...draft, isActive: event.target.value })}
-          >
-            <option value="">Todas</option>
-            <option value="true">Ativos</option>
-            <option value="false">Inativos</option>
-          </select>
-        </label>
-        <label>
-          Competência
-          <input
-            type="month"
-            value={draft.competence}
-            onChange={(event) => setDraft({ ...draft, competence: event.target.value })}
+      <details className="people-filter-panel" open={filters.invalid || activeFilterCount > 0}>
+        <summary>
+          <span>Filtros de Pessoas</span>
+          {activeFilterCount > 0 && (
+            <small>
+              {activeFilterCount === 1
+                ? '1 filtro aplicado'
+                : `${activeFilterCount} filtros aplicados`}
+            </small>
+          )}
+        </summary>
+        <form className="people-filters" onSubmit={apply} aria-label="Filtros de Pessoas">
+          <ReferenceSelect
+            kind="unit"
+            label="Unidade"
+            organizationId={organizationId}
+            value={draft.unitId}
+            initialLabel={drillLabel?.id === draft.unitId ? drillLabel.label : undefined}
+            onChange={(unitId) => setDraft({ ...draft, unitId, sectorId: '' })}
+            onExpire={onExpire}
+            includeInactive
           />
-        </label>
-        <Button type="submit">Aplicar filtros</Button>
-        <Button
-          variant="outline"
-          onClick={() =>
-            navigate({
-              area: filters.area,
-              unitId: '',
-              sectorId: '',
-              isActive: '',
-              competence: '',
-              page: 1,
-            })
-          }
-        >
-          Limpar filtros
-        </Button>
-      </form>
+          <ReferenceSelect
+            key={draft.unitId}
+            kind="sector"
+            label="Setor"
+            organizationId={organizationId}
+            unitId={draft.unitId}
+            value={draft.sectorId}
+            initialLabel={drillLabel?.id === draft.sectorId ? drillLabel.label : undefined}
+            onChange={(sectorId) => setDraft({ ...draft, sectorId })}
+            onExpire={onExpire}
+            includeInactive
+          />
+          <label>
+            Situação
+            <select
+              value={draft.isActive}
+              onChange={(event) => setDraft({ ...draft, isActive: event.target.value })}
+            >
+              <option value="">Todas</option>
+              <option value="true">Ativos</option>
+              <option value="false">Inativos</option>
+            </select>
+          </label>
+          <label>
+            Competência
+            <input
+              type="month"
+              value={draft.competence}
+              onChange={(event) => setDraft({ ...draft, competence: event.target.value })}
+            />
+          </label>
+          <Button type="submit">Aplicar filtros</Button>
+          <Button
+            variant="outline"
+            onClick={() =>
+              navigate({
+                area: filters.area,
+                unitId: '',
+                sectorId: '',
+                isActive: '',
+                competence: '',
+                page: 1,
+              })
+            }
+          >
+            Limpar filtros
+          </Button>
+        </form>
+      </details>
       {error && <StatusMessage tone="error">{error}</StatusMessage>}
       {filters.invalid ? (
         <StatusMessage tone="error">
