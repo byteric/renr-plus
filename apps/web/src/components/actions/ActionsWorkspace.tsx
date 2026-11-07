@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { SessionResponse } from '@renr/contracts';
 import { ActionList } from './ActionList';
 import { ActionForm } from './ActionForm';
@@ -14,6 +14,7 @@ export function ActionsWorkspace({
   onExpire: () => void;
 }) {
   const [hash, setHash] = useState(window.location.hash);
+  const returnPosition = useRef<{ query: string; id: string; top: number } | null>(null);
   useEffect(() => {
     const update = () => setHash(window.location.hash);
     window.addEventListener('hashchange', update);
@@ -24,6 +25,11 @@ export function ActionsWorkspace({
     session.memberships.find((entry) => entry.organizationId === organizationId)?.role === 'ADMIN';
   const [path = '', query = ''] = hash.replace(/^#\/?/, '').split('?');
   const id = path.split('/')[1];
+  const takeReturnPosition = useCallback((listQuery: string) => {
+    const position = returnPosition.current;
+    returnPosition.current = null;
+    return position?.query === listQuery ? position : null;
+  }, []);
   if (!organizationId)
     return (
       <div className="surface empty-state">
@@ -72,6 +78,10 @@ export function ActionsWorkspace({
       organizationId={organizationId}
       query={query}
       onExpire={onExpire}
+      onOpenDetail={(actionId) => {
+        returnPosition.current = { query, id: actionId, top: window.scrollY };
+      }}
+      takeReturnPosition={takeReturnPosition}
     />
   );
 }

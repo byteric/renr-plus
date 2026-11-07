@@ -144,11 +144,19 @@ export function AssessmentParticipation() {
         setError('Confira as respostas e use Corrigir respostas antes de tentar novamente.');
       } else {
         setStage('uncertain');
-        setError(
-          failure instanceof RequestError && failure.status === 409
-            ? 'Não foi possível confirmar este convite. Repita somente a mesma resposta ou solicite orientação ao responsável.'
-            : 'Não foi possível confirmar o recebimento. Suas respostas foram mantidas nesta aba. Reenvie a mesma resposta para confirmar sem duplicar o envio.',
-        );
+        if (failure instanceof RequestError && failure.status === 429) {
+          setError(
+            'Muitas tentativas. Aguarde antes de reenviar a mesma resposta. Suas respostas continuam nesta aba.',
+          );
+        } else if (failure instanceof RequestError && failure.status === 409) {
+          setError(
+            'Não foi possível confirmar este convite. Repita somente a mesma resposta ou solicite orientação ao responsável.',
+          );
+        } else {
+          setError(
+            'Não foi possível confirmar o recebimento. Suas respostas foram mantidas nesta aba. Reenvie a mesma resposta para confirmar sem duplicar o envio.',
+          );
+        }
       }
     } finally {
       busy.current = false;
