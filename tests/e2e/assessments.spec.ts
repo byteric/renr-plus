@@ -9,6 +9,9 @@ import {
   instrumentVersionSchema,
   consolidationPolicySchema,
   assessmentCycleSchema,
+  assessmentComparisonSchema,
+  reportSnapshotSchema,
+  assessmentInviteDeliveryConfirmationSchema,
   assessmentInvitesSchema,
   assessmentResultsSchema,
   assessmentSourceSchema,
@@ -33,7 +36,13 @@ async function login(page: Page) {
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Empresas', exact: true })).toBeVisible();
 }
-type Company = { id: string; groupId: string; instrument: InstrumentVersion };
+type Company = {
+  id: string;
+  groupId: string;
+  unitId: string;
+  sectorId: string;
+  instrument: InstrumentVersion;
+};
 const test = base.extend<{ company: Company }>({
   company: async ({ page }, use) => {
     await login(page);
@@ -110,7 +119,13 @@ const test = base.extend<{ company: Company }>({
       await page.goto('/#/coletas');
       await page.reload();
       await expect(page.getByRole('heading', { level: 1, name: 'Coletas' })).toBeVisible();
-      await use({ id: organization.id, groupId: group.id, instrument });
+      await use({
+        id: organization.id,
+        groupId: group.id,
+        unitId: unit.id,
+        sectorId: sector.id,
+        instrument,
+      });
     } finally {
       await cleanupAssessmentFixture(organization.id, name);
     }
@@ -118,6 +133,115 @@ const test = base.extend<{ company: Company }>({
 });
 // No participant codes, passwords, answers or cookies in Playwright artifacts.
 test.use({ trace: 'off', video: 'off', screenshot: 'off' });
+
+test('compara períodos, retorna ao recorte e emite o resumo executivo com PDF', async ({
+  page,
+  company,
+}, testInfo) => {
+  test.setTimeout(120_000);
+  const policy = consolidationPolicySchema.parse(
+    await post(page.request, url(company.id, 'consolidation-policies'), {
+      usageMode: 'DEMONSTRATION',
+      minimumResponses: 5,
+    }),
+  );
+  await post(page.request, url(company.id, `consolidation-policies/${policy.id}/publish`), {
+    expectedRevision: 1,
+  });
+  for (let person = 0; person < 20; person++) {
+    await post(page.request, url(company.id, 'employees'), {
+      name: `Colaborador fictício do relatório ${person}`,
+      unitId: company.unitId,
+      sectorId: company.sectorId,
+    });
+  }
+  async function collect(name: string, startsAt: string, count: number) {
+    const draft = assessmentCycleSchema.parse(
+      await post(page.request, url(company.id, 'assessment-cycles'), {
+        name,
+        assessmentGroupId: company.groupId,
+        instrumentVersionId: company.instrument.id,
+        policyVersionId: policy.id,
+        startsAt,
+        endsAt: new Date(Date.now() + 3_600_000).toISOString(),
+      }),
+    );
+    const cyclePath = url(company.id, `assessment-cycles/${draft.id}`);
+    const open = assessmentCycleSchema.parse(
+      await post(page.request, `${cyclePath}/open`, { expectedRevision: draft.revision }),
+    );
+    const batch = assessmentInvitesSchema.parse(
+      await post(page.request, `${cyclePath}/invites`, { count: 15 }),
+    );
+    const answers = company.instrument.questions
+      .filter((question) => question.required)
+      .map((question) => ({
+        questionId: question.id,
+        optionIds: [question.options[0]!.id],
+      }));
+    for (const invite of batch.invites.slice(0, count)) {
+      await post(page.request, '/api/v1/assessment-participation/submissions', {
+        inviteCode: invite.code,
+        submissionSecret: randomBytes(32).toString('base64url'),
+        instrumentVersionId: company.instrument.id,
+        answers,
+      });
+    }
+    return assessmentCycleSchema.parse(
+      await post(page.request, `${cyclePath}/close`, { expectedRevision: open.revision }),
+    );
+  }
+  const reference = await collect(
+    'Coleta anterior fictícia',
+    new Date(Date.now() - 60_000).toISOString(),
+    5,
+  );
+  const current = await collect('Coleta atual fictícia', new Date().toISOString(), 10);
+  await page.goto(`/#/coletas?unitId=${company.unitId}&sectorId=${company.sectorId}`);
+  await page.getByRole('button', { name: 'Comparativo gerencial' }).click();
+  await page.getByRole('combobox', { name: 'Coleta de referência' }).selectOption(reference.id);
+  await page.getByRole('combobox', { name: 'Coleta atual' }).selectOption(current.id);
+  const compared = page.waitForResponse((response) =>
+    response.url().includes('/assessment-comparison?'),
+  );
+  await page.getByRole('button', { name: 'Comparar períodos' }).click();
+  const result = assessmentComparisonSchema.parse(await (await compared).json());
+  expect(result.participation).toMatchObject({
+    status: 'AVAILABLE',
+    reference: 25,
+    current: 50,
+    difference: 25,
+  });
+  await expect(page.getByText('+25 p.p.', { exact: true })).toBeVisible();
+  await page.getByRole('link', { name: 'Abrir coleta de referência' }).click();
+  await page.getByRole('button', { name: 'Voltar ao comparativo' }).click();
+  await expect(page.getByRole('combobox', { name: 'Coleta atual' })).toHaveValue(current.id);
+  await expect(page).toHaveURL(new RegExp(`sectorId=${company.sectorId}`));
+  await page.getByRole('link', { name: 'Incluir no resumo executivo' }).click();
+  await expect(page.getByRole('checkbox', { name: 'Incluir resumo executivo' })).toBeChecked();
+  const capture = page.waitForResponse(
+    (response) => response.url().endsWith('/reports') && response.request().method() === 'POST',
+  );
+  await page.getByRole('button', { name: 'Emitir relatório' }).click();
+  const snapshot = reportSnapshotSchema.parse(await (await capture).json());
+  expect(snapshot.executiveVersion).toBe(1);
+  const comparison = page.getByRole('table', { name: 'Evolução entre coletas' });
+  await expect(comparison).toContainText('Aumento de 25 p.p.');
+  await expect(comparison.getByRole('link', { name: 'Abrir coleta' }).first()).toHaveAttribute(
+    'href',
+    expect.stringContaining(reference.id),
+  );
+  const persisted = await page.request.get(url(company.id, `reports/${snapshot.id}`));
+  expect(await persisted.json()).toEqual(snapshot);
+  const pdf = await page.request.get(url(company.id, `reports/${snapshot.id}/pdf`));
+  expect(pdf.status()).toBe(200);
+  const bytes = await pdf.body();
+  expect(bytes.subarray(0, 5).toString()).toBe('%PDF-');
+  await testInfo.attach('resumo-executivo-sintetico', {
+    body: bytes,
+    contentType: 'application/pdf',
+  });
+});
 
 test('organiza coleta, corrige antes do envio, recupera resposta perdida e encerra com fonte e supressão', async ({
   page,
@@ -176,11 +300,17 @@ test('organiza coleta, corrige antes do envio, recupera resposta perdida e encer
     page.getByRole('heading', { name: 'Coleta em andamento', exact: true }),
   ).toBeVisible();
   const issued = page.waitForResponse(
-    (response) => response.url().endsWith('/invites') && response.request().method() === 'POST',
+    (response) =>
+      response.url().includes('/invite-deliveries/') &&
+      response.url().endsWith('/confirm') &&
+      response.request().method() === 'POST',
   );
   await page.getByLabel('Quantidade de convites', { exact: true }).fill('1');
+  await page.getByRole('button', { name: 'Preparar convites', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Prévia da entrega manual' })).toBeFocused();
+  await expect(page.getByRole('button', { name: 'Copiar código 1' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Gerar convites', exact: true }).click();
-  const invitations = assessmentInvitesSchema.parse(await (await issued).json());
+  const invitations = assessmentInviteDeliveryConfirmationSchema.parse(await (await issued).json());
   const code = invitations.invites[0]!.code;
   const anonymous = await browser.newContext({ baseURL: 'http://127.0.0.1:5173' });
   try {
@@ -197,6 +327,9 @@ test('organiza coleta, corrige antes do envio, recupera resposta perdida e encer
     await participant.goto('/#/responder');
     await participant.getByLabel('Código do convite', { exact: true }).fill(code);
     await participant.getByRole('button', { name: 'Acessar coleta', exact: true }).click();
+    await expect(
+      participant.getByRole('region', { name: 'Como suas respostas são protegidas' }),
+    ).toContainText('mínimo de 5 respostas');
     await participant.getByRole('button', { name: 'Revisar respostas', exact: true }).click();
     await expect(
       participant.getByText('Responda as perguntas obrigatórias antes de revisar.'),
@@ -264,11 +397,18 @@ test('organiza coleta, corrige antes do envio, recupera resposta perdida e encer
     .getByRole('navigation', { name: 'Áreas do painel' })
     .getByRole('link', { name: 'Riscos', exact: true })
     .click();
-  await page.getByRole('link', { name: 'Consultar resultados por coleta' }).click();
+  await page.getByLabel('Unidade', { exact: true }).selectOption(cycle.unitId);
+  await page.getByLabel('Setor', { exact: true }).selectOption(cycle.sectorId);
+  const resultsLink = page.getByRole('link', { name: 'Consultar resultados por coleta' });
+  await expect(resultsLink).toHaveAttribute('href', new RegExp('sectorId=' + cycle.sectorId));
+  await resultsLink.click();
   await expect(page.getByLabel('Situação da coleta')).toHaveValue('CLOSED');
+  await expect(page.getByText('Coletas filtradas por setor.')).toBeVisible();
   await page.getByRole('button', { name: `Abrir coleta ${revisedName}`, exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Resultado protegido' })).toBeVisible();
   await expect(page.getByText(/Envios consolidados:/)).toHaveCount(0);
+  await page.getByRole('button', { name: 'Voltar às coletas', exact: true }).click();
+  await expect(page.getByText('Coletas filtradas por setor.')).toBeVisible();
   await page.getByRole('button', { name: 'Consolidação gerencial', exact: true }).click();
   await page
     .getByRole('combobox', { name: 'Instrumento da coleta', exact: true })
@@ -327,15 +467,27 @@ test('distingue ciclo vazio de resultado coletivo disponível e protege descende
     page.getByRole('heading', { name: 'Nenhuma resposta recebida', exact: true }),
   ).toBeVisible();
   await expect(page.getByText(/zero risco/i)).toHaveCount(0);
+  for (let employee = 1; employee <= 20; employee++) {
+    await post(page.request, url(company.id, 'employees'), {
+      name: `Colaborador fictício ${employee}`,
+      unitId: company.unitId,
+      sectorId: company.sectorId,
+    });
+  }
   const available = await create('Coleta coletiva suficiente');
+  await post(page.request, url(company.id, 'employees'), {
+    name: 'Colaborador após a abertura',
+    unitId: company.unitId,
+    sectorId: company.sectorId,
+  });
   const batch = assessmentInvitesSchema.parse(
     await post(page.request, url(company.id, `assessment-cycles/${available.id}/invites`), {
-      count: 10,
+      count: 15,
     }),
   );
   const anonymous = await playwright.request.newContext({ baseURL: 'http://127.0.0.1:5173' });
   try {
-    for (const invite of batch.invites)
+    for (const invite of batch.invites.slice(0, 10))
       await post(anonymous, '/api/v1/assessment-participation/submissions', {
         inviteCode: invite.code,
         submissionSecret: randomBytes(32).toString('base64url'),
@@ -355,6 +507,11 @@ test('distingue ciclo vazio de resultado coletivo disponível e protege descende
     page.getByRole('heading', { name: 'Resultado coletivo disponível', exact: true }),
   ).toBeVisible();
   await expect(page.getByText('Envios consolidados: 10', { exact: true })).toBeVisible();
+  const participation = page.getByRole('region', { name: 'Adesão à coleta' });
+  await expect(participation.getByText('50%', { exact: true })).toBeVisible();
+  for (const value of ['20', '15', '10']) {
+    await expect(participation.getByText(value, { exact: true })).toBeVisible();
+  }
   await expect(page.getByText('Pergunta sem respostas.', { exact: true })).toBeVisible();
   const hidden = await create('Coleta protegida complementar');
   const code = assessmentInvitesSchema.parse(

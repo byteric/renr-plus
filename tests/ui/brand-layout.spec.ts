@@ -40,3 +40,25 @@ test('a marca reserva espaço durante o carregamento e preserva o acesso ao logi
   expect(Math.abs(after - before)).toBeLessThanOrEqual(1);
   await page.getByRole('button', { name: 'Entrar', exact: true }).click({ trial: true });
 });
+
+test('o HTML inicial e a arte de compartilhamento estão acessíveis sem sessão', async ({
+  request,
+}) => {
+  const expectedImage =
+    'https://renr-plus-homologation.onrender.com/brand/renr-plus-miniatura-compartilhamento.jpg';
+  const document = await request.get('/');
+  expect(document.ok()).toBe(true);
+  const html = await document.text();
+  expect(html).toContain('property="og:title" content="ReNR+ | Da avaliação ao plano de ação"');
+  expect(html).toContain('property="og:description"');
+  expect(html).toContain(
+    'property="og:url" content="https://renr-plus-homologation.onrender.com/"',
+  );
+  expect(html).toContain(expectedImage);
+  expect(html).toContain('property="og:image:width" content="1200"');
+  expect(html).toContain('property="og:image:height" content="630"');
+  const image = await request.get(new URL(expectedImage).pathname);
+  expect(image.status()).toBe(200);
+  expect(image.headers()['content-type']).toMatch(/^image\/jpeg/);
+  expect((await image.body()).subarray(0, 3)).toEqual(Buffer.from([0xff, 0xd8, 0xff]));
+});

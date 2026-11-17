@@ -64,7 +64,7 @@ const snapshot: ManagementIndicators = {
   },
 };
 
-async function openPanel(page: Page, theme: 'light' | 'dark') {
+async function openPanel(page: Page, theme: 'light' | 'dark', area = 'acoes') {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.addInitScript((value) => localStorage.setItem('renr-theme', value), theme);
   await page.route('**/api/v1/**', async (route) => {
@@ -80,6 +80,17 @@ async function openPanel(page: Page, theme: 'light' | 'dark') {
         ],
         activeOrganizationId: id,
         expiresAt: '2099-01-01T00:00:00.000Z',
+      };
+    } else if (path.endsWith('/journey')) {
+      body = {
+        organizationId: id,
+        demo: true,
+        structure: 'READY',
+        preparation: null,
+        instruments: 'READY',
+        collection: 'CLOSED',
+        result: 'PROTECTED',
+        actions: 'READY',
       };
     } else if (path.endsWith('/management-indicators')) body = snapshot;
     else if (path.endsWith('/management-indicators/history')) {
@@ -102,7 +113,7 @@ async function openPanel(page: Page, theme: 'light' | 'dark') {
     }
     await route.fulfill({ status: body ? 200 : 404, json: body ?? {} });
   });
-  await page.goto('/#/painel?area=acoes&dias=7&unitId=' + unitId + '&sectorId=' + sectorId);
+  await page.goto(`/#/painel?area=${area}&dias=7&unitId=${unitId}&sectorId=${sectorId}`);
 }
 
 for (const theme of ['light', 'dark'] as const) {
@@ -155,4 +166,30 @@ for (const theme of ['light', 'dark'] as const) {
       });
     },
   );
+}
+
+for (const viewport of [
+  { width: 320, height: 840, theme: 'dark' },
+  { width: 1440, height: 900, theme: 'light' },
+] as const) {
+  test(`jornada e navegação por teclado no tema ${viewport.theme} a ${viewport.width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await openPanel(page, viewport.theme, 'geral');
+    const journey = page.getByRole('region', { name: 'Jornada da empresa' });
+    await expect(journey.getByText('Resultado protegido', { exact: true })).toBeVisible();
+    await expect(journey.getByText('Cenário de demonstração')).toBeVisible();
+    await expect(journey.getByRole('listitem')).toHaveCount(5);
+    await page.reload();
+    const next = journey.getByRole('link', { name: 'Acompanhar plano de ação' });
+    await expect(next).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(
+      true,
+    );
+    await next.focus();
+    await expect(next).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('heading', { name: 'Ações', level: 1 })).toBeFocused();
+  });
 }
