@@ -2,22 +2,23 @@ import { useEffect, useRef, useState } from 'react';
 import {
   assessmentCycleSchema,
   assessmentResultsSchema,
-  assessmentInvitesSchema,
   type AssessmentCycle,
-  type AssessmentInvites,
 } from '@renr/contracts';
 import { request, RequestError } from '../../lib/api';
 import { useWorkforceData } from '../workforce/useWorkforceData';
 import { Button } from '../ui/button';
 import { AssessmentResults } from './AssessmentResults';
+import { AssessmentInviteDelivery } from './AssessmentInviteDelivery';
 import { AssessmentSources } from './AssessmentSources';
 import './assessment-cycle.css';
 export type AssessmentCycleDetailProps = {
   organizationId: string;
   cycleId: string;
   canEdit: boolean;
+  canIssueInvites?: boolean;
   onExpire: () => void;
   onBack: () => void;
+  backLabel?: string;
   onEdit: () => void;
   onChanged?: () => void;
 };
@@ -28,8 +29,10 @@ function CycleDetail({
   organizationId,
   cycleId,
   canEdit,
+  canIssueInvites = canEdit,
   onExpire,
   onBack,
+  backLabel = 'Voltar às coletas',
   onEdit,
   onChanged,
 }: AssessmentCycleDetailProps) {
@@ -38,9 +41,6 @@ function CycleDetail({
   const [error, setError] = useState('');
   const [confirm, setConfirm] = useState<'open' | 'close' | null>(null);
   const [text, setText] = useState('');
-  const [count, setCount] = useState('1');
-  const [invites, setInvites] = useState<AssessmentInvites | null>(null);
-  const [copied, setCopied] = useState('');
   const active = useRef<AbortController | null>(null);
   const mounted = useRef(true);
   useEffect(() => {
@@ -74,20 +74,11 @@ function CycleDetail({
     value.node.id === cycleId
       ? value
       : null;
-  async function mutate(action: 'open' | 'close' | 'invites') {
+  async function mutate(action: 'open' | 'close') {
     if (active.current || !cycle || !canEdit) return;
     if (
-      action === 'invites' &&
-      (cycle.status !== 'OPEN' ||
-        !Number.isInteger(Number(count)) ||
-        Number(count) < 1 ||
-        Number(count) > 20)
-    )
-      return;
-    if (
-      action !== 'invites' &&
-      (text !== (action === 'open' ? 'ABRIR' : 'ENCERRAR') ||
-        (action === 'open' ? cycle.status !== 'DRAFT' : cycle.status !== 'OPEN'))
+      text !== (action === 'open' ? 'ABRIR' : 'ENCERRAR') ||
+      (action === 'open' ? cycle.status !== 'DRAFT' : cycle.status !== 'OPEN')
     )
       return;
     const controller = new AbortController();
@@ -95,32 +86,18 @@ function CycleDetail({
     setPending(true);
     setError('');
     try {
-      if (action === 'invites') {
-        setInvites(null);
-        setCopied('');
-        const issued = await request(`${path}/invites`, assessmentInvitesSchema, {
-          method: 'POST',
-          body: JSON.stringify({ count: Number(count) }),
-          signal: controller.signal,
-        });
-        if (!mounted.current) return;
-        if (issued.cycleId !== cycleId) throw new RequestError(502);
-        setInvites(issued);
-      } else {
-        const changed: AssessmentCycle = await request(`${path}/${action}`, assessmentCycleSchema, {
-          method: 'POST',
-          body: JSON.stringify({ expectedRevision: cycle.revision }),
-          signal: controller.signal,
-        });
-        if (!mounted.current) return;
-        if (changed.id !== cycleId || changed.organizationId !== organizationId)
-          throw new RequestError(502);
-        setInvites(null);
-        setConfirm(null);
-        setText('');
-        setAttempt((value) => value + 1);
-        onChanged?.();
-      }
+      const changed: AssessmentCycle = await request(`${path}/${action}`, assessmentCycleSchema, {
+        method: 'POST',
+        body: JSON.stringify({ expectedRevision: cycle.revision }),
+        signal: controller.signal,
+      });
+      if (!mounted.current) return;
+      if (changed.id !== cycleId || changed.organizationId !== organizationId)
+        throw new RequestError(502);
+      setConfirm(null);
+      setText('');
+      setAttempt((value) => value + 1);
+      onChanged?.();
     } catch (failure) {
       if (!mounted.current) return;
       if (failure instanceof RequestError && failure.status === 401) onExpire();
@@ -139,7 +116,7 @@ function CycleDetail({
   return (
     <section className="assessment-cycle-detail">
       <Button variant="outline" onClick={onBack}>
-        Voltar às coletas
+        {backLabel}
       </Button>
       {detail.loading && !cycle && <p role="status">Carregando coleta…</p>}
       {(detail.error || (detail.data && !cycle)) && (
@@ -253,59 +230,15 @@ function CycleDetail({
               </div>
             </form>
           )}
-          {canEdit && cycle.status === 'OPEN' && (
-            <section className="assessment-cycle-invites">
-              <h3>Convites de participação</h3>
-              <p>
-                O código deve ser informado manualmente em{' '}
-                <a href="/#/responder">Responder coleta</a>. Guarde os códigos agora: eles não serão
-                exibidos novamente após sair desta tela.
-              </p>
-              <label>
-                Quantidade de convites
-                <input
-                  type="number"
-                  min={1}
-                  max={20}
-                  value={count}
-                  disabled={pending}
-                  onChange={(event) => setCount(event.target.value)}
-                />
-              </label>
-              <Button
-                disabled={
-                  pending ||
-                  !Number.isInteger(Number(count)) ||
-                  Number(count) < 1 ||
-                  Number(count) > 20
-                }
-                onClick={() => void mutate('invites')}
-              >
-                Gerar convites
-              </Button>
-              {invites && (
-                <ul>
-                  {invites.invites.map((invite, index) => (
-                    <li key={index}>
-                      <code className="assessment-invite-code">{invite.code}</code>
-                      <span>Validade: {new Date(invite.expiresAt).toLocaleString('pt-BR')}</span>
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          void navigator.clipboard
-                            ?.writeText(invite.code)
-                            .then(() => setCopied(`Convite ${index + 1} copiado.`))
-                            .catch(() => setCopied('Copie o código manualmente.'));
-                        }}
-                      >
-                        Copiar código {index + 1}
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {copied && <p role="status">{copied}</p>}
-            </section>
+          {canIssueInvites && cycle.status !== 'DRAFT' && (
+            <AssessmentInviteDelivery
+              key={`${attempt}:${cycle.status}`}
+              path={`${path}/invite-deliveries`}
+              organizationId={organizationId}
+              available={cycle.status === 'OPEN'}
+              disabled={pending}
+              onExpire={onExpire}
+            />
           )}
           <section>
             <h3>Resultados protegidos</h3>
@@ -330,7 +263,6 @@ function CycleDetail({
         variant="outline"
         disabled={pending}
         onClick={() => {
-          setInvites(null);
           setConfirm(null);
           setText('');
           setAttempt((value) => value + 1);

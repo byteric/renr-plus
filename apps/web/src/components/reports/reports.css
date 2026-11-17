@@ -171,3 +171,9 @@
   padding-inline: var(--space-1);
   font-weight: 650;
 }
+.report-executive-options {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}

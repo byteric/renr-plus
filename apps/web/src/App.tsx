@@ -170,6 +170,16 @@ function publicPage() {
   const path = window.location.hash.replace(/^#\/?/, '').split('/')[0];
   return path === 'participar' || path === 'responder' || path === 'ativar' ? path : '';
 }
+function organizationScopeKey(session: SessionResponse) {
+  if (!session.activeOrganizationId) return '';
+  const scope = session.organizationScopes?.[session.activeOrganizationId];
+  return scope === undefined
+    ? 'company'
+    : scope
+        .map(({ unitId, sectorId }) => `${unitId}/${sectorId ?? ''}`)
+        .sort()
+        .join(',');
+}
 export function App() {
   const [publicRoute, setPublicRoute] = useState(publicPage);
   useEffect(() => {
@@ -220,6 +230,51 @@ export function App() {
     setNotice('Sua sessão terminou. Entre novamente para continuar.');
     window.location.hash = '/';
   }, []);
+  useEffect(() => {
+    if (!session || publicRoute) return;
+    const controller = new AbortController();
+    let pending = false;
+    async function refresh() {
+      if (!session || pending || controller.signal.aborted) return;
+      pending = true;
+      try {
+        const current = await request('/auth/session', sessionResponseSchema, {
+          signal: controller.signal,
+        });
+        if (controller.signal.aborted || current.user.id !== session.user.id) return;
+        if (
+          current.activeOrganizationId !== session.activeOrganizationId ||
+          organizationScopeKey(current) !== organizationScopeKey(session)
+        ) {
+          const route = window.location.hash.split(/[/?]/)[1];
+          if (route !== 'plataforma' && route !== 'consolidado') window.location.replace('#/');
+        }
+        setSession((previous) =>
+          previous === session && JSON.stringify(current) !== JSON.stringify(previous)
+            ? current
+            : previous,
+        );
+      } catch (error) {
+        if (!controller.signal.aborted && error instanceof RequestError && error.status === 401)
+          expire();
+      } finally {
+        pending = false;
+      }
+    }
+    function whenVisible() {
+      if (document.visibilityState === 'visible') void refresh();
+    }
+    const onFocus = () => void refresh();
+    const timer = window.setInterval(whenVisible, 30_000);
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', whenVisible);
+    return () => {
+      controller.abort();
+      window.clearInterval(timer);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', whenVisible);
+    };
+  }, [session, publicRoute, expire]);
   useEffect(() => {
     if (!session || publicRoute === 'participar' || publicRoute === 'responder') return;
     const remaining = new Date(session.expiresAt).getTime() - Date.now();
@@ -333,7 +388,7 @@ export function App() {
               </p>
             )}
             <Structure
-              key={`${session.user.id}-${session.activeOrganizationId}`}
+              key={`${session.user.id}-${session.activeOrganizationId}-${organizationScopeKey(session)}`}
               session={session}
               onSession={setSession}
               onExpire={expire}

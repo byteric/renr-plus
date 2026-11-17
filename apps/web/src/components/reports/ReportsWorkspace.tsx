@@ -9,6 +9,7 @@ import {
   reportSnapshotSchema,
   sessionCapabilitiesSchema,
   platformCapabilitiesSchema,
+  type MembershipScope,
   type ReportSnapshot,
 } from '@renr/contracts';
 import { request, RequestError, send } from '../../lib/api';
@@ -18,6 +19,10 @@ import { StatusMessage } from '../ui/status-message';
 import { ReferenceSelect } from '../workforce/ReferenceSelect';
 import { useAccessRefresh, usePrivateQuery } from '../platform/usePrivateQuery';
 import { usePresentationMotion } from '../../hooks/usePresentationMotion';
+import {
+  AssessmentCyclePairFields,
+  type CyclePair,
+} from '../assessments/AssessmentCyclePairFields';
 import './reports.css';
 
 type Props = {
@@ -25,8 +30,9 @@ type Props = {
   organizationName?: string;
   onExpire: () => void;
   platform?: boolean;
+  scopes?: MembershipScope[];
 };
-type Filters = {
+type Filters = CyclePair & {
   kind: 'SST' | 'PEOPLE';
   unitId: string;
   sectorId: string;
@@ -37,7 +43,10 @@ type Filters = {
   fiscalState: string;
   page: number;
   invalid: boolean;
+  executive: boolean;
 };
+const executiveKey = 'executive-summary';
+const emptyPair = { referenceCycleId: '', currentCycleId: '' };
 function readFilters(platform: boolean): Filters {
   const query = new URLSearchParams(window.location.hash.split('?')[1]);
   const keys = platform
@@ -51,11 +60,27 @@ function readFilters(platform: boolean): Filters {
     delete raw.isActive;
     delete raw.competence;
   }
+  const executive = !platform && raw.kind !== 'PEOPLE' && query.get('summary') === 'executive';
+  const pair = executive
+    ? {
+        referenceCycleId: query.get('referenceCycleId') ?? '',
+        currentCycleId: query.get('currentCycleId') ?? '',
+      }
+    : emptyPair;
   const parsed = platform
     ? createPlatformReportSchema.safeParse(raw)
-    : createTenantReportSchema.safeParse({ kind: 'SST', ...raw });
+    : createTenantReportSchema.safeParse({
+        kind: 'SST',
+        ...raw,
+        ...(executive ? { sectionKeys: [executiveKey] } : {}),
+        ...(pair.referenceCycleId || pair.currentCycleId ? { comparison: pair } : {}),
+      });
   const page = reportQuerySchema.safeParse({ page: query.get('page') ?? 1, pageSize: 25 });
-  const duplicates = [...keys, 'page'].some((key) => query.getAll(key).length > 1);
+  const duplicates = [
+    ...keys,
+    'page',
+    ...(executive ? ['summary', ...Object.keys(pair)] : []),
+  ].some((key) => query.getAll(key).length > 1);
   return {
     kind: query.get('kind') === 'PEOPLE' ? 'PEOPLE' : 'SST',
     unitId: query.get('unitId') ?? '',
@@ -67,6 +92,8 @@ function readFilters(platform: boolean): Filters {
     fiscalState: query.get('fiscalState') === 'ALL' ? '' : (query.get('fiscalState') ?? 'VALID'),
     page: page.success ? page.data.page : 1,
     invalid: !parsed.success || !page.success || duplicates,
+    executive,
+    ...pair,
   };
 }
 
@@ -78,7 +105,13 @@ export function ReportsWorkspace(props: Props) {
     />
   );
 }
-function ReportsAccess({ organizationId, organizationName, platform = false, onExpire }: Props) {
+function ReportsAccess({
+  organizationId,
+  organizationName,
+  platform = false,
+  scopes,
+  onExpire,
+}: Props) {
   const access = useAccessRefresh();
   const [expired, setExpired] = useState(false);
   const [denied, setDenied] = useState(false);
@@ -144,6 +177,7 @@ function ReportsAccess({ organizationId, organizationName, platform = false, onE
       organizationId={organizationId}
       organizationName={organizationName}
       platform={platform}
+      scopes={scopes}
       grants={grants}
       onExpire={expire}
       onDenied={deny}
@@ -154,6 +188,7 @@ function ReportsContent({
   organizationId,
   organizationName,
   platform,
+  scopes,
   grants,
   onExpire,
   onDenied,
@@ -161,6 +196,7 @@ function ReportsContent({
   organizationId: string | null;
   organizationName?: string;
   platform: boolean;
+  scopes?: MembershipScope[];
   grants: string[];
   onExpire: () => void;
   onDenied: () => void;
@@ -169,10 +205,13 @@ function ReportsContent({
   const [draft, setDraft] = useState(filters);
   const [details, setDetails] = useState(false);
   const [financial, setFinancial] = useState(false);
-  const [sectionKeys, setSectionKeys] = useState<string[] | null>(null);
+  const [sectionKeys, setSectionKeys] = useState<string[] | null>(() =>
+    filters.executive ? [] : null,
+  );
   const sectionLabels = draft.kind === 'SST' ? sstReportSectionLabels : peopleReportSectionLabels;
-  const allSections = Object.keys(sectionLabels);
+  const allSections = Object.keys(sectionLabels).filter((key) => key !== executiveKey);
   const selectedSections = sectionKeys ?? allSections;
+  const includeExecutive = !platform && draft.kind === 'SST' && draft.executive;
   const sectionOptions = useRef<HTMLDetailsElement>(null);
   const [revision, setRevision] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
@@ -195,12 +234,19 @@ function ReportsContent({
       setCreated(null);
       setDetails(false);
       setFinancial(false);
-      setSectionKeys(null);
+      setSectionKeys(value.executive ? [] : null);
     };
     window.addEventListener('hashchange', change);
     return () => window.removeEventListener('hashchange', change);
   }, [platform]);
   const people = grants.includes('HR_EXPORT') && grants.includes('HR_ANALYTICS_READ');
+  const emissionAllowed =
+    scopes?.some(
+      (scope) =>
+        draft.kind === 'SST' &&
+        scope.unitId === draft.unitId &&
+        (scope.sectorId === null || scope.sectorId === draft.sectorId),
+    ) ?? true;
   const profile = grants.includes('HR_PROFILE_READ') || grants.includes('HR_PROFILE_MANAGE');
   const compensation =
     grants.includes('HR_COMPENSATION_READ') || grants.includes('HR_COMPENSATION_MANAGE');
@@ -266,7 +312,19 @@ function ReportsContent({
         }
       : {
           kind: value.kind,
-          ...(sectionKeys && sectionKeys.length !== allSections.length ? { sectionKeys } : {}),
+          ...(includeExecutive
+            ? { sectionKeys: [executiveKey, ...selectedSections] }
+            : sectionKeys && sectionKeys.length !== allSections.length
+              ? { sectionKeys }
+              : {}),
+          ...(includeExecutive && (value.referenceCycleId || value.currentCycleId)
+            ? {
+                comparison: {
+                  referenceCycleId: value.referenceCycleId,
+                  currentCycleId: value.currentCycleId,
+                },
+              }
+            : {}),
           ...(value.unitId ? { unitId: value.unitId } : {}),
           ...(value.sectorId ? { sectorId: value.sectorId } : {}),
           ...(value.kind === 'PEOPLE'
@@ -285,6 +343,11 @@ function ReportsContent({
       ? (['search', 'classification', 'fiscalState', 'isActive'] as const)
       : (['kind', 'unitId', 'sectorId', 'isActive', 'competence'] as const);
     for (const key of entries) if (value[key]) query.set(key, value[key]);
+    if (!platform && value.executive && value.kind === 'SST') {
+      query.set('summary', 'executive');
+      for (const key of ['referenceCycleId', 'currentCycleId'] as const)
+        if (value[key]) query.set(key, value[key]);
+    }
     if (platform && !value.fiscalState) query.set('fiscalState', 'ALL');
     if (value.page > 1) query.set('page', String(value.page));
     window.history.replaceState(
@@ -312,7 +375,7 @@ function ReportsContent({
       : createTenantReportSchema.safeParse(payload(value)).success;
   }
   function validateSections() {
-    if (platform || selectedSections.length) return true;
+    if (platform || includeExecutive || selectedSections.length) return true;
     const options = sectionOptions.current;
     if (options) {
       options.open = true;
@@ -334,6 +397,7 @@ function ReportsContent({
     if (!validateSections()) return;
     if (
       pending ||
+      !emissionAllowed ||
       invalid ||
       !validate(draft) ||
       (!platform && draft.kind === 'PEOPLE' && !people)
@@ -440,6 +504,8 @@ function ReportsContent({
                     kind: event.target.value as Filters['kind'],
                     isActive: '',
                     competence: '',
+                    executive: false,
+                    ...emptyPair,
                   });
                   setDetails(false);
                   setFinancial(false);
@@ -456,7 +522,7 @@ function ReportsContent({
               organizationId={organizationId!}
               value={draft.unitId}
               includeInactive
-              onChange={(unitId) => setDraft({ ...draft, unitId, sectorId: '' })}
+              onChange={(unitId) => setDraft({ ...draft, unitId, sectorId: '', ...emptyPair })}
               onExpire={onExpire}
             />
             <ReferenceSelect
@@ -467,7 +533,7 @@ function ReportsContent({
               unitId={draft.unitId}
               value={draft.sectorId}
               includeInactive
-              onChange={(sectorId) => setDraft({ ...draft, sectorId })}
+              onChange={(sectorId) => setDraft({ ...draft, sectorId, ...emptyPair })}
               onExpire={onExpire}
             />
             {draft.kind === 'PEOPLE' && (
@@ -515,6 +581,38 @@ function ReportsContent({
             Incluir dados financeiros
           </label>
         )}
+        {!platform && draft.kind === 'SST' && (
+          <section className="report-executive-options" aria-label="Resumo executivo">
+            <label className="reports-check">
+              <input
+                type="checkbox"
+                checked={draft.executive}
+                onChange={(event) => {
+                  const executive = event.target.checked;
+                  setDraft({ ...draft, executive, ...(executive ? {} : emptyPair) });
+                  if (!executive && sectionKeys?.length === 0) setSectionKeys(null);
+                }}
+              />
+              Incluir resumo executivo
+            </label>
+            {includeExecutive && (
+              <>
+                <p className="input-hint">
+                  Mostra situação, prioridades e medidas. Para incluir uma comparação, selecione os
+                  dois períodos.
+                </p>
+                <AssessmentCyclePairFields
+                  organizationId={organizationId!}
+                  unitId={draft.unitId}
+                  sectorId={draft.sectorId}
+                  value={draft}
+                  onExpire={onExpire}
+                  onChange={(pair) => setDraft({ ...draft, ...pair })}
+                />
+              </>
+            )}
+          </section>
+        )}
         {!platform && (
           <details className="report-section-disclosure" ref={sectionOptions}>
             <summary>
@@ -525,17 +623,19 @@ function ReportsContent({
             </summary>
             <fieldset className="report-section-options">
               <legend>Seções da emissão</legend>
-              {Object.entries(sectionLabels).map(([key, label]) => (
-                <label className="reports-check" key={key}>
-                  <input
-                    type="checkbox"
-                    value={key}
-                    checked={selectedSections.includes(key)}
-                    onChange={(event) => toggleSection(key, event.target.checked)}
-                  />
-                  {label}
-                </label>
-              ))}
+              {Object.entries(sectionLabels)
+                .filter(([key]) => key !== executiveKey)
+                .map(([key, label]) => (
+                  <label className="reports-check" key={key}>
+                    <input
+                      type="checkbox"
+                      value={key}
+                      checked={selectedSections.includes(key)}
+                      onChange={(event) => toggleSection(key, event.target.checked)}
+                    />
+                    {label}
+                  </label>
+                ))}
             </fieldset>
           </details>
         )}
@@ -554,6 +654,8 @@ function ReportsContent({
               fiscalState: 'VALID',
               page: 1,
               invalid: false,
+              executive: false,
+              ...emptyPair,
             });
             setDetails(false);
             setFinancial(false);
@@ -569,8 +671,14 @@ function ReportsContent({
             'Filtros da URL inválidos ou sem permissão. Corrija os filtros ou use Limpar filtros.'}
         </StatusMessage>
       )}
+      {scopes && !emissionAllowed && (
+        <StatusMessage>
+          Selecione uma unidade inteira autorizada ou um setor autorizado para emitir um relatório
+          SST.
+        </StatusMessage>
+      )}
       <div className="reports-actions">
-        <Button disabled={pending || invalid} onClick={emit}>
+        <Button disabled={pending || invalid || !emissionAllowed} onClick={emit}>
           {pending ? 'Emitindo…' : 'Emitir relatório'}
         </Button>
         <Button variant="outline" onClick={() => setRevision((value) => value + 1)}>
@@ -643,6 +751,25 @@ function ReportsContent({
       )}
     </section>
   );
+}
+
+type ReportReference = NonNullable<ReportSnapshot['sections'][number]['references']>[number];
+const reportReferenceLabels = { RISK: 'Abrir risco', ACTION: 'Abrir ação', CYCLE: 'Abrir coleta' };
+function reportReferenceHref(reference: ReportReference) {
+  const query = new URLSearchParams();
+  if (reference.unitId) query.set('unitId', reference.unitId);
+  if (reference.sectorId) query.set('sectorId', reference.sectorId);
+  if (reference.kind === 'CYCLE') {
+    query.set('cycle', reference.id);
+    return `#/coletas?${query}`;
+  }
+  if (reference.kind === 'RISK') {
+    if (query.size) query.set('returnTo', `#/inventario?${query}`);
+    return `#/inventario/${reference.id}?${query}`;
+  }
+  if (reference.riskId) query.set('riskId', reference.riskId);
+  if (query.size) query.set('returnTo', `#/acoes?${query}`);
+  return `#/acoes/${reference.id}?${query}`;
 }
 
 function ReportPreview({
@@ -756,44 +883,64 @@ function ReportPreview({
           </div>
         ))}
       </dl>
-      {snapshot.sections.map((section) => (
-        <section key={section.key}>
-          <h4>{section.title}</h4>
-          <div
-            className="report-table-scroll"
-            tabIndex={0}
-            role="region"
-            aria-label={`Tabela rolável: ${section.title}`}
-          >
-            <table aria-label={section.title}>
-              <thead>
-                <tr>
-                  {section.columns.map((column, index) => (
-                    <th key={index} scope="col">
-                      {column}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {section.rows.map((row, rowIndex) => (
-                  <tr key={rowIndex}>
-                    {row.map((value, index) => (
-                      <td key={index}>{value}</td>
+      {snapshot.sections.map((section) => {
+        const references = new Map<number, ReportReference[]>();
+        for (const entry of section.references ?? []) {
+          const row = references.get(entry.row) ?? [];
+          row.push(entry);
+          references.set(entry.row, row);
+        }
+        return (
+          <section key={section.key}>
+            <h4>{section.title}</h4>
+            <div
+              className="report-table-scroll"
+              tabIndex={0}
+              role="region"
+              aria-label={`Tabela rolável: ${section.title}`}
+            >
+              <table aria-label={section.title}>
+                <thead>
+                  <tr>
+                    {section.columns.map((column, index) => (
+                      <th key={index} scope="col">
+                        {column}
+                      </th>
                     ))}
+                    {references.size > 0 && <th scope="col">Origem</th>}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {!section.rows.length && <p>Sem registros nesta seção na data da emissão.</p>}
-          <ul>
-            {section.notes.map((note, index) => (
-              <li key={index}>{note}</li>
-            ))}
-          </ul>
-        </section>
-      ))}
+                </thead>
+                <tbody>
+                  {section.rows.map((row, rowIndex) => (
+                    <tr key={rowIndex}>
+                      {row.map((value, index) => (
+                        <td key={index}>{value}</td>
+                      ))}
+                      {references.size > 0 && (
+                        <td>
+                          {(references.get(rowIndex) ?? []).map((entry) => (
+                            <div key={`${entry.kind}:${entry.id}`}>
+                              <a href={reportReferenceHref(entry)} target="_blank" rel="noreferrer">
+                                {reportReferenceLabels[entry.kind]}
+                              </a>
+                            </div>
+                          ))}
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {!section.rows.length && <p>Sem registros nesta seção na data da emissão.</p>}
+            <ul>
+              {section.notes.map((note, index) => (
+                <li key={index}>{note}</li>
+              ))}
+            </ul>
+          </section>
+        );
+      })}
       {snapshot.limitations.length > 0 && (
         <aside>
           <h4>Limitações da emissão</h4>

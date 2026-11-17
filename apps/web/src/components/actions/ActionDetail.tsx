@@ -12,6 +12,7 @@ import {
   type TechnicalClosureContext,
 } from '@renr/contracts';
 import { request, RequestError } from '../../lib/api';
+import { comparisonReturn } from '../../lib/assessment-comparison-location';
 import { Button } from '../ui/button';
 import { Pagination } from '../ui/pagination';
 import { StatusMessage } from '../ui/status-message';
@@ -126,8 +127,15 @@ export function ActionDetail({
   }, [item?.id, editing]);
   const rawReturn = new URLSearchParams(query).get('returnTo') ?? '';
   const fromDashboard = /^#\/painel(?:\?[^#]*)?$/.test(rawReturn);
-  const returnTo = fromDashboard || /^#\/acoes(?:\?|$)/.test(rawReturn) ? rawReturn : '#/acoes';
-  const backLabel = fromDashboard ? 'Voltar ao painel' : 'Voltar às ações';
+  const fromComparison = comparisonReturn(rawReturn);
+  const returnTo =
+    fromComparison ??
+    (fromDashboard || /^#\/acoes(?:\?|$)/.test(rawReturn) ? rawReturn : '#/acoes');
+  const backLabel = fromComparison
+    ? 'Voltar ao comparativo'
+    : fromDashboard
+      ? 'Voltar ao painel'
+      : 'Voltar às ações';
   function reloadAction() {
     const nextAttempt = attempt + 1;
     if (unavailable) setUnavailable({ ...unavailable, retryAttempt: nextAttempt });

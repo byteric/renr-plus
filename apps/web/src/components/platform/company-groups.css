@@ -1,0 +1,85 @@
+.company-group-view,
+.company-group-admin {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.company-group-field {
+  display: grid;
+  gap: var(--space-1);
+  max-width: 32rem;
+}
+
+.company-group-field select {
+  width: 100%;
+  min-width: 0;
+}
+
+.company-group-summary {
+  border-inline-start: 0.25rem solid var(--primary);
+}
+
+.company-group-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+  gap: var(--space-3);
+  margin-block: var(--space-3) 0;
+  padding-block-start: var(--space-3);
+  border-block-start: 1px solid var(--border);
+}
+
+.company-group-metrics dt {
+  color: var(--muted-foreground);
+  font-size: var(--font-label);
+}
+
+.company-group-metrics dd {
+  margin: 0;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.company-group-metrics .company-group-detail {
+  font-size: var(--font-label);
+  font-weight: 400;
+}
+
+.company-group-admin ul {
+  padding-inline-start: 0;
+  list-style: none;
+}
+
+.company-group-directory ul {
+  padding-inline-start: 0;
+  margin-block: var(--space-3) 0;
+  list-style: none;
+}
+
+.company-group-directory li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-block: var(--space-3);
+  border-block-start: 1px solid var(--border);
+}
+
+.company-group-directory li :is(h3, p) {
+  margin-block: 0;
+  overflow-wrap: anywhere;
+}
+
+.company-group-admin li + li {
+  margin-block-start: var(--space-2);
+}
+
+.company-group-admin li,
+.company-group-admin .company-group-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  overflow-wrap: anywhere;
+}

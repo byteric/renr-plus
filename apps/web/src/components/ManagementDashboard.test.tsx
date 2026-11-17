@@ -119,6 +119,35 @@ afterEach(() => {
   window.history.replaceState(null, '', '/');
 });
 
+it('orienta pelos registros da empresa e mostra o resultado protegido sem contagens nem link restrito', async () => {
+  const existingFetch = fetchMock.getMockImplementation()!;
+  fetchMock.mockImplementation(async (input, options) => {
+    if (String(input).endsWith('/journey'))
+      return json({
+        organizationId,
+        demo: true,
+        structure: 'READY',
+        preparation: null,
+        instruments: 'READY',
+        collection: 'CLOSED',
+        result: 'PROTECTED',
+        actions: 'READY',
+      });
+    return existingFetch(input, options);
+  });
+  mount();
+  const journey = await screen.findByRole('region', { name: 'Jornada da empresa' });
+  expect(await within(journey).findByText('Resultado protegido', { exact: true })).toBeVisible();
+  expect(within(journey).getByText('Cenário de demonstração', { exact: true })).toBeVisible();
+  expect(within(journey).getByRole('link', { name: 'Acompanhar plano de ação' })).toHaveAttribute(
+    'href',
+    '#/acoes',
+  );
+  expect(
+    within(journey).queryByRole('link', { name: 'Abrir Colaboradores' }),
+  ).not.toBeInTheDocument();
+});
+
 it('abre apenas a Visão geral e navega por áreas mantendo o recorte na URL', async () => {
   mount('#/painel?unitId=' + unitId + '&area=invalida', true);
   expect(within(nav()).getByRole('link', { name: 'Visão geral' })).toHaveAttribute(
@@ -171,11 +200,11 @@ it('mantém o gráfico, a tabela e os links de nível ligados ao mesmo DTO', asy
   expect(screen.getByRole('row', { name: '17/10/2026 1' })).toBeVisible();
 });
 
-it('oferece acesso a resultados por coleta mantendo o painel no recorte operacional', async () => {
-  mount('#/painel?area=riscos&unitId=' + unitId);
-  expect(
-    await screen.findByRole('link', { name: 'Consultar resultados por coleta' }),
-  ).toHaveAttribute('href', '#/coletas?status=CLOSED');
+it('leva o recorte de unidade e setor do painel à lista de coletas encerradas', async () => {
+  mount('#/painel?area=riscos&unitId=' + unitId + '&sectorId=' + sectorId);
+  const link = await screen.findByRole('link', { name: 'Consultar resultados por coleta' });
+  const query = new URLSearchParams(link.getAttribute('href')?.split('?')[1]);
+  expect(Object.fromEntries(query)).toEqual({ unitId, sectorId, status: 'CLOSED' });
   expect(screen.getByText(/regras de privacidade/)).toBeVisible();
 });
 

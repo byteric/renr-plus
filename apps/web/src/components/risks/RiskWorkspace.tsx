@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { sessionCapabilitiesSchema, type SessionResponse } from '@renr/contracts';
+import { comparisonReturn } from '../../lib/assessment-comparison-location';
 import { RiskInventory } from './RiskInventory';
 import { RiskDetail } from './RiskDetail';
 import { RiskForm } from './RiskForm';
@@ -31,12 +32,20 @@ export function RiskWorkspace({
   const [path = '', query = ''] = hash.replace(/^#\/?/, '').split('?');
   const id = path.split('/')[1];
   const organizationId = session.activeOrganizationId;
-  const returnTo = new URLSearchParams(query).get('returnTo') ?? '';
+  const params = new URLSearchParams(query);
+  const returnTo = params.get('returnTo') ?? '';
+  const comparisonScope = new URLSearchParams();
+  if (comparisonReturn(returnTo)) {
+    for (const key of ['unitId', 'sectorId']) {
+      const id = params.get(key);
+      if (id) comparisonScope.set(key, id);
+    }
+  }
   const listQuery =
     id && /^#\/inventario(?:\?|$)/.test(returnTo)
       ? (returnTo.split('?')[1] ?? '')
       : id
-        ? ''
+        ? comparisonScope.toString()
         : query;
   useEffect(() => {
     const closed = previousId.current;

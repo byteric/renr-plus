@@ -4,6 +4,7 @@ import { useActionData, civilDate } from './actions/useActionData';
 import { Button } from './ui/button';
 import { MetricCard } from './charts/MetricCard';
 import { usePresentationMotion } from '../hooks/usePresentationMotion';
+import { DashboardJourney } from './DashboardJourney';
 import { DashboardHistory, RiskDistribution } from './DashboardCharts';
 import '../dashboard.css';
 
@@ -132,6 +133,8 @@ function DashboardContent({
 
   const applied = new URLSearchParams(filters);
   if (data?.filters.unitId) applied.set('unitId', data.filters.unitId);
+  const closedCollections = new URLSearchParams(applied);
+  closedCollections.set('status', 'CLOSED');
   const riskLink = listHref('inventario', applied);
   const overdueLink = listHref('acoes', applied, { overdue: true });
   const unitId = applied.get('unitId') ?? '';
@@ -246,6 +249,9 @@ function DashboardContent({
           </div>
         </section>
       )}
+      {area === 'geral' && context && (
+        <DashboardJourney key={attempt} organizationId={organizationId} onExpire={onExpire} />
+      )}
       {data && (
         <div ref={scope} className="dashboard-area-content">
           {area === 'geral' && (
@@ -283,7 +289,7 @@ function DashboardContent({
             <>
               <RiskDistribution data={data.risks} filters={applied} listHref={listHref} />
               <p className="chart-note">
-                <a className="underline" href="#/coletas?status=CLOSED">
+                <a className="underline" href={`#/coletas?${closedCollections}`}>
                   Consultar resultados por coleta
                 </a>
                 . A exibição segue as regras de privacidade em Coletas.

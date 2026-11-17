@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { Structure } from './components/Structure';
+import { WorkforceWorkspace } from './components/workforce/WorkforceWorkspace';
 
 const org = '10000000-0000-4000-8000-000000000001';
 const unitId = '20000000-0000-4000-8000-000000000001';
@@ -165,6 +166,97 @@ it('lista colaboradores e abre cadastro mínimo sem dados clínicos', async () =
   expect(screen.queryByLabelText(/CPF|dados clínicos|salário/i)).not.toBeInTheDocument();
 });
 
+it('confirma o Excel com o arquivo revisado e exige nova prévia se a versão ficou desatualizada', async () => {
+  const originalFetch = fetchMock.getMockImplementation()!;
+  const versions: FormDataEntryValue[] = [];
+  const firstVersion = `1000.${'A'.repeat(43)}`;
+  const secondVersion = `1001.${'B'.repeat(43)}`;
+  fetchMock.mockImplementation(async (input, options) => {
+    const path = String(input);
+    if (path.endsWith('/employees/import/preview')) {
+      const body = options?.body as FormData;
+      expect((body.get('file') as File).name).toBe('colaboradores.xlsx');
+      return json({
+        version: versions.length ? secondVersion : firstVersion,
+        total: 2,
+        ready: 1,
+        existing: 1,
+        invalid: 0,
+        rows: [
+          { row: 2, status: 'READY', messages: [] },
+          { row: 3, status: 'EXISTING', messages: ['Matrícula já cadastrada.'] },
+        ],
+      });
+    }
+    if (path.endsWith('/employees/import/confirm')) {
+      const body = options?.body as FormData;
+      expect((body.get('file') as File).name).toBe('colaboradores.xlsx');
+      versions.push(body.get('version')!);
+      return versions.length === 1 ? json({}, 409) : json({ created: 1, skipped: 1 }, 201);
+    }
+    return originalFetch(input, options);
+  });
+  const user = userEvent.setup();
+  render(<WorkforceWorkspace kind="colaboradores" session={session} onExpire={vi.fn()} />);
+  await user.click(await screen.findByRole('button', { name: 'Importar Excel' }));
+  const dialog = screen.getByRole('dialog', { name: 'Importar colaboradores' });
+  expect(within(dialog).getByRole('link', { name: 'Baixar modelo Excel' })).toHaveAttribute(
+    'href',
+    '/modelo-colaboradores.xlsx',
+  );
+  const file = new File(['planilha de teste'], 'colaboradores.xlsx', {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+  await user.upload(within(dialog).getByLabelText('Planilha Excel'), file);
+  await user.click(within(dialog).getByRole('button', { name: 'Gerar prévia' }));
+  expect(await within(dialog).findByText('Matrícula já cadastrada.')).toBeVisible();
+  await user.click(within(dialog).getByRole('button', { name: 'Confirmar importação' }));
+  expect(await within(dialog).findByRole('alert')).toHaveTextContent('Gere uma nova prévia');
+  expect(
+    within(dialog).queryByRole('button', { name: 'Confirmar importação' }),
+  ).not.toBeInTheDocument();
+  await user.click(within(dialog).getByRole('button', { name: 'Gerar prévia' }));
+  await user.click(await within(dialog).findByRole('button', { name: 'Confirmar importação' }));
+  expect(
+    await screen.findByText('1 novo cadastro. 1 matrícula já cadastrada foi preservada.'),
+  ).toBeVisible();
+  expect(versions).toEqual([firstVersion, secondVersion]);
+  expect(screen.queryByRole('dialog', { name: 'Importar colaboradores' })).not.toBeInTheDocument();
+});
+
+it('expõe os erros do Excel por linha e invalida a prévia ao escolher outro arquivo', async () => {
+  const originalFetch = fetchMock.getMockImplementation()!;
+  fetchMock.mockImplementation(async (input, options) =>
+    String(input).endsWith('/employees/import/preview')
+      ? json({
+          version: `1000.${'A'.repeat(43)}`,
+          total: 1,
+          ready: 0,
+          existing: 0,
+          invalid: 1,
+          rows: [{ row: 8, status: 'INVALID', messages: ['Setor não pertence à unidade.'] }],
+        })
+      : originalFetch(input, options),
+  );
+  const user = userEvent.setup();
+  render(<WorkforceWorkspace kind="colaboradores" session={session} onExpire={vi.fn()} />);
+  await user.click(await screen.findByRole('button', { name: 'Importar Excel' }));
+  const dialog = screen.getByRole('dialog', { name: 'Importar colaboradores' });
+  const input = within(dialog).getByLabelText('Planilha Excel');
+  await user.upload(input, new File(['inconsistente'], 'original.xlsx'));
+  await user.click(within(dialog).getByRole('button', { name: 'Gerar prévia' }));
+  expect(
+    await within(dialog).findByRole('row', { name: /8.*Setor não pertence à unidade/ }),
+  ).toBeVisible();
+  expect(
+    within(dialog).queryByRole('button', { name: 'Confirmar importação' }),
+  ).not.toBeInTheDocument();
+  await user.upload(input, new File(['corrigida'], 'corrigida.xlsx'));
+  expect(
+    within(dialog).queryByRole('table', { name: 'Resultado por linha' }),
+  ).not.toBeInTheDocument();
+});
+
 it('salva por teclado, preserva rascunho em falha e limpa setor ao trocar de unidade', async () => {
   show();
   const user = userEvent.setup();
@@ -207,6 +299,7 @@ it('não consulta dados nominais ao acessar rota direta como leitor', async () =
     await screen.findByText(/Somente administradores podem gerenciar colaboradores/),
   ).toBeInTheDocument();
   expect(fetchMock.mock.calls.some(([path]) => String(path).includes('/employees'))).toBe(false);
+  expect(screen.queryByRole('button', { name: 'Importar Excel' })).not.toBeInTheDocument();
 });
 
 it('desativa com confirmação e explica que o usuário e os históricos não são apagados', async () => {

@@ -194,6 +194,15 @@ beforeEach(() => {
   vi.stubGlobal('fetch', fetchMock);
 });
 
+it('recusa acesso direto com somente a permissão de emitir convites de coleta', async () => {
+  grants = ['HR_ASSESSMENT_INVITES_ISSUE'];
+  render(<PeopleWorkspace organizationId={organizationId} onExpire={vi.fn()} />);
+  expect(
+    await screen.findByText('O acesso a Pessoas requer uma permissão de RH específica.'),
+  ).toBeVisible();
+  expect(screen.queryByRole('heading', { name: 'Visão de pessoas' })).not.toBeInTheDocument();
+});
+
 it('começa pelos totais com filtros recolhidos e permite consultar grupos de indicadores', async () => {
   grants = ['HR_ANALYTICS_READ'];
   const user = userEvent.setup();

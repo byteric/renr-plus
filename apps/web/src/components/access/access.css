@@ -138,3 +138,21 @@
     padding: var(--space-4);
   }
 }
+.member-scope-editor {
+  border-block-start: 1px solid var(--border);
+  padding-block-start: var(--space-3);
+}
+
+.member-scope-list {
+  padding-inline-start: 0;
+  list-style: none;
+}
+
+.member-scope-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-block-end: var(--space-2);
+  overflow-wrap: anywhere;
+}

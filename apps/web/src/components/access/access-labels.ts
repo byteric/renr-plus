@@ -9,6 +9,7 @@ export const capabilityLabels: Record<Capability, string> = {
   HR_COMPENSATION_READ: 'Consultar remuneração e simulações',
   HR_COMPENSATION_MANAGE: 'Gerenciar remuneração',
   HR_EXPORT: 'Emitir relatórios de Gestão de Pessoas',
+  HR_ASSESSMENT_INVITES_ISSUE: 'Emitir convites de coleta',
 };
 export const accessDate = (value: string) =>
   new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(

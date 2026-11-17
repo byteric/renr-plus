@@ -100,6 +100,53 @@ it('mostra o snapshot congelado sem consultar indicadores atuais e restringe emi
   ).not.toBeInTheDocument();
   expect(localStorage.length).toBe(0);
 });
+
+it('recebe a seleção do comparativo e emite a síntese no mesmo contrato de relatórios SST', async () => {
+  const referenceCycleId = '30000000-0000-4000-8000-000000000001';
+  const currentCycleId = '30000000-0000-4000-8000-000000000002';
+  window.history.replaceState(
+    null,
+    '',
+    `/#/relatorios?summary=executive&referenceCycleId=${referenceCycleId}&currentCycleId=${currentCycleId}`,
+  );
+  const fallback = fetchMock.getMockImplementation()!;
+  const issued = vi.fn();
+  const executive = {
+    ...snapshot,
+    sections: [
+      {
+        key: 'executive-summary',
+        title: 'Resumo executivo',
+        columns: ['Panorama', 'Valor'],
+        rows: [['Adesão', 'Protegida']],
+        notes: [],
+        references: [{ row: 0, kind: 'CYCLE', id: currentCycleId }],
+      },
+    ],
+  };
+  fetchMock.mockImplementation(async (input, init) => {
+    if (String(input).includes('/assessment-cycles?'))
+      return json({ items: [], total: 0, page: 1, pageSize: 20 });
+    if (init?.method !== 'POST') return fallback(input, init);
+    issued(JSON.parse(String(init.body)));
+    return json(executive, 201);
+  });
+  render(<ReportsWorkspace organizationId={organizationId} onExpire={vi.fn()} />);
+  expect(await screen.findByRole('checkbox', { name: 'Incluir resumo executivo' })).toBeChecked();
+  await userEvent.click(screen.getByRole('button', { name: 'Emitir relatório' }));
+  expect(await screen.findByRole('table', { name: 'Resumo executivo' })).toBeVisible();
+  expect(screen.getByRole('link', { name: 'Abrir coleta' })).toHaveAttribute(
+    'href',
+    `#/coletas?cycle=${currentCycleId}`,
+  );
+  expect(issued).toHaveBeenCalledWith(
+    expect.objectContaining({
+      kind: 'SST',
+      sectionKeys: expect.arrayContaining(['executive-summary']),
+      comparison: { referenceCycleId, currentCycleId },
+    }),
+  );
+});
 it('não anuncia download bem-sucedido e remove a prévia quando o PDF é negado', async () => {
   pdfError = true;
   const user = userEvent.setup();

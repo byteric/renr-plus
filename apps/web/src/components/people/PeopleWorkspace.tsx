@@ -15,6 +15,7 @@ import { Sheet, SheetContent, SheetTitle, SheetDescription } from '../ui/sheet';
 import { usePeopleData } from './usePeopleData';
 import { PeopleOverview } from './PeopleOverview';
 import { fiscalLabels } from '../../lib/fiscal-labels';
+import { hasPeopleAccess } from '../../lib/people-permissions';
 import { EmployeeDetails } from './EmployeeDetails';
 import './people.css';
 
@@ -139,7 +140,7 @@ function PeopleManager({
       </StatusMessage>
     );
   const grants = capabilities.data?.capabilities ?? [];
-  if (!grants.some((grant) => grant.startsWith('HR_')))
+  if (!hasPeopleAccess(grants))
     return <StatusMessage>O acesso a Pessoas requer uma permissão de RH específica.</StatusMessage>;
   return (
     <PeopleContent

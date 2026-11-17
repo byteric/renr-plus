@@ -58,6 +58,16 @@ const PeopleWorkspace = lazy(() =>
 const PlatformWorkspace = lazy(() =>
   import('./platform/PlatformWorkspace').then((module) => ({ default: module.PlatformWorkspace })),
 );
+const CompanyGroupsWorkspace = lazy(() =>
+  import('./platform/CompanyGroupsWorkspace').then((module) => ({
+    default: module.CompanyGroupsWorkspace,
+  })),
+);
+const CompanyGroupsAdmin = lazy(() =>
+  import('./platform/CompanyGroupsAdmin').then((module) => ({
+    default: module.CompanyGroupsAdmin,
+  })),
+);
 const ReportsWorkspace = lazy(() =>
   import('./reports/ReportsWorkspace').then((module) => ({ default: module.ReportsWorkspace })),
 );
@@ -80,6 +90,8 @@ type Route = {
     | 'grupos'
     | 'pessoas'
     | 'plataforma'
+    | 'platform-groups'
+    | 'consolidado'
     | 'relatorios'
     | 'platform-reports';
   unitId: string | null;
@@ -90,7 +102,16 @@ function readRoute(): Route {
   const parts = hash.replace(/^#\/?/, '').split('?')[0]?.split('/') ?? [];
   if (parts[0] === 'pessoas' || parts[0] === 'relatorios') return { kind: parts[0], unitId: null };
   if (parts[0] === 'plataforma')
-    return { kind: parts[1] === 'relatorios' ? 'platform-reports' : 'plataforma', unitId: null };
+    return {
+      kind:
+        parts[1] === 'relatorios'
+          ? 'platform-reports'
+          : parts[1] === 'grupos'
+            ? 'platform-groups'
+            : 'plataforma',
+      unitId: null,
+    };
+  if (parts[0] === 'consolidado') return { kind: 'consolidado', unitId: null };
   if (parts[0] === 'coletas') return { kind: 'coletas', unitId: null };
   if (parts[0] === 'instrumentos') return { kind: 'instrumentos', unitId: null };
   if (parts[0] === 'colaboradores' || parts[0] === 'grupos')
@@ -109,6 +130,8 @@ function readRoute(): Route {
 const titles: Record<Exclude<Route['kind'], 'home'>, string> = {
   pessoas: 'Gestão de Pessoas',
   plataforma: 'Administração da plataforma',
+  'platform-groups': 'Gerenciar grupos de empresas',
+  consolidado: 'Consolidado de empresas',
   relatorios: 'Relatórios',
   'platform-reports': 'Relatórios da plataforma',
   coletas: 'Coletas',
@@ -125,12 +148,43 @@ const titles: Record<Exclude<Route['kind'], 'home'>, string> = {
   unidades: 'Unidades',
   setores: 'Setores',
 };
+const descriptions: Record<keyof typeof titles, string> = {
+  pessoas: 'Consulte perfis e indicadores de RH conforme suas permissões na empresa.',
+  plataforma: 'Acompanhe as empresas atendidas pela ReTech+ no catálogo da plataforma.',
+  'platform-groups': 'Organize os CNPJs por grupo e conceda acesso à visão consolidada.',
+  consolidado: 'Consulte indicadores agregados das empresas autorizadas em cada grupo.',
+  'platform-reports': 'Consulte os relatórios globais das empresas atendidas.',
+  relatorios: 'Emita uma versão preservada dos dados e consulte a prévia antes do download.',
+  coletas: 'Aplique instrumentos publicados e acompanhe cada coleta da empresa.',
+  instrumentos: 'Crie instrumentos, confira a prévia e preserve cada versão publicada.',
+  colaboradores: 'Cadastre os colaboradores e vincule cada pessoa à unidade e ao setor.',
+  grupos: 'Organize os grupos de avaliação vinculados aos setores.',
+  painel: 'Consulte a situação da empresa, as pendências e as próximas etapas.',
+  diagnostico: 'Aplique ciclos demonstrativos e consulte a consolidação coletiva.',
+  inventario: 'Documente fatores, preserve a origem e acompanhe cada versão.',
+  acoes: 'Organize medidas preventivas e acompanhe seu andamento.',
+  acessos: 'Gerencie vínculos e conceda as permissões necessárias a cada função.',
+  auditoria: 'Consulte o histórico de operações da empresa e os registros correspondentes.',
+  empresas: 'Escolha a empresa em que você deseja trabalhar.',
+  unidades: 'Organize os locais de trabalho da empresa e abra seus setores.',
+  setores: 'Organize as equipes e áreas da unidade selecionada.',
+};
 const singular: Record<Kind, string> = {
   empresas: 'empresa',
   unidades: 'unidade',
   setores: 'setor',
 };
 type Listing = { items: RecordItem[]; total: number; page: number; pageSize: number };
+const delegatedRoutes = new Set<Route['kind']>([
+  'empresas',
+  'unidades',
+  'setores',
+  'painel',
+  'coletas',
+  'inventario',
+  'acoes',
+  'relatorios',
+]);
 function readFilters() {
   const query = new URLSearchParams(window.location.hash.split('?')[1]);
   const rawPage = Number(query.get('page') ?? 1);
@@ -168,34 +222,68 @@ export function Structure({
   const membership = session.memberships.find(
     (value) => value.organizationId === session.activeOrganizationId,
   );
-  const canWrite = membership?.role === 'ADMIN';
+  const delegatedScopes = session.activeOrganizationId
+    ? session.organizationScopes?.[session.activeOrganizationId]
+    : undefined;
+  const canWrite = membership?.role === 'ADMIN' && delegatedScopes === undefined;
   const access = useRiskData('/auth/session-capabilities', sessionCapabilitiesSchema, onExpire);
-  const globalAccess = useRiskData('/platform/capabilities', platformCapabilitiesSchema, onExpire);
+  const [scopeAttempt, setScopeAttempt] = useState(0);
+  const globalAccess = useRiskData(
+    '/platform/capabilities',
+    platformCapabilitiesSchema,
+    onExpire,
+    scopeAttempt,
+  );
   const capabilities =
     access.data?.organizationId === session.activeOrganizationId
       ? (access.data?.capabilities ?? [])
       : [];
   const platformCapabilities = globalAccess.data?.capabilities ?? [];
-  const canReadPlatform = platformCapabilities.includes('READ_OVERVIEW');
+  const hasCompanies = session.memberships.length > 0;
+  const platformOnly = !hasCompanies && platformCapabilities.length > 0;
+  const isPlatformRoute =
+    route.kind === 'plataforma' ||
+    route.kind === 'platform-reports' ||
+    route.kind === 'platform-groups';
+  const isGroupRoute = route.kind === 'consolidado';
+  const groupOnly = !hasCompanies && session.hasCompanyGroups && !platformOnly;
+  const companyRoute = !isPlatformRoute && !isGroupRoute;
+  const restrictedRoute =
+    companyRoute && delegatedScopes !== undefined && !delegatedRoutes.has(route.kind);
+  const emptyDelegation = companyRoute && delegatedScopes?.length === 0;
+  const resolvingScope = !hasCompanies && globalAccess.loading;
+  const scopeError = !hasCompanies && globalAccess.error;
+  const redirect =
+    platformOnly && companyRoute
+      ? 'plataforma'
+      : groupOnly && companyRoute
+        ? 'consolidado'
+        : route.kind === 'home' && !resolvingScope && !scopeError
+          ? delegatedScopes
+            ? 'painel'
+            : 'empresas'
+          : null;
   const isRegistration =
     route.kind === 'empresas' || route.kind === 'unidades' || route.kind === 'setores';
   const registrationSingular =
     route.kind === 'unidades' ? 'unidade' : route.kind === 'setores' ? 'setor' : 'empresa';
   const listPath =
-    route.kind === 'empresas'
-      ? '/organizations'
-      : route.kind === 'unidades' && session.activeOrganizationId
-        ? `/organizations/${encodeURIComponent(session.activeOrganizationId)}/units`
-        : route.kind === 'setores' && session.activeOrganizationId && route.unitId
-          ? `/units/${encodeURIComponent(route.unitId)}/sectors`
-          : null;
+    platformOnly || groupOnly || emptyDelegation || resolvingScope || scopeError
+      ? null
+      : route.kind === 'empresas'
+        ? '/organizations'
+        : route.kind === 'unidades' && session.activeOrganizationId
+          ? `/organizations/${encodeURIComponent(session.activeOrganizationId)}/units`
+          : route.kind === 'setores' && session.activeOrganizationId && route.unitId
+            ? `/units/${encodeURIComponent(route.unitId)}/sectors`
+            : null;
   const loadKey = `${session.activeOrganizationId}-${listPath}-${JSON.stringify(filters)}-${attempt}`;
   const loading = !!listPath && loadedKey !== loadKey;
   const listing = loadedKey === loadKey ? loadedListing : null;
   useEffect(() => {
-    if (route.kind !== 'home' || globalAccess.loading || readRoute().kind !== 'home') return;
-    window.location.replace(canReadPlatform ? '#/plataforma' : '#/empresas');
-  }, [route.kind, globalAccess.loading, canReadPlatform]);
+    if (!redirect || readRoute().kind !== route.kind) return;
+    window.location.replace(`#/${redirect}`);
+  }, [route.kind, redirect]);
   useEffect(() => {
     const change = () => {
       const next = readRoute();
@@ -219,7 +307,7 @@ export function Structure({
   }, []);
   useEffect(() => {
     heading.current?.focus();
-  }, [route.kind, route.unitId]);
+  }, [route.kind, route.unitId, resolvingScope, redirect, scopeError]);
   useEffect(() => {
     const controller = new AbortController();
     let active = true;
@@ -301,7 +389,17 @@ export function Structure({
     if (!item) return listPath ?? '';
     return `/${route.kind === 'empresas' ? 'organizations' : route.kind === 'unidades' ? 'units' : 'sectors'}/${encodeURIComponent(item.id)}`;
   }
-  if (route.kind === 'home')
+  if (scopeError) {
+    return (
+      <div className="feedback error" role="alert">
+        <p>Não foi possível consultar seu acesso à plataforma.</p>
+        <Button variant="outline" onClick={() => setScopeAttempt(scopeAttempt + 1)}>
+          Tentar novamente
+        </Button>
+      </div>
+    );
+  }
+  if (resolvingScope || redirect || route.kind === 'home')
     return <StatusMessage tone="loading">Preparando seu espaço de trabalho…</StatusMessage>;
   return (
     <div className="workspace">
@@ -315,6 +413,9 @@ export function Structure({
         platformCapabilities={platformCapabilities}
       />
       <section className="workspace-content">
+        {window.location.hostname === 'renr-plus-homologation.onrender.com' && (
+          <p className="panel-label">Homologação · ambiente de validação</p>
+        )}
         <RouteMotion route={`${route.kind}-${route.unitId}`}>
           <div className="page-heading">
             <div>
@@ -329,42 +430,31 @@ export function Structure({
                         ? 'SEU CONTEXTO, EM PERSPECTIVA'
                         : route.kind === 'diagnostico'
                           ? 'ESCUTA COLETIVA · DADOS DEMONSTRATIVOS'
-                          : route.kind === 'plataforma' || route.kind === 'platform-reports'
+                          : isPlatformRoute
                             ? 'ADMINISTRAÇÃO · ESCOPO GLOBAL'
-                            : 'ESTRUTURA ORGANIZACIONAL'}
+                            : isGroupRoute
+                              ? 'CONSULTA · GRUPO DE EMPRESAS'
+                              : 'ESTRUTURA ORGANIZACIONAL'}
               </p>
               <h1 ref={heading} tabIndex={-1}>
                 {titles[route.kind]}
               </h1>
-              <p className="muted">
-                {route.kind === 'plataforma' || route.kind === 'platform-reports'
-                  ? 'Escopo global: atendimento de clientes e cadastros vinculados, sem acesso nominal automático.'
-                  : route.kind === 'pessoas'
-                    ? 'Perfis e indicadores de RH no contexto da empresa, conforme suas permissões.'
-                    : route.kind === 'relatorios'
-                      ? 'Emita uma versão preservada dos dados e consulte a mesma prévia antes do download.'
-                      : route.kind === 'coletas'
-                        ? 'Aplique instrumentos publicados e acompanhe cada coleta no contexto da empresa.'
-                        : route.kind === 'instrumentos'
-                          ? 'Crie instrumentos, confira a prévia e preserve cada versão publicada.'
-                          : route.kind === 'auditoria'
-                            ? 'Consulte o histórico de operações da empresa e abra os registros correspondentes.'
-                            : route.kind === 'acessos'
-                              ? 'Gerencie vínculos e conceda somente as capacidades necessárias.'
-                              : route.kind === 'acoes'
-                                ? 'Organize medidas preventivas e preserve o histórico de acompanhamento.'
-                                : route.kind === 'painel'
-                                  ? 'Conecte estrutura, registros e próximos passos da empresa selecionada.'
-                                  : route.kind === 'inventario'
-                                    ? 'Documente fatores, preserve a origem e acompanhe cada versão.'
-                                    : route.kind === 'diagnostico'
-                                      ? 'Aplique ciclos demonstrativos e consulte a consolidação coletiva.'
-                                      : route.kind === 'empresas'
-                                        ? 'Escolha a empresa em que você deseja trabalhar.'
-                                        : route.kind === 'unidades'
-                                          ? 'Organize os locais de trabalho da empresa.'
-                                          : 'Organize as equipes e áreas da unidade selecionada.'}
-              </p>
+              <p className="muted">{descriptions[route.kind]}</p>
+              {route.kind === 'empresas' && membership && (
+                <a className="action-link" href="#/painel">
+                  Ir ao painel da empresa
+                </a>
+              )}
+              {route.kind === 'setores' && canWrite && (
+                <div className="row-actions">
+                  <a className="action-link" href="#/grupos">
+                    Grupos de avaliação
+                  </a>
+                  <a className="action-link" href="#/colaboradores">
+                    Colaboradores
+                  </a>
+                </div>
+              )}
             </div>
             {canWrite &&
               isRegistration &&
@@ -395,7 +485,29 @@ export function Structure({
               )}
             </div>
           )}
-          {route.kind === 'plataforma' ? (
+          {route.kind === 'consolidado' ? (
+            session.hasCompanyGroups ? (
+              <Suspense fallback={<StatusMessage tone="loading">Carregando grupos…</StatusMessage>}>
+                <CompanyGroupsWorkspace onExpire={onExpire} />
+              </Suspense>
+            ) : (
+              <StatusMessage>Você está sem acesso a grupos de empresas.</StatusMessage>
+            )
+          ) : route.kind === 'platform-groups' ? (
+            <Suspense
+              fallback={
+                <StatusMessage tone="loading">Carregando administração de grupos…</StatusMessage>
+              }
+            >
+              <CompanyGroupsAdmin onExpire={onExpire} />
+            </Suspense>
+          ) : emptyDelegation ? (
+            <StatusMessage>Seu vínculo está sem unidades ou setores autorizados.</StatusMessage>
+          ) : restrictedRoute ? (
+            <StatusMessage>
+              Esta área não está disponível para o seu acesso por unidade ou setor.
+            </StatusMessage>
+          ) : route.kind === 'plataforma' ? (
             <Suspense fallback={<p role="status">Carregando administração da plataforma…</p>}>
               <PlatformWorkspace onExpire={onExpire} />
             </Suspense>
@@ -407,6 +519,7 @@ export function Structure({
                 organizationName={membership?.organizationName}
                 onExpire={onExpire}
                 platform={route.kind === 'platform-reports'}
+                scopes={route.kind === 'relatorios' ? delegatedScopes : undefined}
               />
             </Suspense>
           ) : route.kind === 'pessoas' ? (
@@ -611,6 +724,15 @@ export function Structure({
                                     aria-label={`Ver setores de ${item.name}`}
                                   >
                                     Ver setores →
+                                  </a>
+                                )}
+                                {route.kind === 'setores' && canWrite && 'unitId' in item && (
+                                  <a
+                                    className="action-link"
+                                    href={`#/grupos?unitId=${item.unitId}&sectorId=${item.id}`}
+                                    aria-label={`Ver grupos de ${item.name}`}
+                                  >
+                                    Ver grupos →
                                   </a>
                                 )}
                                 {writable &&

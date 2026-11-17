@@ -2,10 +2,13 @@ import { useId, useState } from 'react';
 import type { SessionResponse, Capability, PlatformCapability } from '@renr/contracts';
 import { Button } from './ui/button';
 import { Sheet, SheetTrigger, SheetContent, SheetTitle, SheetDescription } from './ui/sheet';
+import { hasPeopleAccess } from '../lib/people-permissions';
 import './workspace-navigation.css';
 
 function destinationPage(path: string) {
-  return path === 'plataforma/relatorios' ? 'platform-reports' : path.split('/')[0];
+  if (path === 'plataforma/relatorios') return 'platform-reports';
+  if (path === 'plataforma/grupos') return 'platform-groups';
+  return path.split('/')[0];
 }
 
 export function WorkspaceNavigation({
@@ -35,6 +38,19 @@ export function WorkspaceNavigation({
   const membership = session.memberships.find(
     (value) => value.organizationId === session.activeOrganizationId,
   );
+  const isPlatformRoute =
+    route === 'plataforma' || route === 'platform-reports' || route === 'platform-groups';
+  const isGroupRoute = route === 'consolidado';
+  const isCompanyRoute = !isPlatformRoute && !isGroupRoute;
+  const delegated = session.activeOrganizationId
+    ? session.organizationScopes?.[session.activeOrganizationId]
+    : undefined;
+  const canManageCompany = membership?.role === 'ADMIN' && delegated === undefined;
+  const scopeLabel =
+    platformCapabilities.includes('MANAGE_CLIENTS') ||
+    platformCapabilities.includes('MANAGE_GRANTS')
+      ? 'Administração Global'
+      : 'Consulta Global';
   const groups: { label: string; destinations: (readonly [string, string])[] }[] = [
     {
       label: 'Cadastros',
@@ -42,7 +58,7 @@ export function WorkspaceNavigation({
         ['empresas', 'Empresas'],
         ['unidades', 'Unidades'],
         ...(unitId ? ([[`setores/${unitId}`, 'Setores']] as const) : []),
-        ...(membership?.role === 'ADMIN'
+        ...(canManageCompany
           ? ([
               ['colaboradores', 'Colaboradores'],
               ['grupos', 'Grupos de avaliação'],
@@ -53,9 +69,13 @@ export function WorkspaceNavigation({
     {
       label: 'Avaliação e prevenção',
       destinations: [
-        ['instrumentos', 'Instrumentos'],
+        ...(delegated === undefined
+          ? ([
+              ['instrumentos', 'Instrumentos'],
+              ['diagnostico', 'Diagnóstico demonstrativo'],
+            ] as const)
+          : []),
         ['coletas', 'Coletas'],
-        ['diagnostico', 'Diagnóstico demonstrativo'],
         ['inventario', 'Inventário'],
         ['acoes', 'Ações'],
       ],
@@ -63,11 +83,11 @@ export function WorkspaceNavigation({
     {
       label: 'Gestão',
       destinations: [
-        ...(capabilities.some((cap) => cap.startsWith('HR_'))
+        ...(delegated === undefined && hasPeopleAccess(capabilities)
           ? ([['pessoas', 'Gestão de Pessoas']] as const)
           : []),
         ...(membership ? ([['relatorios', 'Relatórios']] as const) : []),
-        ...(membership?.role === 'ADMIN'
+        ...(canManageCompany
           ? ([
               ['acessos', 'Acessos'],
               ['auditoria', 'Auditoria'],
@@ -84,14 +104,19 @@ export function WorkspaceNavigation({
         ...(platformCapabilities.includes('READ_OVERVIEW')
           ? ([['plataforma/relatorios', 'Relatórios da plataforma']] as const)
           : []),
+        ...(platformCapabilities.includes('MANAGE_CLIENTS') ||
+        platformCapabilities.includes('MANAGE_GRANTS')
+          ? ([['plataforma/grupos', 'Gerenciar grupos de empresas']] as const)
+          : []),
       ],
     },
   ];
   function links(close = false) {
-    function destination([path, label]: readonly [string, string]) {
+    function destination([path, label]: readonly [string, string], contextSwitch = false) {
       return (
         <a
           key={path}
+          className={contextSwitch ? 'workspace-context-switch' : undefined}
           href={`#/${path}`}
           aria-current={route === destinationPage(path) ? 'page' : undefined}
           onClick={close ? () => setOpen(false) : () => setDesktopGroup({ route, label: null })}
@@ -102,9 +127,21 @@ export function WorkspaceNavigation({
     }
     return (
       <nav aria-label={close ? 'Navegação móvel' : 'Estrutura organizacional'}>
-        {destination(['painel', 'Painel'])}
+        {isCompanyRoute && destination(['painel', 'Painel'])}
+        {!isCompanyRoute &&
+          session.memberships.length > 0 &&
+          destination(['painel', 'Voltar à empresa ativa'], true)}
+        {!isPlatformRoute &&
+          platformCapabilities.length > 0 &&
+          destination(['plataforma', 'Abrir Plataforma'], true)}
+        {session.hasCompanyGroups && destination(['consolidado', 'Consolidado de empresas'], true)}
         {groups.map(({ label, destinations }, index) => {
-          if (destinations.length === 0) return null;
+          if (
+            destinations.length === 0 ||
+            (!isCompanyRoute && label !== 'Plataforma') ||
+            isGroupRoute
+          )
+            return null;
           const active = destinations.some(([path]) => destinationPage(path) === route);
           const expanded = active || desktopGroup.label === label;
           const id = `${desktopGroupId}-${index}`;
@@ -129,10 +166,10 @@ export function WorkspaceNavigation({
                 </button>
               )}
               {close ? (
-                destinations.map(destination)
+                destinations.map((item) => destination(item))
               ) : (
                 <div id={id} className="workspace-group-links" hidden={!expanded}>
-                  {destinations.map(destination)}
+                  {destinations.map((item) => destination(item))}
                 </div>
               )}
             </div>
@@ -146,31 +183,46 @@ export function WorkspaceNavigation({
       <p className="panel-label">ESPAÇO DE TRABALHO</p>
       <p className="user-name">{session.user.name}</p>
       <div className="context">
-        {route === 'plataforma' || route === 'platform-reports' ? (
-          <p className="feedback">Escopo global da plataforma</p>
+        {isPlatformRoute ? (
+          <div>
+            <p className="panel-label">{scopeLabel}</p>
+            <p>Escopo global da plataforma</p>
+          </div>
+        ) : isGroupRoute ? (
+          <div>
+            <p className="panel-label">Consulta de grupo</p>
+          </div>
         ) : (
-          <>
-            <label htmlFor="organization-context">Empresa ativa</label>
-            <select
-              id="organization-context"
-              value={session.activeOrganizationId ?? ''}
-              disabled={pending}
-              onChange={(event) => onSelect(event.target.value)}
-            >
-              <option value="" disabled>
-                Selecione uma empresa
-              </option>
-              {session.memberships.map((value) => (
-                <option key={value.organizationId} value={value.organizationId}>
-                  {value.organizationName}
+          session.memberships.length > 0 && (
+            <>
+              <label htmlFor="organization-context">Empresa ativa</label>
+              <select
+                id="organization-context"
+                value={session.activeOrganizationId ?? ''}
+                disabled={pending}
+                onChange={(event) => onSelect(event.target.value)}
+              >
+                <option value="" disabled>
+                  Selecione uma empresa
                 </option>
-              ))}
-            </select>
-            {membership && (
-              <span>{membership.role === 'ADMIN' ? 'Administrador' : 'Somente leitura'}</span>
-            )}
-            {pending && <p role="status">Atualizando contexto…</p>}
-          </>
+                {session.memberships.map((value) => (
+                  <option key={value.organizationId} value={value.organizationId}>
+                    {value.organizationName}
+                  </option>
+                ))}
+              </select>
+              {membership && (
+                <span>
+                  {delegated
+                    ? 'Acesso por unidade ou setor'
+                    : membership.role === 'ADMIN'
+                      ? 'Administrador'
+                      : 'Somente leitura'}
+                </span>
+              )}
+              {pending && <p role="status">Atualizando contexto…</p>}
+            </>
+          )
         )}
       </div>
       <Sheet open={open} onOpenChange={setOpen}>
