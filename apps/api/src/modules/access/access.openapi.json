@@ -1261,7 +1261,7 @@
             "maximum": 9007199254740991
           },
           "capabilities": {
-            "maxItems": 8,
+            "maxItems": 9,
             "type": "array",
             "items": {
               "type": "string",
@@ -1273,7 +1273,8 @@
                 "HR_ANALYTICS_READ",
                 "HR_COMPENSATION_READ",
                 "HR_COMPENSATION_MANAGE",
-                "HR_EXPORT"
+                "HR_EXPORT",
+                "HR_ASSESSMENT_INVITES_ISSUE"
               ]
             }
           },
@@ -1336,7 +1337,7 @@
                   "maximum": 9007199254740991
                 },
                 "capabilities": {
-                  "maxItems": 8,
+                  "maxItems": 9,
                   "type": "array",
                   "items": {
                     "type": "string",
@@ -1348,7 +1349,8 @@
                       "HR_ANALYTICS_READ",
                       "HR_COMPENSATION_READ",
                       "HR_COMPENSATION_MANAGE",
-                      "HR_EXPORT"
+                      "HR_EXPORT",
+                      "HR_ASSESSMENT_INVITES_ISSUE"
                     ]
                   }
                 },
@@ -1431,7 +1433,7 @@
             "maxLength": 1000
           },
           "capabilities": {
-            "maxItems": 8,
+            "maxItems": 9,
             "type": "array",
             "items": {
               "type": "string",
@@ -1443,7 +1445,8 @@
                 "HR_ANALYTICS_READ",
                 "HR_COMPENSATION_READ",
                 "HR_COMPENSATION_MANAGE",
-                "HR_EXPORT"
+                "HR_EXPORT",
+                "HR_ASSESSMENT_INVITES_ISSUE"
               ]
             }
           }
@@ -1468,7 +1471,7 @@
             ]
           },
           "capabilities": {
-            "maxItems": 8,
+            "maxItems": 9,
             "type": "array",
             "items": {
               "type": "string",
@@ -1480,7 +1483,8 @@
                 "HR_ANALYTICS_READ",
                 "HR_COMPENSATION_READ",
                 "HR_COMPENSATION_MANAGE",
-                "HR_EXPORT"
+                "HR_EXPORT",
+                "HR_ASSESSMENT_INVITES_ISSUE"
               ]
             }
           },
@@ -1602,7 +1606,7 @@
             "enum": ["ADMIN", "READER"]
           },
           "capabilities": {
-            "maxItems": 8,
+            "maxItems": 9,
             "type": "array",
             "items": {
               "type": "string",
@@ -1614,7 +1618,8 @@
                 "HR_ANALYTICS_READ",
                 "HR_COMPENSATION_READ",
                 "HR_COMPENSATION_MANAGE",
-                "HR_EXPORT"
+                "HR_EXPORT",
+                "HR_ASSESSMENT_INVITES_ISSUE"
               ]
             }
           },
@@ -1665,7 +1670,7 @@
                   "enum": ["ADMIN", "READER"]
                 },
                 "capabilities": {
-                  "maxItems": 8,
+                  "maxItems": 9,
                   "type": "array",
                   "items": {
                     "type": "string",
@@ -1677,7 +1682,8 @@
                       "HR_ANALYTICS_READ",
                       "HR_COMPENSATION_READ",
                       "HR_COMPENSATION_MANAGE",
-                      "HR_EXPORT"
+                      "HR_EXPORT",
+                      "HR_ASSESSMENT_INVITES_ISSUE"
                     ]
                   }
                 },
@@ -1804,7 +1810,7 @@
             "enum": ["ADMIN", "READER"]
           },
           "capabilities": {
-            "maxItems": 8,
+            "maxItems": 9,
             "type": "array",
             "items": {
               "type": "string",
@@ -1816,7 +1822,8 @@
                 "HR_ANALYTICS_READ",
                 "HR_COMPENSATION_READ",
                 "HR_COMPENSATION_MANAGE",
-                "HR_EXPORT"
+                "HR_EXPORT",
+                "HR_ASSESSMENT_INVITES_ISSUE"
               ]
             }
           },
@@ -1926,7 +1933,7 @@
                 "enum": ["ADMIN", "READER"]
               },
               "capabilities": {
-                "maxItems": 8,
+                "maxItems": 9,
                 "type": "array",
                 "items": {
                   "type": "string",
@@ -1938,7 +1945,8 @@
                     "HR_ANALYTICS_READ",
                     "HR_COMPENSATION_READ",
                     "HR_COMPENSATION_MANAGE",
-                    "HR_EXPORT"
+                    "HR_EXPORT",
+                    "HR_ASSESSMENT_INVITES_ISSUE"
                   ]
                 }
               },

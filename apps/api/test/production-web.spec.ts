@@ -53,6 +53,7 @@ describe('Production web and API on the same origin', () => {
     await mkdir(join(directory, 'assets'));
     await mkdir(join(directory, '.private'));
     await writeFile(join(directory, 'index.html'), index);
+    await writeFile(join(directory, 'modelo-colaboradores.xlsx'), Buffer.from([0x50, 0x4b]));
     await writeFile(join(directory, 'assets', 'app.js'), 'console.log("renr");');
     await writeFile(join(directory, '.env'), 'PRIVATE_SECRET=value');
     await writeFile(join(directory, '.private', 'secret.json'), '{"secret":true}');
@@ -79,6 +80,14 @@ describe('Production web and API on the same origin', () => {
     },
   );
 
+  it('serves the public document at the root to a sharing crawler', async () => {
+    const response = await request(app.getHttpServer()).get('/').set('Accept', '*/*').expect(200);
+    expect(response.text).toBe(index);
+    expect(response.headers.vary).toContain('Accept');
+    await request(app.getHttpServer()).get('/').set('Accept', 'application/json').expect(404);
+    await request(app.getHttpServer()).get('/').set('Accept', 'text/html;q=0, */*').expect(404);
+  });
+
   it('serves HEAD navigation without a body', async () => {
     const response = await request(app.getHttpServer())
       .head('/login')
@@ -92,6 +101,13 @@ describe('Production web and API on the same origin', () => {
     const response = await request(app.getHttpServer()).get('/assets/app.js').expect(200);
     expect(response.text).toBe('console.log("renr");');
     expect(response.headers['content-type']).toMatch(/javascript/);
+  });
+
+  it('serves the public employee workbook template without a session', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/modelo-colaboradores.xlsx')
+      .expect(200);
+    expect(response.headers['content-type']).toContain('spreadsheetml.sheet');
   });
 
   it('serves public assets when a legacy build path retains its filesystem alias', async () => {

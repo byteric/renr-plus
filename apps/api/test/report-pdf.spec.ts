@@ -114,6 +114,48 @@ describe('Report snapshot PDF', () => {
       writeFileSync(resolve(directory, 'report-long.pdf'), buffer);
     }
   });
+  it('mantém a linha executiva junta e preserva a divisão de uma célula maior que a página', async () => {
+    const overview = snapshot(
+      Array.from({ length: 13 }, (_, index) => [`Medida ${index}`, 'Verificação', 'Ativa']),
+    );
+    const start = 'INICIO_LINHA_CURTA';
+    const end = 'FIM_LINHA_CURTA';
+    const report: ReportSnapshot = {
+      ...overview,
+      kind: 'SST',
+      executiveVersion: 1,
+      sections: [
+        ...overview.sections.map((section) => ({ ...section, notes: [] })),
+        {
+          key: 'executive-collections',
+          title: 'Coletas por setor e adesão',
+          columns: ['Unidade', 'Coleta', 'Situação'],
+          rows: [[start, 'Coleta curta', `${'Frase da coleta\n'.repeat(7)}${end}`]],
+          notes: [],
+        },
+        {
+          key: 'executive-priorities',
+          title: 'Prioridades',
+          columns: ['Registro', 'Verificação'],
+          rows: [
+            [
+              'INICIO_LINHA_LONGA',
+              `${'Descrição longa com evidência. '.repeat(180)}FIM_LINHA_LONGA`,
+            ],
+          ],
+          notes: [],
+        },
+      ],
+    };
+    const { pages } = inspect(await renderReportPdf(report));
+    const page = pages.find((item) => item.text.includes(start));
+    expect(page?.text).toContain('Coletas por setor e adesão');
+    expect(page?.text).toContain(end);
+    const longStart = pages.findIndex((item) => item.text.includes('INICIO_LINHA_LONGA'));
+    const longEnd = pages.findIndex((item) => item.text.includes('FIM_LINHA_LONGA'));
+    expect(longStart).toBeGreaterThanOrEqual(0);
+    expect(longEnd).toBeGreaterThan(longStart);
+  });
   it('rejects the complete export instead of truncating when page budget is exhausted', async () => {
     await expect(
       renderReportPdf(

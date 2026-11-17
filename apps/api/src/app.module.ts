@@ -1,15 +1,21 @@
 import { AssessmentsController } from './modules/assessments/assessments.controller';
+import { AssessmentComparisonController } from './modules/assessments/assessment-comparison.controller';
+import { AssessmentDeliveryController } from './modules/assessments/assessment-delivery.controller';
 import { PeopleController } from './modules/people/people.controller';
 import { PeopleService } from './modules/people/people.service';
 import { PeopleAnalyticsService } from './modules/people/people-analytics.service';
 import { PlatformController } from './modules/platform/platform.controller';
 import { PlatformService } from './modules/platform/platform.service';
+import { CompanyGroupsController } from './modules/company-groups/company-groups.controller';
+import { CompanyGroupsService } from './modules/company-groups/company-groups.service';
 import { ReportsController } from './modules/reports/reports.controller';
 import { ReportsService } from './modules/reports/reports.service';
 import { AuditController } from './modules/audit/audit.controller';
 import { AuditRepository } from './modules/audit/audit.repository';
 import { AuditService } from './modules/audit/audit.service';
 import { AssessmentsService } from './modules/assessments/assessments.service';
+import { AssessmentComparisonService } from './modules/assessments/assessment-comparison.service';
+import { AssessmentDeliveryService } from './modules/assessments/assessment-delivery.service';
 import { WorkforceController } from './modules/workforce/workforce.controller';
 import { WorkforceService } from './modules/workforce/workforce.service';
 import { InstrumentsController } from './modules/instruments/instruments.controller';
@@ -73,6 +79,7 @@ export class AppModule {
         ReportsController,
         PeopleController,
         PlatformController,
+        CompanyGroupsController,
         AuditController,
         ActionTechnicalClosuresController,
         RiskReassessmentsController,
@@ -81,6 +88,8 @@ export class AppModule {
         EvaluationMethodVersionsController,
         RiskWorkspacesController,
         AssessmentsController,
+        AssessmentComparisonController,
+        AssessmentDeliveryController,
         WorkforceController,
         InstrumentsController,
         HealthController,
@@ -103,6 +112,7 @@ export class AppModule {
         PeopleService,
         PeopleAnalyticsService,
         PlatformService,
+        CompanyGroupsService,
         AuditRepository,
         AuditService,
         RiskContinuityService,
@@ -110,6 +120,8 @@ export class AppModule {
         EvaluationMethodsService,
         RiskWorkspacesService,
         AssessmentsService,
+        AssessmentComparisonService,
+        AssessmentDeliveryService,
         { provide: ENVIRONMENT, useValue: environment },
         WorkforceService,
         InstrumentsService,

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
 import type { RiskOverview } from '@renr/contracts';
+import { delegatedSql, type OrganizationScope } from '../access/delegated-scope';
 
 type Counts = RiskOverview['totals'];
 type UnitCounts = {
@@ -17,7 +18,10 @@ type UnitCounts = {
 @Injectable()
 export class RiskOverviewRepository {
   constructor(private readonly database: PrismaService) {}
-  async snapshot(organizationId: string): Promise<Omit<RiskOverview, 'generatedAt'> | null> {
+  async snapshot(
+    organizationId: string,
+    delegation?: OrganizationScope['delegation'],
+  ): Promise<Omit<RiskOverview, 'generatedAt'> | null> {
     return this.database.client.$transaction(
       async (tx) => {
         if (
@@ -38,6 +42,7 @@ export class RiskOverviewRepository {
         JOIN sectors s ON s.organization_id = g.organization_id AND s.id = g.sector_id
         JOIN units u ON u.organization_id = s.organization_id AND u.id = s.unit_id
         WHERE r.organization_id = ${organizationId}::uuid AND r.status IN ('DRAFT', 'REGISTERED')
+        ${delegatedSql(delegation, Prisma.sql`s.unit_id::text`, Prisma.sql`s.id::text`)}
         GROUP BY u.id, u.name, u.is_active
         ORDER BY total DESC, u.name ASC, u.id ASC`;
         const totals: Counts = {

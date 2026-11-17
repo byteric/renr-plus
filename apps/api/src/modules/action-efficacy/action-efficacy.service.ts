@@ -159,7 +159,8 @@ export class ActionEfficacyService {
     const opinion = latest
       ? (await this.opinionsInTransaction(tx, record, [latest], latest.id))[0]!
       : null;
-    const hasTechnicalCapability = member.capabilities.includes('TECHNICAL_DECISIONS');
+    const hasTechnicalCapability =
+      !member.scopeRestricted && member.capabilities.includes('TECHNICAL_DECISIONS');
     const active = originActive(record);
     const blockingReasons: EfficacyContext['blockingReasons'] = [];
     if (!hasTechnicalCapability) blockingReasons.push('NO_TECHNICAL_CAPABILITY');
@@ -187,14 +188,14 @@ export class ActionEfficacyService {
       this.contextInTransaction(
         tx,
         scope,
-        await this.actions.get(tx, scope.organizationId, actionId),
+        await this.actions.get(tx, scope.organizationId, actionId, scope.delegation),
       ),
     );
   }
   list(scope: ActionScope, actionId: string, page: Page): Promise<EfficacyOpinionList> {
     return this.actions.snapshot(async (tx) => {
       await this.membership(tx, scope);
-      const record = await this.actions.get(tx, scope.organizationId, actionId);
+      const record = await this.actions.get(tx, scope.organizationId, actionId, scope.delegation);
       const where = { organizationId: scope.organizationId, actionId };
       const latest = await this.latest(tx, scope, actionId);
       const rows = await tx.actionEfficacyOpinion.findMany({
@@ -214,7 +215,7 @@ export class ActionEfficacyService {
   opinion(scope: ActionScope, actionId: string, id: string): Promise<EfficacyOpinion> {
     return this.actions.snapshot(async (tx) => {
       await this.membership(tx, scope);
-      const record = await this.actions.get(tx, scope.organizationId, actionId);
+      const record = await this.actions.get(tx, scope.organizationId, actionId, scope.delegation);
       const row = await tx.actionEfficacyOpinion.findFirst({
         where: { id, actionId, organizationId: scope.organizationId },
         include: opinionInclude,

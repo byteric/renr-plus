@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { RiskRegistrations, RiskRegistrationsQuery } from '@renr/contracts';
 import { PrismaService } from '../../database/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
+import { delegatedSql, type OrganizationScope } from '../access/delegated-scope';
 
 @Injectable()
 export class RiskRegistrationsRepository {
@@ -11,6 +12,7 @@ export class RiskRegistrationsRepository {
     organizationId: string,
     days: RiskRegistrationsQuery['days'],
     generatedAt: string,
+    delegation?: OrganizationScope['delegation'],
   ): Promise<RiskRegistrations | null> {
     return this.database.client.$transaction(
       async (tx) => {
@@ -54,10 +56,14 @@ export class RiskRegistrationsRepository {
         ), counts AS (
           SELECT ${localCreated} AS date,
             count(*) AS count
-          FROM risks r CROSS JOIN bounds b
+          FROM risks r
+          JOIN assessment_groups g ON g.organization_id = r.organization_id AND g.id = r.assessment_group_id
+          JOIN sectors s ON s.organization_id = g.organization_id AND s.id = g.sector_id
+          CROSS JOIN bounds b
           WHERE r.organization_id = ${organizationId}::uuid
             AND r.created_at >= ${firstUtc}
             AND r.created_at < ${afterLastUtc}
+            ${delegatedSql(delegation, Prisma.sql`s.unit_id::text`, Prisma.sql`s.id::text`)}
           GROUP BY 1
         )
         SELECT to_char(b.first_date + d.day_index, 'YYYY-MM-DD') AS date,

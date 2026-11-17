@@ -640,7 +640,7 @@ export class EvidenceService {
     id: string,
   ): Promise<{ stream: Readable; file: Evidence }> {
     const record = await this.repository.snapshot(async (tx) => {
-      await this.repository.get(tx, scope.organizationId, actionId);
+      await this.repository.get(tx, scope.organizationId, actionId, scope.delegation);
       const evidence = await tx.actionEvidence.findFirst({
         where: { id, organizationId: scope.organizationId, actionId },
         include: evidenceInclude,
@@ -649,6 +649,25 @@ export class EvidenceService {
       return evidence;
     });
     const stream = await this.storage.get(record.objectKey);
+    try {
+      await this.repository.snapshot(async (tx) => {
+        const { userId, organizationId } = scope;
+        const membership = await tx.membership.findUnique({
+          where: { userId_organizationId: { userId, organizationId } },
+          include: { scopes: { select: { unitId: true, sectorId: true } } },
+        });
+        if (!membership?.isActive) throw new NotFoundException();
+        await this.repository.get(
+          tx,
+          organizationId,
+          actionId,
+          membership.scopeRestricted ? membership.scopes : undefined,
+        );
+      });
+    } catch (error) {
+      stream.destroy();
+      throw error;
+    }
     return { stream, file: toEvidence(record) };
   }
 }

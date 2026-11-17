@@ -10,10 +10,12 @@ import {
   accessMembershipListSchema,
   accessMembershipSchema,
   createAccessInviteSchema,
+  membershipScopesSchema,
   mutateAccessInviteSchema,
   paginationSchema,
   updateAccessCapabilitiesSchema,
   updateAccessMembershipSchema,
+  updateMembershipScopesSchema,
 } from '@renr/contracts';
 import type { Request } from 'express';
 import { z } from 'zod';
@@ -70,6 +72,32 @@ export class AccessController {
     @Param('userId') userId: string,
   ) {
     return this.access.member(await this.scope(request, orgId), parse(z.uuid(), userId));
+  }
+  @Get('access-memberships/:userId/scopes')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiResponse({ status: 200, schema: documentation(membershipScopesSchema) })
+  async scopes(
+    @Req() request: Request,
+    @Param('orgId') orgId: string,
+    @Param('userId') userId: string,
+  ) {
+    return this.access.scopes(await this.scope(request, orgId), parse(z.uuid(), userId));
+  }
+  @Put('access-memberships/:userId/scopes')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiBody({ schema: documentation(updateMembershipScopesSchema) })
+  @ApiResponse({ status: 200, schema: documentation(membershipScopesSchema) })
+  async updateScopes(
+    @Req() request: Request,
+    @Param('orgId') orgId: string,
+    @Param('userId') userId: string,
+    @Body() body: unknown,
+  ) {
+    return this.access.updateScopes(
+      await this.scope(request, orgId, true),
+      parse(z.uuid(), userId),
+      parse(updateMembershipScopesSchema, body),
+    );
   }
   @Put('access-memberships/:userId/capabilities')
   @Header('Cache-Control', 'private, no-store')

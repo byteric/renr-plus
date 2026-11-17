@@ -53,13 +53,15 @@ export class EvidenceGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<EvidenceRequest>();
     context.switchToHttp().getResponse<Response>().setHeader('Cache-Control', 'private, no-store');
-    const write = request.method !== 'GET';
+    const write = !['GET', 'HEAD'].includes(request.method);
     if (write) this.identity.assertOrigin(request);
     const organizationId = parse(z.uuid(), request.params.orgId);
     const scope = await this.identity.scope(
       request,
       organizationId,
       write && request.method !== 'POST',
+      undefined,
+      !write,
     );
     if (request.method === 'POST' && !(await this.identity.capabilities(request)).canManageAccess) {
       await this.identity.requireCapability(request, organizationId, 'EXECUTE_ASSIGNED_ACTIONS');

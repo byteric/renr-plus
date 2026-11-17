@@ -12,6 +12,7 @@ export type ResultInput = {
   name: string;
   nodeType: AssessmentResultNode['nodeType'];
   status?: 'DRAFT' | 'OPEN' | 'CLOSED';
+  protectedParticipation?: boolean;
   responses: ResultResponse[];
   children: ResultInput[];
 };
@@ -27,7 +28,8 @@ export function projectAssessment(
   let availability: AssessmentResultNode['availability'];
   if (input.status === 'DRAFT') availability = 'NOT_STARTED';
   else if (input.status === 'OPEN') availability = 'COLLECTING';
-  else if (children.some((c) => c.availability === 'SUPPRESSED')) availability = 'SUPPRESSED';
+  else if (input.protectedParticipation || children.some((c) => c.availability === 'SUPPRESSED'))
+    availability = 'SUPPRESSED';
   else if (children.some((c) => c.availability === 'COLLECTING')) availability = 'COLLECTING';
   else if (children.some((c) => c.availability === 'NOT_STARTED')) availability = 'NOT_STARTED';
   else if (count === 0)

@@ -5,6 +5,7 @@ import {
   type RiskRegistrationsQuery,
 } from '@renr/contracts';
 import { RiskRegistrationsRepository } from './risk-registrations.repository';
+import type { OrganizationScope } from '../access/delegated-scope';
 
 @Injectable()
 export class RiskRegistrationsService {
@@ -12,8 +13,12 @@ export class RiskRegistrationsService {
   async get(
     organizationId: string,
     days: RiskRegistrationsQuery['days'],
+    delegation?: OrganizationScope['delegation'],
   ): Promise<RiskRegistrations> {
-    const snapshot = await this.repository.snapshot(organizationId, days, new Date().toISOString());
+    const generatedAt = new Date().toISOString();
+    const snapshot = delegation
+      ? await this.repository.snapshot(organizationId, days, generatedAt, delegation)
+      : await this.repository.snapshot(organizationId, days, generatedAt);
     if (!snapshot) throw new NotFoundException();
     return riskRegistrationsSchema.parse(snapshot);
   }

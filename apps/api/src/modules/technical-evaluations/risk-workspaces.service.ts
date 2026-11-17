@@ -35,6 +35,12 @@ import { riskInclude, toRisk, RisksRepository } from '../risks/risks.repository'
 import { referenceDate } from '../actions/actions.repository';
 import { methodVersionInclude, toMethodVersion } from './evaluation-methods.service';
 import { technicalWrite, type TechnicalScope } from './technical-scope';
+import {
+  methodVersionDelegation,
+  riskDelegation,
+  sectorDelegation,
+  unitDelegation,
+} from '../access/delegated-scope';
 
 const author = { select: { id: true, name: true } } as const;
 const evaluationInclude = { author } satisfies Prisma.TechnicalRiskEvaluationInclude;
@@ -175,7 +181,7 @@ export class RiskWorkspacesService {
     id: string,
   ): Promise<WorkspaceRecord> {
     const record = await tx.risk.findFirst({
-      where: { id, organizationId: scope.organizationId },
+      where: { id, organizationId: scope.organizationId, ...riskDelegation(scope.delegation) },
       include: riskWorkspaceInclude,
     });
     if (!record) throw new NotFoundException();
@@ -189,14 +195,22 @@ export class RiskWorkspacesService {
     if (
       query.unitId &&
       !(await tx.unit.findFirst({
-        where: { id: query.unitId, organizationId: scope.organizationId },
+        where: {
+          id: query.unitId,
+          organizationId: scope.organizationId,
+          AND: unitDelegation(scope.delegation),
+        },
         select: { id: true },
       }))
     )
       throw new NotFoundException();
     if (query.sectorId) {
       const sector = await tx.sector.findFirst({
-        where: { id: query.sectorId, organizationId: scope.organizationId },
+        where: {
+          id: query.sectorId,
+          organizationId: scope.organizationId,
+          ...sectorDelegation(scope.delegation),
+        },
         select: { unitId: true },
       });
       if (!sector) throw new NotFoundException();
@@ -211,6 +225,7 @@ export class RiskWorkspacesService {
       status: query.status ?? { in: ['DRAFT', 'REGISTERED'] },
       assessmentGroup: {
         sector: {
+          ...sectorDelegation(scope.delegation),
           ...(query.unitId ? { unitId: query.unitId } : {}),
           ...(query.sectorId ? { id: query.sectorId } : {}),
         },
@@ -339,7 +354,11 @@ export class RiskWorkspacesService {
     return this.database.client.$transaction(
       async (tx) => {
         const method = await tx.evaluationMethodVersion.findFirst({
-          where: { id: query.methodVersionId, organizationId: scope.organizationId },
+          where: {
+            id: query.methodVersionId,
+            organizationId: scope.organizationId,
+            ...methodVersionDelegation(scope.delegation),
+          },
           include: methodVersionInclude,
         });
         if (!method) throw new NotFoundException();

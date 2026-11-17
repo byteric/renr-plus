@@ -27,8 +27,16 @@ export class RiskOverviewController {
   @ApiResponse({ status: 401, description: 'Missing or expired session.' })
   @ApiResponse({ status: 404, description: 'Organization outside active scope.' })
   async get(@Req() request: Request, @Param('orgId') orgId: string, @Query() query: unknown) {
-    const scope = await this.identity.scope(request, parse(z.uuid(), orgId), false);
+    const scope = await this.identity.scope(
+      request,
+      parse(z.uuid(), orgId),
+      false,
+      undefined,
+      true,
+    );
     parse(z.object({}).strict(), query);
-    return this.overview.get(scope.organizationId);
+    return scope.delegation
+      ? this.overview.get(scope.organizationId, scope.delegation)
+      : this.overview.get(scope.organizationId);
   }
 }

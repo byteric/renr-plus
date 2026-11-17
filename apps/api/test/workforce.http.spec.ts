@@ -52,4 +52,25 @@ describe('Workforce HTTP security', () => {
         .expect(403);
     },
   );
+  it.each(['preview', 'confirm'])(
+    'rejects reader and untrusted Origin before parsing the Excel upload for %s',
+    async (route) => {
+      const path = `/api/v1/organizations/${org}/employees/import/${route}`;
+      await request(app.getHttpServer())
+        .post(path)
+        .set('Origin', environment.CORS_ORIGIN)
+        .attach('file', Buffer.from('not a workbook'), 'upload.xlsx')
+        .expect(401);
+      await request(app.getHttpServer())
+        .post(path)
+        .set('Origin', environment.CORS_ORIGIN)
+        .set('Cookie', `renr_session=${'a'.repeat(43)}`)
+        .attach('file', Buffer.from('not a workbook'), 'upload.xlsx')
+        .expect(403);
+      await request(app.getHttpServer())
+        .post(path)
+        .attach('file', Buffer.from('not a workbook'), 'upload.xlsx')
+        .expect(403);
+    },
+  );
 });

@@ -23,6 +23,12 @@ import {
   type ActionExecutionInput,
 } from '@renr/contracts';
 import { Prisma } from '../../generated/prisma/client';
+import {
+  actionDelegation,
+  riskDelegation,
+  sectorDelegation,
+  unitDelegation,
+} from '../access/delegated-scope';
 import { riskInclude, toRisk } from '../risks/risks.repository';
 import {
   ActionsRepository,
@@ -143,7 +149,7 @@ export class ActionsService {
   }
   async get(scope: ActionScope, id: string): Promise<ActionDetail> {
     return this.repository.snapshot(async (tx) => {
-      const action = await this.repository.get(tx, scope.organizationId, id);
+      const action = await this.repository.get(tx, scope.organizationId, id, scope.delegation);
       return toAction(action, referenceDate(action.organization.timezone, new Date()));
     });
   }
@@ -229,7 +235,7 @@ export class ActionsService {
     page: { page: number; pageSize: number },
   ): Promise<ActionRevisionList> {
     return this.repository.snapshot(async (tx) => {
-      await this.repository.get(tx, scope.organizationId, id);
+      await this.repository.get(tx, scope.organizationId, id, scope.delegation);
       const where = { organizationId: scope.organizationId, actionId: id };
       const [records, total] = await Promise.all([
         tx.actionRevision.findMany({
@@ -253,7 +259,11 @@ export class ActionsService {
     if (
       query.riskId &&
       !(await tx.risk.findFirst({
-        where: { organizationId: scope.organizationId, id: query.riskId },
+        where: {
+          organizationId: scope.organizationId,
+          id: query.riskId,
+          ...riskDelegation(scope.delegation),
+        },
         select: { id: true },
       }))
     )
@@ -261,14 +271,22 @@ export class ActionsService {
     if (
       query.unitId &&
       !(await tx.unit.findFirst({
-        where: { organizationId: scope.organizationId, id: query.unitId },
+        where: {
+          organizationId: scope.organizationId,
+          id: query.unitId,
+          AND: unitDelegation(scope.delegation),
+        },
         select: { id: true },
       }))
     )
       throw new NotFoundException();
     if (query.sectorId) {
       const sector = await tx.sector.findFirst({
-        where: { organizationId: scope.organizationId, id: query.sectorId },
+        where: {
+          organizationId: scope.organizationId,
+          id: query.sectorId,
+          ...sectorDelegation(scope.delegation),
+        },
         select: { unitId: true },
       });
       if (!sector) throw new NotFoundException();
@@ -286,6 +304,7 @@ export class ActionsService {
       risk: {
         assessmentGroup: {
           sector: {
+            ...sectorDelegation(scope.delegation),
             ...(query.unitId ? { unitId: query.unitId } : {}),
             ...(query.sectorId ? { id: query.sectorId } : {}),
           },
@@ -359,7 +378,7 @@ export class ActionsService {
       const date = referenceDate(org.timezone, now);
       const groups = await tx.action.groupBy({
         by: ['status'],
-        where: { organizationId: scope.organizationId },
+        where: { organizationId: scope.organizationId, ...actionDelegation(scope.delegation) },
         _count: true,
       });
       const counts = new Map(groups.map((group) => [group.status, group._count]));
@@ -370,6 +389,7 @@ export class ActionsService {
       const overdue = await tx.action.count({
         where: {
           organizationId: scope.organizationId,
+          ...actionDelegation(scope.delegation),
           status: { in: ['PLANNED', 'IN_PROGRESS'] },
           dueDate: { lt: new Date(`${date}T00:00:00Z`) },
         },

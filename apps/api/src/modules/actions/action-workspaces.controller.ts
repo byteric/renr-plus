@@ -63,7 +63,13 @@ export class ActionWorkspacesController {
   ) {
     if (operation !== 'read') this.identity.assertOrigin(request);
     const organizationId = parse(z.uuid(), orgId);
-    const scope = await this.identity.scope(request, organizationId, operation === 'manage');
+    const scope = await this.identity.scope(
+      request,
+      organizationId,
+      operation === 'manage',
+      undefined,
+      operation === 'read',
+    );
     if (operation === 'execute' && !(await this.identity.capabilities(request)).canManageAccess) {
       await this.identity.requireCapability(request, organizationId, 'EXECUTE_ASSIGNED_ACTIONS');
       await this.identity.assignedActionScope(

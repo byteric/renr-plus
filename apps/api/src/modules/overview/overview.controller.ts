@@ -8,11 +8,12 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import type { OrganizationOverview } from '@renr/contracts';
+import { workspaceJourneySchema, type OrganizationOverview } from '@renr/contracts';
 import type { Request } from 'express';
 import { z } from 'zod';
 import { parse } from '../../http/parse';
 import { IdentityService, SESSION_COOKIE } from '../identity/identity.service';
+import { documentation } from '../risks/risks.controller';
 import { OverviewService } from './overview.service';
 
 class OverviewOrganizationDto {
@@ -74,7 +75,21 @@ export class OverviewController {
     @Req() request: Request,
     @Param('id') id: string,
   ): Promise<OrganizationOverview> {
-    const scope = await this.identity.scope(request, parse(z.uuid(), id), false);
-    return this.overview.getOverview(scope.organizationId);
+    const scope = await this.identity.scope(request, parse(z.uuid(), id), false, undefined, true);
+    return this.overview.getOverview(scope.organizationId, scope.delegation);
+  }
+
+  @Get(':id/journey')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({ summary: 'Workspace journey states for the active company.' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiOkResponse({ schema: documentation(workspaceJourneySchema) })
+  @ApiResponse({ status: 400, description: 'Invalid organization UUID.' })
+  @ApiResponse({ status: 401, description: 'Missing or expired session.' })
+  @ApiResponse({ status: 404, description: 'Organization outside the active session scope.' })
+  async getJourney(@Req() request: Request, @Param('id') id: string) {
+    return this.overview.getJourney(
+      await this.identity.scope(request, parse(z.uuid(), id), false, undefined, true),
+    );
   }
 }

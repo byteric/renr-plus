@@ -11,7 +11,9 @@ import { PrismaService } from '../../database/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
 import { riskInclude } from '../risks/risks.repository';
 
-export type ActionScope = { userId: string; organizationId: string };
+import { actionDelegation, type OrganizationScope } from '../access/delegated-scope';
+
+export type ActionScope = OrganizationScope;
 export const actionInclude = {
   risk: { include: riskInclude },
   organization: true,
@@ -118,9 +120,10 @@ export class ActionsRepository {
     tx: Prisma.TransactionClient,
     organizationId: string,
     id: string,
+    delegation?: ActionScope['delegation'],
   ): Promise<ActionRecord> {
     const record = await tx.action.findFirst({
-      where: { id, organizationId },
+      where: { id, organizationId, ...actionDelegation(delegation) },
       include: actionInclude,
     });
     if (!record) throw new NotFoundException();

@@ -494,6 +494,26 @@ describeDatabase('Diagnostic workflow with PostgreSQL', () => {
       .set('Cookie', cookie)
       .expect(400);
   });
+  it('suppresses the small unselected complement of a multiple-choice option', async () => {
+    const id = await createCycle();
+    await transition(id, 'open').expect(201);
+    const codes = await issue(id, 10);
+    const question = at(questions, 3);
+    const selected = question.options.map((option) => option.id);
+    for (const [index, code] of codes.entries()) {
+      const response = answers();
+      at(response, 3).optionIds = index === 0 ? [at(selected, 1)] : selected;
+      await submit(code, response).expect(201);
+    }
+    await transition(id, 'close').expect(201);
+    const response = await results(id).expect(200);
+    expect(response.body).toMatchObject({ availability: 'AVAILABLE', responseCount: 10 });
+    expect(response.body.questions[3]).toMatchObject({
+      id: question.id,
+      suppressed: true,
+      options: [],
+    });
+  });
   it('hides totals in a closed cycle below the minimum', async () => {
     const id = await createCycle();
     await transition(id, 'open').expect(201);

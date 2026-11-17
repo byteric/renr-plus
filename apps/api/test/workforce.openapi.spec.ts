@@ -19,7 +19,14 @@ describe('Workforce OpenAPI contract', () => {
           ),
         ),
       );
-    expect(Object.keys(document.paths)).toHaveLength(4);
+    expect(Object.keys(document.paths)).toHaveLength(6);
+    const importPrefix = '/api/v1/organizations/{orgId}/employees/import';
+    expect(document.paths[`${importPrefix}/preview`]).toMatchObject({
+      post: { responses: { '200': expect.any(Object) } },
+    });
+    expect(document.paths[`${importPrefix}/confirm`]).toMatchObject({
+      post: { responses: { '201': expect.any(Object), '409': expect.any(Object) } },
+    });
     for (const [name, expected] of Object.entries(document.components.schemas)) {
       const schema = (contracts as Record<string, unknown>)[name];
       if (!(schema instanceof z.ZodType)) throw new Error(`Missing executable contract ${name}`);

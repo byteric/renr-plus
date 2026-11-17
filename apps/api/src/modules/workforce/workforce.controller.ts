@@ -1,23 +1,74 @@
-import { Body, Controller, Get, Header, Param, Patch, Post, Query, Req } from '@nestjs/common';
-import { ApiBody, ApiCookieAuth, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  CanActivate,
+  Controller,
+  ExecutionContext,
+  Get,
+  Header,
+  HttpCode,
+  Injectable,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiBody, ApiConsumes, ApiCookieAuth, ApiResponse, ApiTags } from '@nestjs/swagger';
 import {
   employeeSchema,
   employeeListSchema,
   createEmployeeSchema,
   updateEmployeeSchema,
   employeeQuerySchema,
+  employeeImportPreviewSchema,
+  employeeImportResultSchema,
+  employeeImportVersionSchema,
   assessmentGroupSchema,
   assessmentGroupListSchema,
   createAssessmentGroupSchema,
   updateAssessmentGroupSchema,
   assessmentGroupQuerySchema,
 } from '@renr/contracts';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { z } from 'zod';
 import { parse } from '../../http/parse';
 import { IdentityService, SESSION_COOKIE } from '../identity/identity.service';
 import { documentation } from '../risks/risks.controller';
+import { employeeWorkbookFileLimit } from './employee-workbook';
 import { WorkforceService } from './workforce.service';
+
+const importScope = Symbol('employeeImportScope');
+type ImportRequest = Request & {
+  [importScope]: Awaited<ReturnType<IdentityService['scope']>>;
+};
+const emptyImportBody = z.object({}).strict();
+const confirmImportBody = z.object({ version: employeeImportVersionSchema }).strict();
+const importInterceptor = FileInterceptor('file', {
+  limits: { fileSize: employeeWorkbookFileLimit, files: 1, fields: 1, fieldSize: 128, parts: 3 },
+});
+const workbookUpload = { type: 'string', format: 'binary' } as const;
+
+@Injectable()
+class EmployeeImportGuard implements CanActivate {
+  constructor(private readonly identity: IdentityService) {}
+
+  async canActivate(context: ExecutionContext) {
+    const request = context.switchToHttp().getRequest<ImportRequest>();
+    context.switchToHttp().getResponse<Response>().setHeader('Cache-Control', 'private, no-store');
+    this.identity.assertOrigin(request);
+    request[importScope] = await this.identity.scope(
+      request,
+      parse(z.uuid(), request.params.orgId),
+      true,
+    );
+    return true;
+  }
+}
+
 @Controller('organizations/:orgId')
 @ApiTags('Workforce and assessment groups')
 @ApiCookieAuth(SESSION_COOKIE)
@@ -52,6 +103,54 @@ export class WorkforceController {
   @ApiResponse({ status: 200, schema: documentation(employeeSchema) })
   async employee(@Req() request: Request, @Param('orgId') orgId: string, @Param('id') id: string) {
     return this.workforce.employee(await this.scope(request, orgId), parse(z.uuid(), id));
+  }
+  @Post('employees/import/preview')
+  @HttpCode(200)
+  @UseGuards(EmployeeImportGuard)
+  @UseInterceptors(importInterceptor)
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['file'],
+      properties: { file: workbookUpload },
+    },
+  })
+  @ApiResponse({ status: 200, schema: documentation(employeeImportPreviewSchema) })
+  @ApiResponse({ status: 413, description: 'Workbook exceeds 1 MiB.' })
+  previewEmployeeImport(
+    @Req() request: ImportRequest,
+    @Body() body: unknown,
+    @UploadedFile() file: Express.Multer.File | undefined,
+  ) {
+    parse(emptyImportBody, body);
+    return this.workforce.previewEmployeeImport(request[importScope], file);
+  }
+  @Post('employees/import/confirm')
+  @UseGuards(EmployeeImportGuard)
+  @UseInterceptors(importInterceptor)
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['file', 'version'],
+      properties: { file: workbookUpload, version: documentation(employeeImportVersionSchema) },
+    },
+  })
+  @ApiResponse({ status: 201, schema: documentation(employeeImportResultSchema) })
+  @ApiResponse({ status: 413, description: 'Workbook exceeds 1 MiB.' })
+  confirmEmployeeImport(
+    @Req() request: ImportRequest,
+    @Body() body: unknown,
+    @UploadedFile() file: Express.Multer.File | undefined,
+  ) {
+    return this.workforce.confirmEmployeeImport(
+      request[importScope],
+      file,
+      parse(confirmImportBody, body).version,
+    );
   }
   @Post('employees')
   @Header('Cache-Control', 'private, no-store')

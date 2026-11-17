@@ -24,6 +24,7 @@ const publicExtensions = new Set([
   '.otf',
   '.webmanifest',
   '.json',
+  '.xlsx',
   '.txt',
 ]);
 
@@ -108,8 +109,11 @@ export function configureWebServing(app: INestApplication, environment: Environm
         }
       }
     }
+    // Sharing crawlers can request the public root with a generic Accept header.
+    const isPublicRoot = path === '/';
+    if (isPublicRoot) response.vary('Accept');
     const acceptsHtml =
-      /(?:^|,)\s*text\/html\s*(?:;|,|$)/i.test(request.get('accept') ?? '') &&
+      (isPublicRoot || /(?:^|,)\s*text\/html\s*(?:;|,|$)/i.test(request.get('accept') ?? '')) &&
       request.accepts('html');
     if (
       extension ||

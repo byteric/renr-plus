@@ -1,8 +1,9 @@
 import { ConflictException, ForbiddenException } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../database/prisma.service';
+import type { OrganizationScope } from '../access/delegated-scope';
 
-export type TechnicalScope = { userId: string; organizationId: string };
+export type TechnicalScope = OrganizationScope;
 function isProtectedCheckViolation(error: Prisma.PrismaClientKnownRequestError): boolean {
   if (error.code !== 'P2039') return false;
   const adapter = error.meta?.driverAdapterError;
@@ -26,6 +27,7 @@ export async function assertTechnicalScope(
   });
   if (
     !membership?.isActive ||
+    membership.scopeRestricted ||
     !membership.organization.isActive ||
     !membership.capabilities.includes('TECHNICAL_DECISIONS')
   )

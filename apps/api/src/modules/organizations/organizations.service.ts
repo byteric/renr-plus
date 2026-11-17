@@ -11,9 +11,13 @@ import type {
 import { PrismaService } from '../../database/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
 import { fiscalFields, legacyOrganizationSelect } from '../platform/platform.service';
+import {
+  sectorDelegation,
+  unitDelegation,
+  type OrganizationScope as Scope,
+} from '../access/delegated-scope';
 
 type Page = OrganizationQuery;
-type Scope = { userId: string; organizationId: string };
 const normalized = (name: string): string => name.toLowerCase();
 
 @Injectable()
@@ -137,6 +141,7 @@ export class OrganizationsService {
   async units(scope: Scope, pagination: Page) {
     const where = {
       organizationId: scope.organizationId,
+      ...unitDelegation(scope.delegation),
       isActive: pagination.isActive,
       ...(pagination.search
         ? { name: { contains: pagination.search, mode: 'insensitive' as const } }
@@ -182,7 +187,7 @@ export class OrganizationsService {
   private async unit(tx: Prisma.TransactionClient, scope: Scope, id: string): Promise<void> {
     if (
       !(await tx.unit.findFirst({
-        where: { id, organizationId: scope.organizationId },
+        where: { id, organizationId: scope.organizationId, AND: unitDelegation(scope.delegation) },
         select: { id: true },
       }))
     )
@@ -194,6 +199,7 @@ export class OrganizationsService {
       const where = {
         unitId,
         organizationId: scope.organizationId,
+        ...sectorDelegation(scope.delegation),
         isActive: pagination.isActive,
         ...(pagination.search
           ? { name: { contains: pagination.search, mode: 'insensitive' as const } }

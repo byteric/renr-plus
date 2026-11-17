@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
+import { riskDelegation, type OrganizationScope } from '../access/delegated-scope';
 import {
   preliminaryEvaluationSchema,
   riskDetailSchema,
@@ -22,7 +23,7 @@ export type RiskRecord = Prisma.RiskGetPayload<{ include: typeof riskInclude }>;
 type EvaluationRecord = Prisma.RiskEvaluationGetPayload<{
   include: { author: { select: { id: true; name: true } } };
 }>;
-export type RiskScope = { userId: string; organizationId: string };
+export type RiskScope = OrganizationScope;
 
 export function toEvaluation(record: EvaluationRecord): PreliminaryEvaluation {
   return preliminaryEvaluationSchema.parse({
@@ -80,8 +81,16 @@ export class RisksRepository {
       isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
     });
   }
-  async get(tx: Prisma.TransactionClient, organizationId: string, id: string): Promise<RiskRecord> {
-    const risk = await tx.risk.findFirst({ where: { id, organizationId }, include: riskInclude });
+  async get(
+    tx: Prisma.TransactionClient,
+    organizationId: string,
+    id: string,
+    delegation?: OrganizationScope['delegation'],
+  ): Promise<RiskRecord> {
+    const risk = await tx.risk.findFirst({
+      where: { id, organizationId, ...riskDelegation(delegation) },
+      include: riskInclude,
+    });
     if (!risk) throw new NotFoundException();
     return risk;
   }

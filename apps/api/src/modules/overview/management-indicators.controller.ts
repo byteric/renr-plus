@@ -32,7 +32,7 @@ export class ManagementIndicatorsController {
   })
   @ApiResponse({ status: 200, schema: documentation(managementIndicatorsSchema) })
   async snapshot(@Req() request: Request, @Param('id') id: string, @Query() query: unknown) {
-    const scope = await this.identity.scope(request, parse(z.uuid(), id), false);
+    const scope = await this.identity.scope(request, parse(z.uuid(), id), false, undefined, true);
     return this.indicators.snapshot(scope, parse(managementIndicatorsQuerySchema, query));
   }
 
@@ -41,7 +41,7 @@ export class ManagementIndicatorsController {
   @ApiOperation({ summary: 'Daily counts of recorded events in the organization civil calendar.' })
   @ApiResponse({ status: 200, schema: documentation(managementIndicatorHistorySchema) })
   async history(@Req() request: Request, @Param('id') id: string, @Query() query: unknown) {
-    const scope = await this.identity.scope(request, parse(z.uuid(), id), false);
+    const scope = await this.identity.scope(request, parse(z.uuid(), id), false, undefined, true);
     return this.indicators.history(scope, parse(managementIndicatorHistoryQuerySchema, query));
   }
 }
