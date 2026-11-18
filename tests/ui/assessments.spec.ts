@@ -144,6 +144,8 @@ async function mock(page: Page, theme: 'light' | 'dark', suppressed = false) {
       });
     if (path.endsWith(`/${cycleId}/results`)) return route.fulfill({ json: result(suppressed) });
     if (path.endsWith(`/assessment-cycles/${cycleId}`)) return route.fulfill({ json: cycle });
+    if (path.endsWith(`/assessment-cycles/${cycleId}/invite-deliveries`))
+      return route.fulfill({ json: { items: [] } });
     if (path.endsWith('/sources'))
       return route.fulfill({ json: { items: [], total: 0, page: 1, pageSize: 20 } });
     const list = (items: unknown[]) => ({ items, total: items.length, page: 1, pageSize: 20 });

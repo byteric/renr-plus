@@ -13,8 +13,9 @@ const headers = { Origin: origin };
 
 async function prepareScenario() {
   const connection = localDatabaseUrl(process.env.DATABASE_URL ?? '');
+  const ciDatabase = process.env.GITHUB_ACTIONS === 'true' && connection.pathname === '/renr_test';
   if (
-    !disposableDb.test(connection.pathname) ||
+    (!ciDatabase && !disposableDb.test(connection.pathname)) ||
     (connection.searchParams.get('schema') ?? 'public') !== 'public'
   )
     throw new Error('A jornada do ID 44 exige uma base local descartável de testes.');
