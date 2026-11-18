@@ -397,9 +397,11 @@ test('organiza coleta, corrige antes do envio, recupera resposta perdida e encer
     .getByRole('navigation', { name: 'Áreas do painel' })
     .getByRole('link', { name: 'Riscos', exact: true })
     .click();
-  await page.getByLabel('Unidade', { exact: true }).selectOption(cycle.unitId);
-  await page.getByLabel('Setor', { exact: true }).selectOption(cycle.sectorId);
   const resultsLink = page.getByRole('link', { name: 'Consultar resultados por coleta' });
+  await expect(resultsLink).toBeVisible();
+  await page.getByLabel('Unidade', { exact: true }).selectOption(cycle.unitId);
+  await expect(resultsLink).toHaveAttribute('href', new RegExp('unitId=' + cycle.unitId));
+  await page.getByLabel('Setor', { exact: true }).selectOption(cycle.sectorId);
   await expect(resultsLink).toHaveAttribute('href', new RegExp('sectorId=' + cycle.sectorId));
   await resultsLink.click();
   await expect(page.getByLabel('Situação da coleta')).toHaveValue('CLOSED');
