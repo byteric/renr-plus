@@ -38,7 +38,7 @@ async function seed(target) {
   assert.equal(code, 0, 'Synthetic legacy seed must succeed before the migration');
 }
 
-// Real legacy HTTP commands produce the exact snapshots/fingerprints required by ID11/15.
+// Real ID11/15 HTTP commands produce the snapshots and fingerprints for this fixture.
 // No trigger is disabled, no table is cloned and no new continuity route is used.
 async function populateTechnicalHistory(target) {
   const { Test } = requireApi('@nestjs/testing');
@@ -56,14 +56,12 @@ async function populateTechnicalHistory(target) {
     SERVE_WEB: false,
     STORAGE_ENABLED: false,
   });
-  // This fixture intentionally models the pre-ID21 audit writer while exercising
-  // real ID11/15 HTTP commands against the pre-continuity schema. The current
-  // client otherwise selects audit and fiscal columns absent from that schema.
-  // This is historical fixture construction, not a new-app/old-schema claim.
+  // Use the historical columns when exercising HTTP commands on the
+  // pre-continuity schema, before fiscal data, HR grants and delegated access.
   const legacyClient = new PrismaClient({
     adapter: new PrismaPg({ connectionString: target.href, max: 2 }),
     omit: {
-      membership: { hrCapabilities: true },
+      membership: { hrCapabilities: true, scopeRestricted: true },
       organization: {
         fiscalCandidate: true,
         normalizedFiscalIdentifier: true,
@@ -87,6 +85,16 @@ async function populateTechnicalHistory(target) {
   ];
   database.client = database.client.$extends({
     query: {
+      session: {
+        findUnique({ args, query }) {
+          return query({
+            ...args,
+            include: {
+              user: { include: { memberships: { include: { organization: true } } } },
+            },
+          });
+        },
+      },
       auditEvent: {
         create({ args, query }) {
           return query({
