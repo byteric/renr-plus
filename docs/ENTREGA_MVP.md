@@ -97,6 +97,18 @@ O instrumento e os envios de demonstração são sintéticos. Cada código de co
 
 ### Jornada de demonstração
 
+Uma conta de consulta global entra em **Plataforma**. Uma conta de cliente entra na empresa autorizada. Perfis com os dois escopos usam os links de troca de ambiente do menu, mantendo a empresa selecionada. No **Painel** da empresa, a jornada mostra os pré-requisitos e oferece links para os próximos passos permitidos.
+
+Para demonstrar a importação, entre como administrador da empresa, abra **Colaboradores → Importar Excel** e baixe o modelo. Preencha uma linha fictícia com matrícula em texto, nome, unidade e setor cadastrados na empresa. Gere a prévia, explique os estados por linha e confirme quando o lote estiver válido. Consulte o cadastro e o filtro por unidade para conferir o resultado. A planilha e seus dados permanecem no contexto da empresa escolhida.
+
+Em uma coleta aberta, escolha **Preparar convites**, confira a quantidade e confirme em **Gerar convites**. Copie um código por participante e abra **Responder coleta** em uma janela anônima. Confira a explicação de privacidade antes das perguntas. Se a confirmação ficar incerta, use **Consultar operação** antes de preparar outro lote. O histórico registra o estado da operação e a data da geração.
+
+Após encerrar a coleta, confira **Resultados protegidos → Adesão à coleta**. Em cenário elegível para divulgação, use o exemplo de 20 elegíveis na abertura, 15 códigos emitidos e 10 respostas válidas. A adesão é 50%. Com um grupo pequeno, mostre o estado protegido e verifique que as contagens ficam ocultas no consolidado, na jornada da empresa e no novo relatório SST.
+
+Em **Coletas → Comparativo gerencial**, selecione duas coletas encerradas e compatíveis. Confira os períodos, o recorte e a diferença em pontos percentuais. Confira os estados protegidos e abra os registros de risco e ação quando houver vínculo documentado. As reavaliações técnicas e os pareceres têm fontes próprias.
+
+Use **Incluir no resumo executivo** para abrir Relatórios com o mesmo recorte e par de coletas. A emissão preserva situação, prioridades, responsáveis, prazos, evidências referenciadas e próximos passos. Abra uma referência na prévia e confira a mesma emissão no PDF. A aplicação oferece apoio documental ao GRO/PGR. A aprovação do formato e das recomendações segue com SST e RH.
+
 1. Com um perfil autorizado, mostre o instrumento versionado, a coleta e uma participação de uso único. Encerre e apresente a consolidação e uma fonte complementar.
 2. Abra o risco e a ação do cenário operacional. Mostre a origem registrada, o responsável, a execução e o download autorizado de uma evidência. Use registros com histórico preenchido para demonstrar parecer de eficácia, reavaliação e encerramento.
 3. Use as quatro áreas do painel para retornar aos registros. Em **Relatórios**, selecione um recorte SST, emita, confira a prévia e baixe o PDF. Abra **Auditoria** e confirme a operação registrada.
@@ -115,6 +127,18 @@ O roteiro abaixo documenta ensaio e avaliação em ambiente local com dados sint
 4. Reinicie a aplicação e repita a passagem no mesmo ambiente isolado. Compare dados de origem e destino, contagens, estados, histórico, relatório e hash do anexo. Registre diferenças observadas.
 5. Faça o piloto separadamente: leia a cada participante somente a tarefa neutra correspondente ao seu papel e não indique onde clicar. Registre qualquer ajuda solicitada ou dada como tentativa sem sucesso no indicador principal.
 
+##### Roteiro de nove minutos para o ensaio guiado
+
+| Janela    | Onde entrar                                                                                  | O que demonstrar                                                                                                                                                                                           |
+| --------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0:00–1:00 | **Empresas → empresa fictícia → Painel**                                                     | “Nesta sessão usamos dados fictícios. O contexto no menu identifica a empresa e o perfil.”                                                                                                                 |
+| 1:00–3:00 | **Avaliação e prevenção → Coletas** e uma janela separada em **Responder**                   | Abra o ciclo ativo, mostre a versão aplicada e gere um código. Na janela do respondente, abra o formulário com o código, revise e confirme o envio. Prepare as demais respostas simuladas antes do ensaio. |
+| 3:00–4:30 | **Coletas → ciclo → Encerrar coleta**                                                        | Confirme o encerramento. Mostre resultado coletivo, política aplicada e fonte complementar. Em um ciclo abaixo do limiar, mostre o estado protegido.                                                       |
+| 4:30–6:30 | **Inventário → risco** e **Ações → ação → Evidências**                                       | Mostre o recorte organizacional do risco, a medida, o responsável, a evidência e o histórico. Use o PDF sintético em contingência.                                                                         |
+| 6:30–9:00 | **Painel → Riscos → Consultar resultados por coleta**, depois **Relatórios** e **Auditoria** | Confira unidade e setor na lista de coletas. Emita o SST no mesmo recorte e compare prévia e PDF. Encontre o evento por operação e período.                                                                |
+
+Cronometre do primeiro acesso ao painel até achar o evento na auditoria. Anote bloqueios e repita a etapa após corrigir a causa. Se `/api/v1/ready` retornar 503 antes da reunião, use o cenário local e a evidência sintética preparada. Confirme a prontidão antes de voltar a usar a homologação.
+
 #### Tarefas do piloto sem ajuda
 
 Prepare o escopo e os dados pela seção acima. Observe cada papel em sessão separada: `ADMIN` administra ciclo e fonte, `READER` consulta dados permitidos, e Respondente usa o convite individual em `/#/responder`. Dê somente o objetivo, sem instrução de navegação. Cada tarefa crítica conta como tentativa válida depois que seus pré-requisitos e a sessão apropriada funcionam. Registre falha, abandono, ajuda, impedimento de acesso ou incidente de privacidade. Se infraestrutura ou preparação impedir a tentativa, marque-a inválida, justifique e agende nova tentativa separadamente.
@@ -129,6 +153,20 @@ Prepare o escopo e os dados pela seção acima. Observe cada papel em sessão se
 | P6  | Papel READER: “Abra o relatório disponível para sua empresa e confira o conteúdo autorizado.”         | Abre o relatório previamente emitido e consulta/baixa somente o recorte SST da empresa ativa.                                             |
 
 Considere uma tarefa bem-sucedida somente se o resultado observável foi alcançado sem dica, correção do facilitador ou intervenção. Calcule `tarefas críticas bem-sucedidas sem ajuda ÷ tentativas críticas válidas × 100`. O critério planejado é **≥ 80%** no conjunto de tentativas válidas. Mostre também o resultado por tarefa; um total agregado não deve esconder falha de privacidade, acesso indevido ou tarefa crítica que ninguém conseguiu concluir. Não há resultado preenchido até o piloto ocorrer.
+
+#### Reteste de orientação por perfil
+
+Antes da tarefa principal, peça à pessoa para identificar em que ambiente está, qual empresa ou carteira enxerga e o que seu perfil pode consultar ou operar. Registre a resposta na ficha e execute a tarefa neutra do perfil com o cenário fictício já preparado. Use as tarefas P1–P6 no cálculo planejado e registre estas observações de orientação por perfil.
+
+| Perfil                  | Tarefa a apresentar                                                                                 | Resultado observável                                                                                                                       |
+| ----------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Consulta global ReTech+ | “Encontre a empresa de demonstração e diga quais informações estão disponíveis para você.”          | Localiza a empresa no catálogo e interpreta o consolidado do perfil global. A ficha privada exige vínculo de empresa.                      |
+| Administração cliente   | “Identifique a empresa em que entrou e encontre o cadastro e a coleta da demonstração.”             | Reconhece empresa e estrutura, localiza a coleta e explica como é gerado o código.                                                         |
+| SST                     | “Encontre o risco fictício da coleta demonstrada e veja quais fontes e decisões estão registradas.” | Localiza o risco preparado e distingue a fonte coletiva de uma decisão técnica.                                                            |
+| Gestor                  | “Encontre os indicadores e uma ação no escopo da sua conta.”                                        | Localiza o painel e a ação autorizada e identifica a unidade ou o setor exibido. Os escopos ainda pendentes de aceite seguem em validação. |
+| RH                      | “Encontre o indicador de pessoas e confira um vínculo fictício permitido para sua conta.”           | Localiza Gestão de Pessoas e entende a diferença entre o indicador agregado e a ficha autorizada.                                          |
+| Auditoria ou mentoria   | “Identifique a última mudança na ação de demonstração e localize sua evidência.”                    | Localiza o histórico operacional, o registro mais recente e a evidência autorizada.                                                        |
+| Respondente             | Use a tarefa P1.                                                                                    | Identifica a coleta do código e recebe a confirmação de envio.                                                                             |
 
 #### Tarefa específica de auditoria
 
@@ -172,6 +210,10 @@ Use o build da demonstração, PostgreSQL e MinIO em loopback. Separe um banco e
 
 Em 06/11/2026, um ensaio técnico local repetido no build integrado restaurou um dump de 303.887 bytes e um anexo sintético de 70 bytes, com hash preservado e três eventos de histórico. A API devolveu a mesma prévia e um PDF válido. As tentativas sem sessão e com conta de outra empresa retornaram 401 e 404, respectivamente. O resultado foi PASS em 16 segundos, contados do preparo via API até a conferência da restauração. Esse ensaio local não valida recuperação do serviço hospedado; esta segue o procedimento aprovado de operação da organização.
 
+Em 15/11/2026, o candidato local a partir de `f359882` repetiu o ensaio com banco e bucket separados. O Chromium enviou uma resposta fictícia por convite. A coleta encerrada exibiu dez respostas agregadas e a auditoria localizou o encerramento por operação e data. A restauração preservou a projeção, os dois registros do histórico da ação, o SHA-256 do anexo e a prévia SST. O PDF ficou disponível na nova instância. Histórico, anexo e PDF retornaram 401 sem sessão e 404 em sessão de outra empresa. A etapa de recuperação levou 6,6 segundos neste cenário local.
+
+A contingência inclui uma gravação curta de Coletas, Ações e Relatórios na instância restaurada e o PDF SST fictício de seis páginas. O tempo acima pertence à verificação automatizada. A duração da apresentação guiada, a reprodução por outro integrante e as tentativas do piloto com representantes precisam de registros próprios.
+
 ## Publicação controlada
 
 ### Evidências locais do candidato
@@ -186,13 +228,19 @@ No Chromium local, passaram 91 cenários E2E em desktop e os mesmos 91 no perfil
 
 ### Sequência de publicação
 
-O endereço registrado para homologação é [ReNR+ no Render](https://renr-plus-homologation.onrender.com). O registro de publicação aponta [`5e8f4ca11625580ae7522ae5a80b175281c3408a`](https://github.com/byteric/renr-plus/commit/5e8f4ca11625580ae7522ae5a80b175281c3408a) como último SHA publicado e verificado. O commit [`3de32b1`](https://github.com/byteric/renr-plus/commit/3de32b1cfb2b72dd130b2e9ae73efd246f0eec7c) é histórico e consta na prova de retorno. O SHA do novo candidato e a configuração atual do serviço permanecem pendentes de conferência antes da publicação.
+Em 15/11/2026, o serviço Free de homologação estava na `main`, com o commit [`f359882`](https://github.com/byteric/renr-plus/commit/f359882c8fc2d24b0a571d900c17f3038e3ef004) ativo e publicação automática desativada. O primeiro teste retornou HTTP 200 em `/health` e 503 em `/ready`. O Neon indicou compute ativo após a primeira tentativa. Na repetição, os oito checks públicos passaram. O endereço e o SHA correspondem à versão já publicada. [Homologação](https://renr-plus-homologation.onrender.com)
 
-1. Na revisão do candidato, confirme `pnpm prisma:validate`, `pnpm check`, `pnpm format:check`, `pnpm test:integration`, `pnpm test:migrations`, `pnpm test:compatibility`, `pnpm test:ui` e `pnpm test:e2e`. Compare o diff da PR com a lista de migrações e confirme a revisão exigida pela proteção da `main`. Os IDs 35 e 36 não acrescentam migrações; confirme esse estado no diff do candidato.
+O commit [`3de32b1`](https://github.com/byteric/renr-plus/commit/3de32b1cfb2b72dd130b2e9ae73efd246f0eec7c) é histórico e consta na prova de retorno. Confira o SHA do novo candidato, o ambiente e as aprovações na próxima publicação.
+
+1. Na revisão do candidato, confirme `pnpm prisma:validate`, `pnpm check`, `pnpm format:check`, `pnpm test:integration`, `pnpm test:migrations`, `pnpm test:compatibility`, `pnpm test:ui` e `pnpm test:e2e`. Confira a revisão exigida pela proteção da `main` e as seis migrações novas da entrega, que abrangem concessões de RH, base de adesão, entrega manual de convites e recortes de acesso.
 2. Com autorização de publicação, registre o SHA da `main` resultante e o último deploy verificado. Confira a configuração do serviço, o banco de homologação, o histórico e a conexão direta com TLS antes de prosseguir. Aplique somente migrações pendentes com `prisma migrate deploy`, preservando registros e migrações anteriores.
 3. No Render, publique manualmente o SHA aprovado conforme a configuração confirmada nessa ocasião. Confirme o SHA ativo e execute `node scripts/check-hosted.mjs https://renr-plus-homologation.onrender.com`. Em partida fria, registre separadamente o tempo até `/health` e `/ready`.
 4. Use acessos demonstrativos vigentes por canal privado. Confira login, logout, perfis, isolamento, gráficos, favicon, temas, anexo privado, PDF representativo e auditoria. Verifique as duas visões de RH com dados sintéticos autorizados. Execute ensaios de volume e memória em ambiente local isolado.
 5. Se a validação falhar, registre o resultado e retorne à versão anterior verificada. Preserve o schema expandido e os dados do Neon. Confirme novamente o SHA ativo e os checks públicos após o retorno. Enquanto a versão anterior estiver ativa, mantenha em espera convites e mudanças de concessões de RH. Confira os vínculos e convites pendentes ao restaurar a versão atual.
+
+Se já houver coletas abertas com base congelada, use como retorno uma versão que aplique a proteção complementar do ID 40. Uma versão anterior a essa regra pode expor contagens em Coletas, no painel ou em novos relatórios SST. Se o retorno for necessário com essa versão, mantenha essas consultas indisponíveis até restaurar a proteção.
+
+Ative vínculos restritos a unidades ou setores somente depois de validar a publicação. Em um retorno após a ativação, use uma versão que preserve os recortes do ID 44. Antes de retornar a uma versão que os ignora, impeça o acesso dos vínculos afetados e verifique o bloqueio também em sessões abertas. A prévia e o PDF de emissões com campos introduzidos nesta entrega também dependem de uma versão que reconheça esses campos.
 
 O registro técnico anterior contabiliza 22 migrações no conjunto validado em 05/11/2026. Compare a lista versionada de migrações do novo candidato com a base publicada durante a revisão. A alteração anterior separa concessões de RH em vínculos e convites; a API correspondente combina as duas famílias na resposta. A versão anterior lê as permissões operacionais pela coluna original e preserva as concessões de RH no banco.
 

@@ -30,7 +30,7 @@ O painel apresenta os eventos registrados como uma série separada. Uma decisão
 
 A unidade, o setor, a área, o período e a página de prioridades ficam na URL do painel. O inventário aceita `classification=UNCLASSIFIED` ou o par `methodVersionId` e `levelKey`. A lista de ações aceita `openOnly=true` ou `overdue=true`, com os mesmos filtros organizacionais. As prioridades abrem a ação com retorno ao painel no recorte anterior.
 
-Na área Riscos, o atalho **Consultar resultados por coleta** abre as coletas encerradas da empresa ativa (`#/coletas?status=CLOSED`). A seleção de um ciclo consulta os resultados protegidos da própria coleta. Os filtros de unidade e setor do painel continuam valendo para riscos e ações. A coleta versionada tem recorte próprio e não estabelece um vínculo direto com os registros operacionais do inventário.
+Na área Riscos, o atalho **Consultar resultados por coleta** abre as coletas encerradas da empresa ativa com a mesma unidade e o mesmo setor selecionados no painel. O filtro usa a estrutura do grupo da coleta. Ao abrir uma coleta e voltar à lista, o recorte é preservado. **Limpar recorte de unidade e setor** remove esses dois filtros e mantém a situação da coleta. A seleção de um ciclo usa sua projeção protegida. Um cruzamento formal com o inventário e o plano de ação ainda depende da decisão de produto.
 
 ## Decisões para o aceite
 
@@ -46,3 +46,5 @@ Na visão de plataforma, os totais de clientes atendidos e o catálogo padrão u
 | Indicadores globais e do cliente | A ReTech+ vê totais e catálogo por empresa. Cada cliente consulta o próprio painel. Confirmar quais contagens precisam aparecer em cada visão, a fonte e a permissão de acesso.                                       |
 
 Na conferência, selecione a mesma unidade e setor no Painel, no Inventário, em Ações e na emissão SST. Compare os registros e a nota de arquivamento na prévia e no PDF. Repita com a segunda empresa fictícia para conferir o isolamento. O teste volumoso é executado em ambiente local isolado.
+
+Em 15/11/2026, dois recortes de unidade e setor de uma empresa fictícia foram conferidos no painel, nas listas, na prévia congelada e no texto dos PDFs SST. Uma medida ligada a risco arquivado entrou apenas no recorte de origem, conforme a regra do total operacional. Sessões da plataforma e dos dois clientes fictícios conferiram a visão global e a recusa de consulta entre empresas. As coletas mantiveram o recorte ao navegar pelo painel em Chromium desktop e mobile emulado, inclusive ao voltar da tela de detalhe. [Conciliação de relatórios](../apps/api/test/reports.integration.spec.ts) · [Navegação no navegador](../tests/e2e/assessments.spec.ts).
