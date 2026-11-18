@@ -8,7 +8,13 @@ import {
 } from '@renr/contracts';
 import { PrismaService } from '../../database/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
-import { actionInclude, referenceDate, type ActionScope } from '../actions/actions.repository';
+import { actionInclude, referenceDate } from '../actions/actions.repository';
+import {
+  delegatedSql,
+  sectorDelegation,
+  unitDelegation,
+  type OrganizationScope,
+} from '../access/delegated-scope';
 import { currentEfficacy } from '../action-efficacy/action-efficacy.service';
 import { technicalClosureReviewReasons } from '../risk-continuity/risk-continuity.service';
 import {
@@ -110,7 +116,7 @@ type Implemented = Prisma.ActionGetPayload<{ include: typeof implementedInclude 
 export class ManagementIndicatorsService {
   constructor(private readonly database: PrismaService) {}
 
-  private async context(tx: Prisma.TransactionClient, scope: ActionScope, query: Filter) {
+  private async context(tx: Prisma.TransactionClient, scope: OrganizationScope, query: Filter) {
     const organization = await tx.organization.findUnique({
       where: { id: scope.organizationId },
       select: { id: true, name: true, isActive: true, timezone: true },
@@ -125,7 +131,11 @@ export class ManagementIndicatorsService {
     if (
       query.unitId &&
       !(await tx.unit.findFirst({
-        where: { organizationId: scope.organizationId, id: query.unitId },
+        where: {
+          organizationId: scope.organizationId,
+          id: query.unitId,
+          AND: unitDelegation(scope.delegation),
+        },
         select: { id: true },
       }))
     )
@@ -134,7 +144,11 @@ export class ManagementIndicatorsService {
     let unitId = query.unitId;
     if (query.sectorId) {
       const sector = await tx.sector.findFirst({
-        where: { organizationId: scope.organizationId, id: query.sectorId },
+        where: {
+          organizationId: scope.organizationId,
+          id: query.sectorId,
+          ...sectorDelegation(scope.delegation),
+        },
         select: { unitId: true },
       });
       if (!sector) throw new NotFoundException();
@@ -146,7 +160,7 @@ export class ManagementIndicatorsService {
     const { timezone: timeZone, ...org } = organization;
     return {
       organization: org,
-      canReadEmployees: member.role === 'ADMIN',
+      canReadEmployees: member.role === 'ADMIN' && !scope.delegation,
       generatedAt: now.toISOString(),
       referenceDate: referenceDate(timeZone, now),
       timeZone,
@@ -159,18 +173,19 @@ export class ManagementIndicatorsService {
     organizationId: string,
     filters: ManagementIndicators['filters'],
     canReadEmployees: boolean,
+    delegation?: OrganizationScope['delegation'],
   ) {
     const unitId = filters.unitId ?? undefined;
     const sectorId = filters.sectorId ?? undefined;
     const [units, sectors, employees, unitOptions, sectorOptions] = await Promise.all([
       tx.unit.groupBy({
         by: ['isActive'],
-        where: { organizationId, id: unitId },
+        where: { organizationId, id: unitId, AND: unitDelegation(delegation) },
         _count: { _all: true },
       }),
       tx.sector.groupBy({
         by: ['isActive'],
-        where: { organizationId, unitId, id: sectorId },
+        where: { organizationId, unitId, id: sectorId, ...sectorDelegation(delegation) },
         _count: { _all: true },
       }),
       canReadEmployees
@@ -181,12 +196,12 @@ export class ManagementIndicatorsService {
           })
         : null,
       tx.unit.findMany({
-        where: { organizationId },
+        where: { organizationId, ...unitDelegation(delegation) },
         select: { id: true, name: true },
         orderBy: [{ name: 'asc' }, { id: 'asc' }],
       }),
       tx.sector.findMany({
-        where: { organizationId },
+        where: { organizationId, ...sectorDelegation(delegation) },
         select: { id: true, name: true, unitId: true },
         orderBy: [{ name: 'asc' }, { id: 'asc' }],
       }),
@@ -357,7 +372,7 @@ export class ManagementIndicatorsService {
     };
   }
 
-  snapshot(scope: ActionScope, query: ManagementIndicatorsQuery) {
+  snapshot(scope: OrganizationScope, query: ManagementIndicatorsQuery) {
     return this.database.client.$transaction(
       async (tx) => {
         const { canReadEmployees, ...context } = await this.context(tx, scope, query);
@@ -365,10 +380,16 @@ export class ManagementIndicatorsService {
         const { unitId, sectorId } = context.filters;
         const riskWhere = {
           organizationId,
-          assessmentGroup: { sector: { unitId: unitId ?? undefined, id: sectorId ?? undefined } },
+          assessmentGroup: {
+            sector: {
+              unitId: unitId ?? undefined,
+              id: sectorId ?? undefined,
+              ...sectorDelegation(scope.delegation),
+            },
+          },
         } satisfies Prisma.RiskWhereInput;
         const [structure, risks, actions] = await Promise.all([
-          this.structure(tx, organizationId, context.filters, canReadEmployees),
+          this.structure(tx, organizationId, context.filters, canReadEmployees, scope.delegation),
           this.risks(tx, riskWhere),
           this.actions(tx, { organizationId, risk: riskWhere }, context.referenceDate, query.page),
         ]);
@@ -384,7 +405,7 @@ export class ManagementIndicatorsService {
     );
   }
 
-  history(scope: ActionScope, query: ManagementIndicatorHistoryQuery) {
+  history(scope: OrganizationScope, query: ManagementIndicatorHistoryQuery) {
     return this.database.client.$transaction(
       async (tx) => {
         const {
@@ -412,6 +433,7 @@ export class ManagementIndicatorsService {
         const scoped = (snapshot: Prisma.Sql) => Prisma.sql`
         ${filters.unitId ? Prisma.sql`AND ${snapshot}->'unit'->>'id' = ${filters.unitId}` : Prisma.empty}
         ${filters.sectorId ? Prisma.sql`AND ${snapshot}->>'sectorId' = ${filters.sectorId}` : Prisma.empty}
+        ${delegatedSql(scope.delegation, Prisma.sql`${snapshot}->'unit'->>'id'`, Prisma.sql`${snapshot}->>'sectorId'`)}
       `;
         const period = (date: Prisma.Sql) => Prisma.sql`
         AND ${date} >= (${from}::date - 1)::timestamp

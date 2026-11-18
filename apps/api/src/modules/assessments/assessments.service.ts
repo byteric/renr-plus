@@ -10,6 +10,7 @@ import { createHash, createHmac, randomBytes } from 'node:crypto';
 import type {
   AssessmentCycleQuery,
   AssessmentConsolidationQuery,
+  AssessmentParticipationRate,
   CreateAssessmentCycle,
   UpdateAssessmentCycle,
   CreateConsolidationPolicy,
@@ -20,8 +21,14 @@ import type {
 } from '@renr/contracts';
 import { PrismaService } from '../../database/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
+import { participationProtected } from './assessment-eligibility';
 import { projectAssessment, type ResultInput } from './assessment-projection';
-type Scope = { userId: string; organizationId: string };
+import {
+  groupDelegation,
+  sectorDelegation,
+  unitDelegation,
+  type OrganizationScope as Scope,
+} from '../access/delegated-scope';
 type Page = { page: number; pageSize: number };
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 const instrumentInclude = {
@@ -104,7 +111,11 @@ export class AssessmentsService {
   }
   private async cycle(tx: Prisma.TransactionClient, s: Scope, id: string) {
     const c = await tx.assessmentCycle.findFirst({
-      where: { id, organizationId: s.organizationId },
+      where: {
+        id,
+        organizationId: s.organizationId,
+        assessmentGroup: groupDelegation(s.delegation),
+      },
       include,
     });
     if (!c) throw new NotFoundException();
@@ -244,19 +255,46 @@ export class AssessmentsService {
       throw new BadRequestException('Active context and matching published versions required');
   }
   async list(s: Scope, q: AssessmentCycleQuery) {
-    const { page, pageSize, ...filters } = q;
-    const where = { organizationId: s.organizationId, ...filters };
-    const [items, total] = await this.database.client.$transaction([
-      this.database.client.assessmentCycle.findMany({
-        where,
-        include,
-        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-      }),
-      this.database.client.assessmentCycle.count({ where }),
-    ]);
-    return { items: items.map(dto), total, page, pageSize };
+    const { page, pageSize, unitId, sectorId, ...filters } = q;
+    return this.database.client.$transaction(
+      async (tx) => {
+        const organizationId = s.organizationId;
+        if (unitId) {
+          const unit = await tx.unit.findFirst({
+            where: { id: unitId, organizationId, AND: unitDelegation(s.delegation) },
+            select: { id: true },
+          });
+          if (!unit) throw new NotFoundException();
+        }
+        if (sectorId) {
+          const sector = await tx.sector.findFirst({
+            where: { id: sectorId, organizationId, ...sectorDelegation(s.delegation) },
+            select: { unitId: true },
+          });
+          if (!sector) throw new NotFoundException();
+          if (unitId && unitId !== sector.unitId)
+            throw new BadRequestException('Setor não pertence à unidade.');
+        }
+        const where: Prisma.AssessmentCycleWhereInput = {
+          organizationId,
+          ...filters,
+          assessmentGroup:
+            unitId || sectorId || s.delegation
+              ? { sector: { id: sectorId, unitId, ...sectorDelegation(s.delegation) } }
+              : undefined,
+        };
+        const items = await tx.assessmentCycle.findMany({
+          where,
+          include,
+          orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+        });
+        const total = await tx.assessmentCycle.count({ where });
+        return { items: items.map(dto), total, page, pageSize };
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+    );
   }
   async get(s: Scope, id: string) {
     return dto(await this.cycle(this.database.client, s, id));
@@ -294,7 +332,10 @@ export class AssessmentsService {
       const c = await this.cycle(tx, s, id);
       if (c.revision !== revision || c.status !== (status === 'OPEN' ? 'DRAFT' : 'OPEN'))
         throw new ConflictException();
+      let eligibleCount: number | undefined;
       if (status === 'OPEN') {
+        // Serialize the roster snapshot with manual edits and batch imports.
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${s.organizationId}))::text`;
         await this.context(tx, s, {
           ...dto(c),
           startsAt: c.startsAt.toISOString(),
@@ -302,13 +343,21 @@ export class AssessmentsService {
         });
         if (c.startsAt.getTime() > Date.now() || c.endsAt.getTime() <= Date.now())
           throw new ConflictException('Collection period unavailable');
+        eligibleCount = await tx.employee.count({
+          where: {
+            organizationId: s.organizationId,
+            unitId: c.assessmentGroup.sector.unitId,
+            sectorId: c.assessmentGroup.sectorId,
+            isActive: true,
+          },
+        });
       }
       const result = await tx.assessmentCycle.update({
         where: { id },
         data: {
           status,
           revision: { increment: 1 },
-          ...(status === 'CLOSED' ? { closedAt: new Date() } : {}),
+          ...(status === 'CLOSED' ? { closedAt: new Date() } : { eligibleCount }),
         },
         include,
       });
@@ -320,6 +369,12 @@ export class AssessmentsService {
     return this.write(async (tx) => {
       await this.lock(tx, s, id);
       const c = await this.cycle(tx, s, id);
+      // Recheck after acquiring the cycle lock, and serialize issuing against membership changes.
+      await tx.$queryRaw`SELECT user_id FROM memberships WHERE user_id = ${s.userId}::uuid AND organization_id = ${s.organizationId}::uuid FOR SHARE`;
+      const member = await tx.membership.findUnique({ where: { userId_organizationId: s } });
+      if (!member?.isActive) throw new NotFoundException();
+      if (member.role !== 'ADMIN' && !member.hrCapabilities.includes('HR_ASSESSMENT_INVITES_ISSUE'))
+        throw new ForbiddenException();
       this.available(c);
       const invites = [];
       for (let n = 0; n < count; n++) {
@@ -359,6 +414,7 @@ export class AssessmentsService {
       cycleName: c.name,
       endsAt: c.endsAt,
       usageMode: c.instrumentVersion.usageMode,
+      privacy: { minimumResponses: c.policyVersion.minimumResponses! },
       instrument: {
         id: c.instrumentVersionId,
         title: c.instrumentVersion.title,
@@ -510,19 +566,50 @@ export class AssessmentsService {
   }
   async results(s: Scope, id: string) {
     const c = await this.cycle(this.database.client, s, id);
-    const responses = await this.database.client.assessmentResponse.findMany({
-      where: { organizationId: s.organizationId, cycleId: id },
-      include: { answers: true },
-    });
+    const where = { organizationId: s.organizationId, cycleId: id };
+    const responses =
+      c.status === 'CLOSED'
+        ? await this.database.client.assessmentResponse.findMany({
+            where,
+            include: { answers: true },
+          })
+        : [];
+    const minimumResponses = c.policyVersion.minimumResponses!;
+    let participation: AssessmentParticipationRate = { status: 'NOT_AVAILABLE' };
+    if (c.status === 'CLOSED') {
+      const eligible = c.eligibleCount;
+      if (!eligible) participation = { status: 'UNKNOWN_BASE' };
+      else {
+        const issued = await this.database.client.assessmentInvite.count({ where });
+        participation = participationProtected(eligible, responses.length, minimumResponses, issued)
+          ? { status: 'PROTECTED' }
+          : {
+              status: 'AVAILABLE',
+              eligible,
+              issued,
+              responses: responses.length,
+              percentage: Math.round((responses.length / eligible) * 10_000) / 100,
+            };
+      }
+    }
     return {
       organizationId: s.organizationId,
       instrumentVersionId: c.instrumentVersionId,
       policyVersionId: c.policyVersionId,
-      minimumResponses: c.policyVersion.minimumResponses!,
+      minimumResponses,
+      participation,
       node: projectAssessment(
-        { id: c.id, name: c.name, nodeType: 'CYCLE', status: c.status, responses, children: [] },
+        {
+          id: c.id,
+          name: c.name,
+          nodeType: 'CYCLE',
+          status: c.status,
+          protectedParticipation: participation.status === 'PROTECTED',
+          responses,
+          children: [],
+        },
         c.instrumentVersion.questions,
-        c.policyVersion.minimumResponses!,
+        minimumResponses,
       ),
     };
   }
@@ -542,9 +629,19 @@ export class AssessmentsService {
         organizationId: s.organizationId,
         instrumentVersionId: q.instrumentVersionId,
         policyVersionId: q.policyVersionId,
+        assessmentGroup: groupDelegation(s.delegation),
       },
-      include: { ...include, responses: { include: { answers: true } } },
+      include: {
+        ...include,
+        responses: { include: { answers: true } },
+        _count: { select: { invites: true } },
+      },
     });
+    if (
+      s.delegation &&
+      !cycles.some((cycle) => !q.unitId || cycle.assessmentGroup.sector.unitId === q.unitId)
+    )
+      throw new NotFoundException();
     const root: ResultInput = {
       id: org.id,
       name: org.name,
@@ -583,6 +680,14 @@ export class AssessmentsService {
         name: c.name,
         nodeType: 'CYCLE',
         status: c.status,
+        protectedParticipation:
+          c.status === 'CLOSED' &&
+          participationProtected(
+            c.eligibleCount,
+            c.responses.length,
+            p.minimumResponses!,
+            c._count.invites,
+          ),
         responses: c.responses,
         children: [],
       });

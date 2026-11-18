@@ -38,8 +38,16 @@ export class RiskRegistrationsController {
   @ApiResponse({ status: 404, description: 'Organization outside the active session scope.' })
   @ApiResponse({ status: 500, description: 'Sanitized dependency failure.' })
   async get(@Req() request: Request, @Param('orgId') orgId: string, @Query() query: unknown) {
-    const scope = await this.identity.scope(request, parse(z.uuid(), orgId), false);
+    const scope = await this.identity.scope(
+      request,
+      parse(z.uuid(), orgId),
+      false,
+      undefined,
+      true,
+    );
     const input = parse(riskRegistrationsQuerySchema, query);
-    return this.registrations.get(scope.organizationId, input.days);
+    return scope.delegation
+      ? this.registrations.get(scope.organizationId, input.days, scope.delegation)
+      : this.registrations.get(scope.organizationId, input.days);
   }
 }

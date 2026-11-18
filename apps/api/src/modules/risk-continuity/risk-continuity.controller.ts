@@ -48,7 +48,7 @@ export class RiskReassessmentsController {
       this.identity.assertOrigin(request);
       return this.identity.requireCapability(request, organizationId, 'TECHNICAL_DECISIONS');
     }
-    return this.identity.scope(request, organizationId, false);
+    return this.identity.scope(request, organizationId, false, undefined, true);
   }
   @Get('reassessment-context')
   @ApiResponse({ status: 200, schema: documentation(reassessmentContextSchema) })
@@ -151,7 +151,7 @@ export class ActionTechnicalClosuresController {
       this.identity.assertOrigin(request);
       return this.identity.requireCapability(request, organizationId, 'TECHNICAL_DECISIONS');
     }
-    return this.identity.scope(request, organizationId, false);
+    return this.identity.scope(request, organizationId, false, undefined, true);
   }
   @Get('closure-context')
   @ApiResponse({ status: 200, schema: documentation(technicalClosureContextSchema) })

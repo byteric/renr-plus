@@ -71,6 +71,36 @@ const list = <T extends z.ZodType>(item: T) =>
     .strict();
 export const employeeListSchema = list(employeeSchema);
 export const assessmentGroupListSchema = list(assessmentGroupSchema);
+export const employeeImportVersionSchema = z.string().regex(/^\d{1,13}\.[A-Za-z0-9_-]{43}$/);
+export const employeeImportPreviewSchema = z
+  .object({
+    version: employeeImportVersionSchema,
+    total: z.number().int().min(1).max(500),
+    ready: z.number().int().min(0).max(500),
+    existing: z.number().int().min(0).max(500),
+    invalid: z.number().int().min(0).max(500),
+    rows: z
+      .array(
+        z
+          .object({
+            row: z.number().int().min(2).max(1_048_576),
+            status: z.enum(['READY', 'EXISTING', 'INVALID']),
+            messages: z.array(z.string()),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(500),
+  })
+  .strict();
+export const employeeImportResultSchema = z
+  .object({
+    created: z.number().int().min(1).max(500),
+    skipped: z.number().int().min(0).max(500),
+  })
+  .strict();
+export type EmployeeImportPreview = z.infer<typeof employeeImportPreviewSchema>;
+export type EmployeeImportResult = z.infer<typeof employeeImportResultSchema>;
 export type Employee = z.infer<typeof employeeSchema>;
 export type CreateEmployee = z.infer<typeof createEmployeeSchema>;
 export type UpdateEmployee = z.infer<typeof updateEmployeeSchema>;

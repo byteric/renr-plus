@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import { AssessmentCycleForm as Form } from './components/assessments/AssessmentCycleForm';
@@ -122,74 +122,107 @@ it('exige confirmação textual e envia revisão ao abrir; não mostra resultado
   expect(screen.queryByText('Dados indevidos')).not.toBeInTheDocument();
 });
 
-it('mantém códigos somente na tela, copia manualmente e limpa ao trocar empresa', async () => {
-  const code = 'A'.repeat(43);
-  const copied = vi.fn(async () => {});
+it.each([false, true])(
+  'mantém códigos somente na tela e recupera confirmação incerta (%s)',
+  async (loseReply) => {
+    const code = 'A'.repeat(43);
+    const copied = vi.fn(async () => {});
+    const operation = {
+      id,
+      channel: 'MANUAL_CODE',
+      count: 1,
+      status: 'PENDING_CONFIRMATION',
+      expiresAt: cycle.endsAt,
+      issuedAt: null,
+    };
 
-  const posts: { url: string; body: unknown }[] = [];
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(async (input, options) => {
-      const url = String(input);
-      if (options?.method === 'POST') {
-        posts.push({ url, body: JSON.parse(options.body) });
-        return json({
-          cycleId: id,
-          participationPath: '/#/responder',
-          invites: [{ code, expiresAt: cycle.endsAt }],
-        });
-      }
-      if (url.includes('/sources')) return json({ items: [], total: 0, page: 1, pageSize: 20 });
-      if (url.endsWith('/results'))
-        return json({
-          organizationId: org,
-          instrumentVersionId: id,
-          policyVersionId: id,
-          minimumResponses: 5,
-          node: {
-            id,
-            name: cycle.name,
-            nodeType: 'CYCLE',
-            availability: 'COLLECTING',
-            responseCount: null,
-            questions: [],
-            children: [],
-          },
-        });
-      return json({ ...cycle, status: 'OPEN' });
-    }),
-  );
-  const props = {
-    organizationId: org,
-    cycleId: id,
-    canEdit: true,
-    onExpire: vi.fn(),
-    onEdit: vi.fn(),
-    onBack: vi.fn(),
-  };
-  const view = render(<Detail {...props} />);
-  const user = userEvent.setup();
-  Object.defineProperty(navigator, 'clipboard', {
-    configurable: true,
-    value: { writeText: copied },
-  });
-  await user.click(await screen.findByRole('button', { name: 'Gerar convites' }));
-  expect(await screen.findByText(code)).toBeVisible();
-  expect(posts).toEqual([
-    { url: `/api/v1/organizations/${org}/assessment-cycles/${id}/invites`, body: { count: 1 } },
-  ]);
-  expect(screen.getByRole('link', { name: 'Responder coleta' })).toHaveAttribute(
-    'href',
-    '/#/responder',
-  );
-  await user.click(screen.getByRole('button', { name: 'Copiar código 1' }));
-  expect(copied).toHaveBeenCalledWith(code);
-  expect(location.href).not.toContain(code);
-  expect(JSON.stringify(localStorage)).not.toContain(code);
-  expect(JSON.stringify(sessionStorage)).not.toContain(code);
-  view.rerender(<Detail {...props} organizationId="30000000-0000-4000-8000-000000000001" />);
-  expect(screen.queryByText(code)).not.toBeInTheDocument();
-});
+    const posts: { url: string; body: unknown }[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input, options) => {
+        const url = String(input);
+        if (options?.method === 'POST' && url.includes('/invite-deliveries')) {
+          posts.push({ url, body: JSON.parse(options.body) });
+          if (url.endsWith('/preview')) return json(operation, 201);
+          if (loseReply) throw new TypeError('Resposta indisponível');
+          return json({
+            operation: { ...operation, status: 'ISSUED', issuedAt: stamp },
+            participationPath: '/#/responder',
+            invites: [{ code, expiresAt: cycle.endsAt }],
+            requiresReview: false,
+          });
+        }
+        if (url.endsWith('/invite-deliveries')) return json({ items: [] });
+        if (url.endsWith(`/invite-deliveries/${id}`))
+          return json({ ...operation, status: 'ISSUED', issuedAt: stamp });
+        if (url.includes('/sources')) return json({ items: [], total: 0, page: 1, pageSize: 20 });
+        if (url.endsWith('/results'))
+          return json({
+            organizationId: org,
+            instrumentVersionId: id,
+            policyVersionId: id,
+            minimumResponses: 5,
+            node: {
+              id,
+              name: cycle.name,
+              nodeType: 'CYCLE',
+              availability: 'COLLECTING',
+              responseCount: null,
+              questions: [],
+              children: [],
+            },
+          });
+        return json({ ...cycle, status: 'OPEN' });
+      }),
+    );
+    const props = {
+      organizationId: org,
+      cycleId: id,
+      canEdit: true,
+      onExpire: vi.fn(),
+      onEdit: vi.fn(),
+      onBack: vi.fn(),
+    };
+    const view = render(<Detail {...props} />);
+    const user = userEvent.setup();
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: copied },
+    });
+    const deliveries = `/api/v1/organizations/${org}/assessment-cycles/${id}/invite-deliveries`;
+    await user.click(await screen.findByRole('button', { name: 'Preparar convites' }));
+    expect(await screen.findByRole('heading', { name: 'Prévia da entrega manual' })).toBeVisible();
+    expect(screen.queryByText(code)).not.toBeInTheDocument();
+    expect(posts).toEqual([
+      {
+        url: `${deliveries}/preview`,
+        body: { channel: 'MANUAL_CODE', count: 1, idempotencyKey: expect.any(String) },
+      },
+    ]);
+    await user.click(screen.getByRole('button', { name: 'Gerar convites' }));
+    if (loseReply) {
+      await user.click(await screen.findByRole('button', { name: 'Consultar operação' }));
+      expect(await screen.findByText(/Confira o repasse dos convites/)).toBeVisible();
+      expect(screen.queryByText(code)).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Gerar convites' })).not.toBeInTheDocument();
+      expect(posts).toHaveLength(2);
+      return;
+    }
+    expect(await screen.findByText(code)).toBeVisible();
+    expect(posts.slice(1)).toEqual([{ url: `${deliveries}/${id}/confirm`, body: {} }]);
+    expect(screen.getByRole('link', { name: 'Responder coleta' })).toHaveAttribute(
+      'href',
+      '/#/responder',
+    );
+    await user.click(screen.getByRole('button', { name: 'Copiar código 1' }));
+    expect(copied).toHaveBeenCalledWith(code);
+    expect(location.href).not.toContain(code);
+    expect(JSON.stringify(localStorage)).not.toContain(code);
+    expect(JSON.stringify(sessionStorage)).not.toContain(code);
+    view.rerender(<Detail {...props} organizationId="30000000-0000-4000-8000-000000000001" />);
+    expect(screen.queryByText(code)).not.toBeInTheDocument();
+  },
+);
 it('leitor não recebe ações de edição, transição ou emissão de convites', async () => {
   vi.stubGlobal(
     'fetch',
@@ -228,5 +261,59 @@ it('leitor não recebe ações de edição, transição ou emissão de convites'
   await screen.findByRole('heading', { name: cycle.name });
   expect(screen.queryByRole('button', { name: 'Editar rascunho' })).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Encerrar coleta' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Preparar convites' })).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Gerar convites' })).not.toBeInTheDocument();
+});
+
+it.each([
+  ['AVAILABLE', '75%', { eligible: 20, issued: 22, responses: 15, percentage: 75 }],
+  ['PROTECTED', 'Adesão protegida', {}],
+  ['UNKNOWN_BASE', 'Base de elegíveis indisponível', {}],
+] as const)('mostra somente a adesão autorizada (%s)', async (status, text, values) => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input) => {
+      const url = String(input);
+      if (url.includes('/sources')) return json({ items: [], total: 0, page: 1, pageSize: 20 });
+      if (url.endsWith('/results'))
+        return json({
+          organizationId: org,
+          instrumentVersionId: id,
+          policyVersionId: id,
+          minimumResponses: 5,
+          node: {
+            id,
+            name: cycle.name,
+            nodeType: 'CYCLE',
+            questions: [],
+            children: [],
+            availability: status === 'AVAILABLE' ? 'AVAILABLE' : 'SUPPRESSED',
+            responseCount: status === 'AVAILABLE' ? 15 : null,
+          },
+          participation: { status, ...values },
+        });
+      return json({ ...cycle, status: 'CLOSED', closedAt: cycle.endsAt });
+    }),
+  );
+  render(
+    <Detail
+      organizationId={org}
+      cycleId={id}
+      canEdit={false}
+      onExpire={vi.fn()}
+      onEdit={vi.fn()}
+      onBack={vi.fn()}
+    />,
+  );
+  const panel = await screen.findByRole('region', { name: 'Adesão à coleta' });
+  expect(within(panel).getByText(text)).toBeVisible();
+  if (status === 'AVAILABLE') {
+    expect(within(panel).getByText('20', { exact: true })).toBeVisible();
+    expect(within(panel).getByText('22', { exact: true })).toBeVisible();
+    expect(within(panel).getByText('15', { exact: true })).toBeVisible();
+  } else {
+    expect(
+      within(panel).queryByText(/participantes elegíveis|convites emitidos|respostas válidas/i),
+    ).not.toBeInTheDocument();
+  }
 });

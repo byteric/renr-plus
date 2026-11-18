@@ -9,6 +9,7 @@ export const capabilitySchema = z.enum([
   'HR_COMPENSATION_READ',
   'HR_COMPENSATION_MANAGE',
   'HR_EXPORT',
+  'HR_ASSESSMENT_INVITES_ISSUE',
 ]);
 const capabilitiesSchema = z
   .array(capabilitySchema)

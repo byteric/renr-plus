@@ -18,7 +18,14 @@ import {
 import { PrismaService } from '../../database/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
 
-type Scope = { userId: string; organizationId: string };
+import { groupDelegation, type OrganizationScope as Scope } from '../access/delegated-scope';
+
+function diagnosticDelegation(delegation: Scope['delegation']): Prisma.DiagnosticCycleWhereInput {
+  if (!delegation) return {};
+  // Anonymous legacy answers have no sector key; only whole-cycle access is safe.
+  const group = { assessmentGroup: groupDelegation(delegation) };
+  return { groups: { some: group, every: group } };
+}
 type Page = { page: number; pageSize: number };
 const instrumentInclude = {
   questions: {
@@ -133,9 +140,10 @@ export class DiagnosticsService {
     tx: Prisma.TransactionClient,
     organizationId: string,
     id: string,
+    delegation?: Scope['delegation'],
   ): Promise<Cycle> {
     const cycle = await tx.diagnosticCycle.findFirst({
-      where: { id, organizationId },
+      where: { id, organizationId, ...diagnosticDelegation(delegation) },
       include: cycleInclude,
     });
     if (!cycle) throw new NotFoundException();
@@ -181,7 +189,10 @@ export class DiagnosticsService {
     return this.toInstrument(instrument);
   }
   async list(scope: Scope, pagination: Page) {
-    const where = { organizationId: scope.organizationId };
+    const where = {
+      organizationId: scope.organizationId,
+      ...diagnosticDelegation(scope.delegation),
+    };
     const [cycles, total] = await this.database.client.$transaction([
       this.database.client.diagnosticCycle.findMany({
         where,
@@ -195,7 +206,9 @@ export class DiagnosticsService {
     return { items: cycles.map((cycle) => this.toCycle(cycle)), total, ...pagination };
   }
   async get(scope: Scope, id: string): Promise<DiagnosticCycle> {
-    return this.toCycle(await this.requireCycle(this.database.client, scope.organizationId, id));
+    return this.toCycle(
+      await this.requireCycle(this.database.client, scope.organizationId, id, scope.delegation),
+    );
   }
   async create(scope: Scope, input: CreateDiagnosticCycle): Promise<DiagnosticCycle> {
     return this.database.client.$transaction(async (tx) => {
@@ -389,7 +402,7 @@ export class DiagnosticsService {
   async results(scope: Scope, id: string): Promise<DiagnosticResults> {
     return this.database.client.$transaction(
       async (tx) => {
-        const cycle = await this.requireCycle(tx, scope.organizationId, id);
+        const cycle = await this.requireCycle(tx, scope.organizationId, id, scope.delegation);
         const hidden = {
           cycleId: id,
           responseCount: null,
@@ -431,8 +444,9 @@ export class DiagnosticsService {
                 percentage: Math.round((count / responseCount) * 10000) / 100,
               };
             });
+            const belowMinimum = (count: number) => count > 0 && count < DEMO_MINIMUM_RESPONSES;
             const suppressed = options.some(
-              (option) => option.count > 0 && option.count < DEMO_MINIMUM_RESPONSES,
+              ({ count }) => belowMinimum(count) || belowMinimum(responseCount - count),
             );
             return {
               id: question.id,

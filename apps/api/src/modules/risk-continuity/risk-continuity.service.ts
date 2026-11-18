@@ -30,6 +30,7 @@ import {
   type EfficacyContext,
 } from '@renr/contracts';
 import { Prisma } from '../../generated/prisma/client';
+import { actionDelegation, riskDelegation } from '../access/delegated-scope';
 import {
   ActionsRepository,
   type ActionRecord,
@@ -136,7 +137,11 @@ export class RiskContinuityService {
   }
   private async risk(tx: Prisma.TransactionClient, scope: ActionScope, riskId: string) {
     const record = await tx.risk.findFirst({
-      where: { id: riskId, organizationId: scope.organizationId },
+      where: {
+        id: riskId,
+        organizationId: scope.organizationId,
+        ...riskDelegation(scope.delegation),
+      },
       include: riskInclude,
     });
     if (!record) throw new NotFoundException();
@@ -222,7 +227,8 @@ export class RiskContinuityService {
       const reassessment = await this.reassessmentFor(tx, scope, latest?.id);
       const group = risk.assessmentGroup;
       const blockingReasons: ReassessmentContext['blockingReasons'] = [];
-      const hasTechnicalCapability = member.capabilities.includes('TECHNICAL_DECISIONS');
+      const hasTechnicalCapability =
+        !member.scopeRestricted && member.capabilities.includes('TECHNICAL_DECISIONS');
       if (!hasTechnicalCapability) blockingReasons.push('NO_TECHNICAL_CAPABILITY');
       if (!latest) blockingReasons.push('NO_BASELINE');
       if (
@@ -263,7 +269,12 @@ export class RiskContinuityService {
   ): Promise<RiskReassessment> {
     const measures = [];
     for (const item of row.measures) {
-      const action = await this.actions.get(tx, scope.organizationId, item.actionId);
+      const action = await this.actions.get(
+        tx,
+        scope.organizationId,
+        item.actionId,
+        scope.delegation,
+      );
       const current = await this.efficacy.contextInTransaction(tx, scope, action);
       const [opinion] = await this.efficacy.opinionsInTransaction(
         tx,
@@ -479,7 +490,8 @@ export class RiskContinuityService {
           })
         : null;
     const blockingReasons: TechnicalClosureContext['blockingReasons'] = [];
-    const hasTechnicalCapability = member.capabilities.includes('TECHNICAL_DECISIONS');
+    const hasTechnicalCapability =
+      !member.scopeRestricted && member.capabilities.includes('TECHNICAL_DECISIONS');
     if (!hasTechnicalCapability) blockingReasons.push('NO_TECHNICAL_CAPABILITY');
     if (action.status !== 'IMPLEMENTED') blockingReasons.push('ACTION_NOT_IMPLEMENTED');
     if (efficacy.blockingReasons.includes('ORIGIN_INACTIVE'))
@@ -523,13 +535,13 @@ export class RiskContinuityService {
       this.closureContextInTransaction(
         tx,
         scope,
-        await this.actions.get(tx, scope.organizationId, actionId),
+        await this.actions.get(tx, scope.organizationId, actionId, scope.delegation),
       ),
     );
   }
   closures(scope: ActionScope, actionId: string, page: Page): Promise<TechnicalClosureList> {
     return this.actions.snapshot(async (tx) => {
-      const action = await this.actions.get(tx, scope.organizationId, actionId);
+      const action = await this.actions.get(tx, scope.organizationId, actionId, scope.delegation);
       const context = await this.closureContextInTransaction(tx, scope, action);
       const where = { organizationId: scope.organizationId, actionId };
       const rows = await tx.actionTechnicalClosure.findMany({
@@ -555,7 +567,7 @@ export class RiskContinuityService {
   }
   closure(scope: ActionScope, actionId: string, id: string): Promise<TechnicalClosure> {
     return this.actions.snapshot(async (tx) => {
-      const action = await this.actions.get(tx, scope.organizationId, actionId);
+      const action = await this.actions.get(tx, scope.organizationId, actionId, scope.delegation);
       const context = await this.closureContextInTransaction(tx, scope, action);
       const row = await tx.actionTechnicalClosure.findFirst({
         where: { id, actionId, organizationId: scope.organizationId },
@@ -634,8 +646,12 @@ export class RiskContinuityService {
   ): Promise<CorrectiveActionList> {
     return this.actions.snapshot(async (tx) => {
       await this.member(tx, scope);
-      await this.actions.get(tx, scope.organizationId, actionId);
-      const where = { organizationId: scope.organizationId, previousActionId: actionId };
+      await this.actions.get(tx, scope.organizationId, actionId, scope.delegation);
+      const where = {
+        organizationId: scope.organizationId,
+        previousActionId: actionId,
+        ...(scope.delegation ? { newAction: actionDelegation(scope.delegation) } : {}),
+      };
       const rows = await tx.actionCorrectiveLink.findMany({
         where,
         include: { author },

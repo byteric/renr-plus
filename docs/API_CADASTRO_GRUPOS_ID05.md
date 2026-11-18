@@ -34,3 +34,16 @@ Listas retornam `{ items, total, page, pageSize }`, com página iniciando em 1, 
 As telas `#/colaboradores` e `#/grupos` preservam filtros e página na URL. Edição usa `edit=<id>`; criação, `edit=new`. Cancelar retorna à lista no contexto anterior. Falhas recuperáveis mantêm o rascunho em memória; 409 orienta cancelar e reabrir a versão atual antes de reenviar. Trocar unidade limpa a seleção de setor. Nenhum rascunho nominal é salvo no armazenamento do navegador.
 
 Atribuir usuários a ações permanece no ID 13. Essa evolução não vincula colaboradores a quem respondeu aos diagnósticos nem amplia permissões técnicas.
+
+## Importar colaboradores por Excel
+
+Em **Colaboradores → Importar Excel**, a administração da empresa pode baixar o modelo ReNR+. Preencha a aba `Colaboradores` com `Matrícula`, `Nome`, `Unidade` e `Setor`. A matrícula deve ser texto para preservar zeros iniciais. Unidade e setor devem existir, estar ativos e corresponder à hierarquia da empresa selecionada. A conversão direta do modelo recebido do RH depende da confirmação do significado de `ID` e do mapeamento de unidade.
+
+As rotas abaixo usam `multipart/form-data` e exigem administração da empresa ativa. O limite é de 1 MiB por arquivo e 500 linhas preenchidas.
+
+| Rota                            | Campos e resultado                                                                                                                              |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST employees/import/preview` | Recebe `file`. Retorna 200 com versão da prévia, totais e situação por linha (`READY`, `EXISTING`, `INVALID`). A prévia só consulta o cadastro. |
+| `POST employees/import/confirm` | Recebe o mesmo `file` e a `version` emitida há menos de 15 minutos. Retorna 201 com `created` e `skipped`.                                      |
+
+O lote precisa ter ao menos um novo cadastro e nenhuma linha inválida. Matrículas repetidas no arquivo são inválidas. Matrículas já cadastradas na empresa são sinalizadas e preservadas. A confirmação revalida o arquivo, a sessão e as referências. Uma mudança que invalide a prévia, o reinício da API ou o reenvio de um lote já gravado retorna 409 e orienta gerar nova prévia. A gravação e a auditoria ocorrem na mesma transação. A auditoria registra a operação, autora ou autor, empresa, data e totais. O arquivo e o conteúdo nominal das linhas ficam em memória durante as solicitações.

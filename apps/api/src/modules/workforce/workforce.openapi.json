@@ -564,6 +564,148 @@
           }
         }
       }
+    },
+    "/api/v1/organizations/{orgId}/employees/import/preview": {
+      "post": {
+        "operationId": "previewEmployeeImport",
+        "summary": "Preview a workbook of up to 500 employee records without writing",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["file"],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "A .xlsx workbook up to 1 MiB, containing the Colaboradores sheet from the official template."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success; private no-store",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/employeeImportPreviewSchema"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid multipart format or workbook layout"
+          },
+          "401": {
+            "description": "Session required"
+          },
+          "403": {
+            "description": "ADMIN and trusted Origin required"
+          },
+          "404": {
+            "description": "Organization unavailable in the active session"
+          },
+          "413": {
+            "description": "Workbook exceeds 1 MiB"
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{orgId}/employees/import/confirm": {
+      "post": {
+        "operationId": "confirmEmployeeImport",
+        "summary": "Confirm a previewed import in one transaction",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["file", "version"],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "A .xlsx workbook up to 1 MiB, containing the Colaboradores sheet from the official template."
+                  },
+                  "version": {
+                    "$ref": "#/components/schemas/employeeImportVersionSchema"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success; private no-store",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/employeeImportResultSchema"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid multipart format or workbook layout"
+          },
+          "401": {
+            "description": "Session required"
+          },
+          "403": {
+            "description": "ADMIN and trusted Origin required"
+          },
+          "404": {
+            "description": "Organization unavailable in the active session"
+          },
+          "409": {
+            "description": "Preview expired, changed, invalid or without new eligible rows"
+          },
+          "413": {
+            "description": "Workbook exceeds 1 MiB"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1066,6 +1208,88 @@
           }
         },
         "required": ["version"],
+        "additionalProperties": false
+      },
+      "employeeImportVersionSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "string",
+        "pattern": "^\\d{1,13}\\.[A-Za-z0-9_-]{43}$"
+      },
+      "employeeImportPreviewSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "pattern": "^\\d{1,13}\\.[A-Za-z0-9_-]{43}$"
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500
+          },
+          "ready": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 500
+          },
+          "existing": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 500
+          },
+          "invalid": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 500
+          },
+          "rows": {
+            "minItems": 1,
+            "maxItems": 500,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "row": {
+                  "type": "integer",
+                  "minimum": 2,
+                  "maximum": 1048576
+                },
+                "status": {
+                  "type": "string",
+                  "enum": ["READY", "EXISTING", "INVALID"]
+                },
+                "messages": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": ["row", "status", "messages"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["version", "total", "ready", "existing", "invalid", "rows"],
+        "additionalProperties": false
+      },
+      "employeeImportResultSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "created": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500
+          },
+          "skipped": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 500
+          }
+        },
+        "required": ["created", "skipped"],
         "additionalProperties": false
       }
     }

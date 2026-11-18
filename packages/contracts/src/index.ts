@@ -1,8 +1,10 @@
 import { z } from 'zod';
 import { fiscalIdentifierInputSchema } from './fiscal-identifier';
+import { membershipScopeSchema } from './membership-scopes';
 export * from './fiscal-identifier';
 export * from './people-analytics';
 export * from './platform-administration';
+export * from './company-groups';
 export * from './reports';
 export * from './diagnostics';
 export * from './risks';
@@ -12,6 +14,7 @@ export * from './actions';
 export * from './action-overview';
 export * from './evidence';
 export * from './access';
+export * from './membership-scopes';
 export * from './evaluation-methods';
 export * from './risk-workspaces';
 export * from './action-workspaces';
@@ -73,6 +76,8 @@ export const sessionResponseSchema = z.object({
   memberships: z.array(membershipSchema),
   activeOrganizationId: z.uuid().nullable(),
   expiresAt: z.iso.datetime(),
+  organizationScopes: z.record(z.uuid(), z.array(membershipScopeSchema)).optional(),
+  hasCompanyGroups: z.boolean().optional(),
 });
 export const createOrganizationSchema = z
   .object({
@@ -145,4 +150,7 @@ export type UpdateSector = z.infer<typeof updateSectorSchema>;
 export * from './workforce';
 export * from './instruments';
 export * from './assessment-cycles';
+export * from './assessment-comparison';
+export * from './assessment-delivery';
 export * from './management-indicators';
+export * from './workspace-journey';

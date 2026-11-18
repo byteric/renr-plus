@@ -8,6 +8,7 @@ import type {
 } from '@renr/contracts';
 import { PrismaService } from '../../database/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
+import { EmployeeImports, normalizeEmployeeIdentifier } from './employee-import';
 type Scope = { userId: string; organizationId: string };
 const employeeSelect = {
   id: true,
@@ -42,7 +43,17 @@ const groupDto = ({ sector, ...group }: GroupRecord) => ({
 });
 @Injectable()
 export class WorkforceService {
-  constructor(private readonly database: PrismaService) {}
+  private readonly employeeImports: EmployeeImports;
+
+  constructor(private readonly database: PrismaService) {
+    this.employeeImports = new EmployeeImports(database);
+  }
+  previewEmployeeImport(scope: Scope, file: Express.Multer.File | undefined) {
+    return this.employeeImports.preview(scope, file);
+  }
+  confirmEmployeeImport(scope: Scope, file: Express.Multer.File | undefined, version: string) {
+    return this.employeeImports.confirm(scope, file, version);
+  }
   private async write<T>(
     scope: Scope,
     action: string,
@@ -145,7 +156,9 @@ export class WorkforceService {
           data: {
             ...input,
             organizationId: scope.organizationId,
-            normalizedIdentifier: input.internalIdentifier?.normalize('NFKC').toLowerCase() ?? null,
+            normalizedIdentifier: input.internalIdentifier
+              ? normalizeEmployeeIdentifier(input.internalIdentifier)
+              : null,
           },
           select: employeeSelect,
         }),
@@ -179,8 +192,9 @@ export class WorkforceService {
           version: { increment: 1 },
           ...(input.internalIdentifier !== undefined
             ? {
-                normalizedIdentifier:
-                  input.internalIdentifier?.normalize('NFKC').toLowerCase() ?? null,
+                normalizedIdentifier: input.internalIdentifier
+                  ? normalizeEmployeeIdentifier(input.internalIdentifier)
+                  : null,
               }
             : {}),
         },

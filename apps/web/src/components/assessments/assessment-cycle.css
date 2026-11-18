@@ -64,6 +64,20 @@
   margin: 0;
   overflow-wrap: anywhere;
 }
+.assessment-adhesion-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+  gap: var(--space-3);
+  margin: 0;
+}
+.assessment-adhesion-facts div {
+  border-inline-start: 2px solid var(--border);
+  padding-inline-start: var(--space-3);
+}
+.assessment-adhesion-facts dd {
+  margin: 0;
+  font-weight: 650;
+}
 .assessment-cycle-confirm {
   padding: var(--space-4);
   border: 1px solid var(--border);

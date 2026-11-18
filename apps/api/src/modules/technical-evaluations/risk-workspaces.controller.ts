@@ -48,7 +48,7 @@ export class RiskWorkspacesController {
       this.identity.assertOrigin(request);
       return this.identity.requireCapability(request, id, 'TECHNICAL_DECISIONS');
     }
-    return this.identity.scope(request, id, false);
+    return this.identity.scope(request, id, false, undefined, true);
   }
   @Get()
   @ApiResponse({ status: 200, schema: documentation(riskWorkspaceListSchema) })

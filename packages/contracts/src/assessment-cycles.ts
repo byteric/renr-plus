@@ -75,6 +75,8 @@ export const assessmentCycleQuerySchema = z
     ...pageFields,
     status: z.enum(['DRAFT', 'OPEN', 'CLOSED']).optional(),
     assessmentGroupId: z.uuid().optional(),
+    unitId: z.uuid().optional(),
+    sectorId: z.uuid().optional(),
   })
   .strict();
 export const assessmentCycleSchema = z
@@ -138,6 +140,10 @@ export const assessmentParticipationSchema = z
     cycleName: z.string(),
     endsAt: z.iso.datetime(),
     usageMode,
+    privacy: z
+      .object({ minimumResponses: z.number().int().min(2).max(1000) })
+      .strict()
+      .optional(),
     instrument: z
       .object({
         id: z.uuid(),
@@ -262,6 +268,19 @@ export const assessmentResultNodeSchema: z.ZodType<AssessmentResultNode> = z
         message: 'Protected node must hide counts and distributions',
       });
   });
+export const assessmentParticipationRateSchema = z.discriminatedUnion('status', [
+  z.object({ status: z.enum(['NOT_AVAILABLE', 'UNKNOWN_BASE', 'PROTECTED']) }).strict(),
+  z
+    .object({
+      status: z.literal('AVAILABLE'),
+      eligible: z.number().int().positive(),
+      issued: z.number().int().nonnegative(),
+      responses: z.number().int().nonnegative(),
+      percentage: z.number().min(0).max(100),
+    })
+    .strict(),
+]);
+export type AssessmentParticipationRate = z.infer<typeof assessmentParticipationRateSchema>;
 export const assessmentResultsSchema = z
   .object({
     organizationId: z.uuid(),
@@ -269,9 +288,10 @@ export const assessmentResultsSchema = z
     policyVersionId: z.uuid(),
     minimumResponses: z.number().int().min(2).max(1000),
     node: assessmentResultNodeSchema,
+    participation: assessmentParticipationRateSchema.optional(),
   })
   .strict();
-export const assessmentConsolidationSchema = assessmentResultsSchema;
+export const assessmentConsolidationSchema = assessmentResultsSchema.omit({ participation: true });
 export const assessmentConsolidationQuerySchema = z
   .object({ instrumentVersionId: z.uuid(), policyVersionId: z.uuid(), unitId: z.uuid().optional() })
   .strict();

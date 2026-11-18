@@ -36,6 +36,12 @@ import {
 } from './actions.repository';
 import { assertActionVersion } from './actions.service';
 import { lockOperationalActor, resolveAssignee } from './operational-access';
+import {
+  actionDelegation,
+  riskDelegation,
+  sectorDelegation,
+  unitDelegation,
+} from '../access/delegated-scope';
 
 const include = {
   ...actionInclude,
@@ -56,7 +62,12 @@ const include = {
   _count: { select: { evidence: true } },
 } satisfies Prisma.ActionInclude;
 type Record = Prisma.ActionGetPayload<{ include: typeof include }>;
-type Actor = { role: string; isActive: boolean; capabilities: readonly string[] } | null;
+type Actor = {
+  role: string;
+  isActive: boolean;
+  capabilities: readonly string[];
+  scopeRestricted?: boolean;
+} | null;
 
 function workspace(
   record: Record,
@@ -84,12 +95,16 @@ function workspace(
         }
       : null;
   const manager = Boolean(
-    actor?.isActive && record.organization.isActive && actor.role === 'ADMIN',
+    actor?.isActive &&
+    !actor.scopeRestricted &&
+    record.organization.isActive &&
+    actor.role === 'ADMIN',
   );
   const operator =
     manager ||
     Boolean(
       actor?.isActive &&
+      !actor.scopeRestricted &&
       record.organization.isActive &&
       actor.capabilities.includes('EXECUTE_ASSIGNED_ACTIONS') &&
       record.assignedUserId === userId,
@@ -154,7 +169,7 @@ export class ActionWorkspacesService {
     id: string,
   ): Promise<Record> {
     const record = await tx.action.findFirst({
-      where: { id, organizationId: scope.organizationId },
+      where: { id, organizationId: scope.organizationId, ...actionDelegation(scope.delegation) },
       include,
     });
     if (!record) throw new NotFoundException();
@@ -190,18 +205,30 @@ export class ActionWorkspacesService {
       const found =
         kind === 'risk'
           ? await tx.risk.findFirst({
-              where: { id, organizationId: scope.organizationId },
+              where: {
+                id,
+                organizationId: scope.organizationId,
+                ...riskDelegation(scope.delegation),
+              },
               select: { id: true },
             })
           : await tx.unit.findFirst({
-              where: { id, organizationId: scope.organizationId },
+              where: {
+                id,
+                organizationId: scope.organizationId,
+                AND: unitDelegation(scope.delegation),
+              },
               select: { id: true },
             });
       if (!found) throw new NotFoundException();
     }
     if (query.sectorId) {
       const sector = await tx.sector.findFirst({
-        where: { id: query.sectorId, organizationId: scope.organizationId },
+        where: {
+          id: query.sectorId,
+          organizationId: scope.organizationId,
+          ...sectorDelegation(scope.delegation),
+        },
         select: { unitId: true },
       });
       if (!sector) throw new NotFoundException();
@@ -225,6 +252,7 @@ export class ActionWorkspacesService {
       risk: {
         assessmentGroup: {
           sector: {
+            ...sectorDelegation(scope.delegation),
             ...(query.unitId ? { unitId: query.unitId } : {}),
             ...(query.sectorId ? { id: query.sectorId } : {}),
           },
@@ -322,7 +350,8 @@ export class ActionWorkspacesService {
           userId: member.userId,
           name: member.user.name,
           canExecute:
-            member.role === 'ADMIN' || member.capabilities.includes('EXECUTE_ASSIGNED_ACTIONS'),
+            !member.scopeRestricted &&
+            (member.role === 'ADMIN' || member.capabilities.includes('EXECUTE_ASSIGNED_ACTIONS')),
         })),
         total: await tx.membership.count({ where }),
         page: query.page,
@@ -336,7 +365,7 @@ export class ActionWorkspacesService {
     page: { page: number; pageSize: number },
   ): Promise<ActionWorkspaceHistoryList> {
     return this.repository.snapshot(async (tx) => {
-      await this.repository.get(tx, scope.organizationId, id);
+      await this.repository.get(tx, scope.organizationId, id, scope.delegation);
       const where = { organizationId: scope.organizationId, actionId: id };
       const records = await tx.actionRevision.findMany({
         where,

@@ -248,11 +248,25 @@ export async function renderReportPdf(
     if (headingHeight > 200)
       throw new ReportPdfLimitError('Limite de altura dos cabeçalhos atingido. Reduza o recorte.');
     const titleLines = wrap(section.title, WIDTH, 14, 'Heading');
-    if (y + Math.min(titleLines.length, 3) * 21 + headingHeight + 30 > BODY_END) newPage();
+    const keepRows = snapshot.executiveVersion === 1 && section.key.startsWith('executive-');
+    const wrapCells = (row: string[]) =>
+      row.map((cell) => wrap(cell, columnWidth - 2 * CELL_PADDING));
+    const countLines = (cells: string[][]) => Math.max(1, ...cells.map((lines) => lines.length));
+    const firstCells = keepRows && section.rows[0] ? wrapCells(section.rows[0]) : null;
+    const pageHeight = BODY_END - BODY_TOP;
+    const titleHeight = titleLines.length * 14 * 1.45 + 9;
+    const firstBlockHeight = firstCells
+      ? titleHeight + headingHeight + countLines(firstCells) * LINE + 2 * CELL_PADDING
+      : Infinity;
+    const startHeight =
+      firstBlockHeight <= pageHeight
+        ? firstBlockHeight
+        : Math.min(titleLines.length, 3) * 21 + headingHeight + 30;
+    if (y + startHeight > BODY_END) newPage();
     paragraph(section.title, 14, 'Heading', 9);
+    const repeated = titleLines.length <= 3 ? titleLines : [`Seção ${sectionIndex + 1}`];
     const header = (continuation = false) => {
       if (continuation) {
-        const repeated = titleLines.length <= 3 ? titleLines : [`Seção ${sectionIndex + 1}`];
         for (const line of repeated) {
           text(line, LEFT, y, 14, 'Heading');
           y += 21;
@@ -277,9 +291,20 @@ export async function renderReportPdf(
       y += headingHeight;
     };
     header();
+    const continuationCapacity = Math.floor(
+      (pageHeight - repeated.length * 21 - 19 - headingHeight - 2 * CELL_PADDING) / LINE,
+    );
     section.rows.forEach((row, rowIndex) => {
-      const cells = row.map((cell) => wrap(cell, columnWidth - 2 * CELL_PADDING));
-      const lineCount = Math.max(1, ...cells.map((lines) => lines.length));
+      const cells = rowIndex === 0 && firstCells ? firstCells : wrapCells(row);
+      const lineCount = countLines(cells);
+      if (
+        keepRows &&
+        lineCount <= continuationCapacity &&
+        y + lineCount * LINE + 2 * CELL_PADDING > BODY_END
+      ) {
+        newPage();
+        header(true);
+      }
       let offset = 0;
       while (offset < lineCount) {
         check();

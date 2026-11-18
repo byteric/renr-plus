@@ -17,10 +17,14 @@ import {
 } from '@renr/contracts';
 import { PrismaService } from '../../database/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
+import { containsDelegatedScope } from '../access/delegated-scope';
 import { PlatformService } from '../platform/platform.service';
 import { PeopleAnalyticsService } from '../people/people-analytics.service';
 import { canReadExactPeopleIndicators, peopleDataAvailable } from '../people/people-availability';
 import { referenceDate } from '../actions/actions.repository';
+import { readAssessmentComparison } from '../assessments/assessment-comparison.service';
+import { executiveComparison } from './report-executive-comparison';
+import { captureExecutiveSst } from './report-executive-sst';
 import { captureSst } from './report-sst';
 import { renderReportPdf, ReportPdfLimitError, REPORT_PDF_LIMITS } from './report-pdf';
 import {
@@ -122,7 +126,12 @@ export class ReportsService {
     private readonly people: PeopleAnalyticsService,
   ) {}
   private async member(tx: Prisma.TransactionClient, scope: Scope) {
-    const m = await tx.membership.findUnique({ where: { userId_organizationId: scope } });
+    const m = await tx.membership.findUnique({
+      where: {
+        userId_organizationId: { userId: scope.userId, organizationId: scope.organizationId },
+      },
+      include: { scopes: { select: { unitId: true, sectorId: true } } },
+    });
     if (!m?.isActive) throw new NotFoundException();
     return m;
   }
@@ -199,7 +208,9 @@ export class ReportsService {
           financial: input.includeFinancial,
           nominal: input.kind === 'PEOPLE' && input.includeDetails,
         };
-        await this.authorize(tx, scope.userId, descriptor);
+        const member = await this.member(tx, scope);
+        if (member.scopeRestricted && input.kind !== 'SST') throw new ForbiddenException();
+        if (input.kind !== 'SST') await this.authorize(tx, scope.userId, descriptor);
         const org = await tx.organization.findUniqueOrThrow({
           where: { id: scope.organizationId },
         });
@@ -208,28 +219,88 @@ export class ReportsService {
         const unit = input.unitId
           ? await tx.unit.findFirst({
               where: { organizationId: org.id, id: input.unitId },
-              select: { name: true },
+              select: { id: true, name: true },
             })
           : null;
         if (input.unitId && !unit) throw new NotFoundException();
         const sector = input.sectorId
           ? await tx.sector.findFirst({
               where: { organizationId: org.id, id: input.sectorId },
-              select: { name: true, unitId: true, unit: { select: { name: true } } },
+              select: { id: true, name: true, unitId: true, unit: { select: { name: true } } },
             })
           : null;
         if (input.sectorId && !sector) throw new NotFoundException();
-        if (input.unitId && sector && sector.unitId !== input.unitId)
-          throw new BadRequestException();
+        if (unit && sector && sector.unitId !== unit.id) throw new BadRequestException();
+        const organizationalScope = sector
+          ? { unitId: sector.unitId, sectorId: sector.id }
+          : unit
+            ? { unitId: unit.id, sectorId: null }
+            : undefined;
+        if (
+          member.scopeRestricted &&
+          !containsDelegatedScope(
+            member.scopes,
+            organizationalScope?.unitId ?? null,
+            organizationalScope?.sectorId ?? null,
+          )
+        )
+          throw new NotFoundException();
         const filters = [
           { label: 'Unidade', value: unit?.name ?? sector?.unit.name ?? 'Todas' },
           { label: 'Setor', value: sector?.name ?? 'Todos' },
         ];
         let sections: ReportSection[], limitations: string[];
+        const executive = input.kind === 'SST' && input.sectionKeys?.includes('executive-summary');
         if (input.kind === 'SST') {
-          sections = await captureSst(tx, org.id, input);
-          if (input.sectionKeys)
-            sections = sections.filter((section) => input.sectionKeys!.includes(section.key));
+          const comparison = input.comparison
+            ? await readAssessmentComparison(
+                tx,
+                org.id,
+                {
+                  ...input.comparison,
+                  unitId: organizationalScope?.unitId,
+                  sectorId: organizationalScope?.sectorId ?? undefined,
+                },
+                member.scopeRestricted ? member.scopes : undefined,
+              )
+            : null;
+          const comparedCycles = new Set(
+            comparison ? [comparison.reference.id, comparison.current.id] : [],
+          );
+          const withheldCycles =
+            comparison?.participation.status === 'PROTECTED' ? comparedCycles : new Set<string>();
+          const withheldQuestions = new Set(
+            comparison?.factors
+              .filter(({ trend }) => trend.status === 'PROTECTED')
+              .map(({ questionId }) => questionId),
+          );
+          sections = executive
+            ? await captureExecutiveSst(
+                tx,
+                org.id,
+                input,
+                {
+                  unit: filters[0]!.value,
+                  sector: filters[1]!.value,
+                  today,
+                  timeZone: org.timezone,
+                },
+                withheldCycles,
+              )
+            : [];
+          if (comparison) sections.push(executiveComparison(comparison, org.timezone));
+          const technicalKeys = input.sectionKeys?.filter((key) => key !== 'executive-summary');
+          if (!technicalKeys || technicalKeys.length) {
+            const technical = await captureSst(tx, org.id, input, {
+              cycles: withheldCycles,
+              questions: { cycles: comparedCycles, ids: withheldQuestions },
+            });
+            sections.push(
+              ...(technicalKeys
+                ? technical.filter(({ key }) => technicalKeys.includes(key))
+                : technical),
+            );
+          }
           limitations = [
             'Retrato documental no instante da emissão; não certifica conformidade legal.',
             'Não inclui respostas individuais, dados financeiros de RH ou conteúdo binário das evidências.',
@@ -274,6 +345,8 @@ export class ReportsService {
         return this.persist(tx, scope.userId, {
           id: randomUUID(),
           ...descriptor,
+          ...(executive ? { executiveVersion: 1 } : {}),
+          ...(organizationalScope ? { organizationalScope } : {}),
           createdAt: now.toISOString(),
           referenceDate: today,
           timeZone: org.timezone,
@@ -527,7 +600,20 @@ export class ReportsService {
       await this.platform.authorize(tx, userId, 'READ_OVERVIEW');
       return Prisma.sql`organization_id IS NULL AND kind='PLATFORM'`;
     }
-    const { hrCapabilities } = await this.member(tx, { userId, organizationId });
+    const { hrCapabilities, scopeRestricted, scopes } = await this.member(tx, {
+      userId,
+      organizationId,
+    });
+    if (scopeRestricted) {
+      if (!scopes.length) return Prisma.sql`FALSE`;
+      const scopeChecks = scopes.map(
+        ({ unitId, sectorId }) => Prisma.sql`(
+        snapshot->'organizationalScope'->>'unitId' = ${unitId}
+        ${sectorId ? Prisma.sql`AND snapshot->'organizationalScope'->>'sectorId' = ${sectorId}` : Prisma.empty}
+      )`,
+      );
+      return Prisma.sql`organization_id=${organizationId}::uuid AND kind='SST' AND (${Prisma.join(scopeChecks, ' OR ')})`;
+    }
     const mayExport =
       hrCapabilities.includes('HR_EXPORT') &&
       hrCapabilities.includes('HR_ANALYTICS_READ') &&

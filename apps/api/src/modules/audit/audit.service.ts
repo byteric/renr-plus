@@ -12,6 +12,7 @@ import {
   type AuditTargetKind,
 } from '@renr/contracts';
 import { Prisma, type AuditEvent as StoredAuditEvent } from '../../generated/prisma/client';
+import { actionDelegation, riskDelegation } from '../access/delegated-scope';
 import {
   AuditRepository,
   datePredicate,
@@ -55,6 +56,7 @@ const labels: Record<string, string> = {
   SECTOR_UPDATE: 'Setor atualizado',
   EMPLOYEE_CREATE: 'Colaborador cadastrado',
   EMPLOYEE_UPDATE: 'Cadastro de colaborador atualizado',
+  EMPLOYEE_IMPORT: 'Colaboradores importados',
   ASSESSMENT_GROUP_CREATE: 'Grupo de avaliação criado',
   ASSESSMENT_GROUP_UPDATE: 'Grupo de avaliação atualizado',
   DIAGNOSTIC_CYCLE_CREATE: 'Ciclo diagnóstico criado',
@@ -292,11 +294,19 @@ export class AuditService {
       const resource =
         type === 'risk'
           ? await tx.risk.findFirst({
-              where: { id, organizationId: scope.organizationId },
+              where: {
+                id,
+                organizationId: scope.organizationId,
+                ...riskDelegation(scope.delegation),
+              },
               select: { id: true },
             })
           : await tx.action.findFirst({
-              where: { id, organizationId: scope.organizationId },
+              where: {
+                id,
+                organizationId: scope.organizationId,
+                ...actionDelegation(scope.delegation),
+              },
               select: { id: true },
             });
       if (!resource) throw new NotFoundException();
@@ -364,6 +374,23 @@ export class AuditService {
           (kind !== 'action' || record.id.startsWith('action:')),
       );
       if (!row) throw new NotFoundException();
+      if (scope.delegation) {
+        const where = { id: row.resourceId, organizationId: scope.organizationId };
+        const select = { id: true };
+        const visible =
+          row.resourceType === 'risk'
+            ? await tx.risk.findFirst({
+                where: { ...where, ...riskDelegation(scope.delegation) },
+                select,
+              })
+            : row.resourceType === 'action'
+              ? await tx.action.findFirst({
+                  where: { ...where, ...actionDelegation(scope.delegation) },
+                  select,
+                })
+              : null;
+        if (!visible) throw new NotFoundException();
+      }
       const actors = await this.repository.actors(tx, [row.actorId]);
       return auditRecordSchema.parse({
         event: fromRow(row, actors),

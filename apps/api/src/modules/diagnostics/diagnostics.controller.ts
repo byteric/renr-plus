@@ -49,9 +49,9 @@ export class DiagnosticsController {
     private readonly diagnostics: DiagnosticsService,
     private readonly identity: IdentityService,
   ) {}
-  private scope(request: Request, orgId: string, write = false) {
+  private scope(request: Request, orgId: string, write = false, allowRestricted = false) {
     if (write) this.identity.assertOrigin(request);
-    return this.identity.scope(request, parse(z.uuid(), orgId), write);
+    return this.identity.scope(request, parse(z.uuid(), orgId), write, undefined, allowRestricted);
   }
   @Get('organizations/:orgId/diagnostic-instrument')
   async instrument(@Req() request: Request, @Param('orgId') orgId: string) {
@@ -59,7 +59,10 @@ export class DiagnosticsController {
   }
   @Get('organizations/:orgId/diagnostic-cycles')
   async list(@Req() request: Request, @Param('orgId') orgId: string, @Query() query: unknown) {
-    return this.diagnostics.list(await this.scope(request, orgId), parse(paginationSchema, query));
+    return this.diagnostics.list(
+      await this.scope(request, orgId, false, true),
+      parse(paginationSchema, query),
+    );
   }
   @Post('organizations/:orgId/diagnostic-cycles')
   @ApiBody({
@@ -84,7 +87,7 @@ export class DiagnosticsController {
   }
   @Get('organizations/:orgId/diagnostic-cycles/:id')
   async get(@Req() request: Request, @Param('orgId') orgId: string, @Param('id') id: string) {
-    return this.diagnostics.get(await this.scope(request, orgId), parse(z.uuid(), id));
+    return this.diagnostics.get(await this.scope(request, orgId, false, true), parse(z.uuid(), id));
   }
   @Post('organizations/:orgId/diagnostic-cycles/:id/open')
   async open(@Req() request: Request, @Param('orgId') orgId: string, @Param('id') id: string) {
@@ -132,7 +135,10 @@ export class DiagnosticsController {
     @Query() query: unknown,
   ) {
     parse(z.object({}).strict(), query);
-    return this.diagnostics.results(await this.scope(request, orgId), parse(z.uuid(), id));
+    return this.diagnostics.results(
+      await this.scope(request, orgId, false, true),
+      parse(z.uuid(), id),
+    );
   }
   @Post('participation/instrument')
   @ApiBody({

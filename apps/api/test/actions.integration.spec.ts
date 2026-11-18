@@ -649,6 +649,15 @@ describeDatabase('Actions and private attachments against local PostgreSQL and M
       expect(downloaded.headers['content-disposition']).toContain('attachment;');
       expect(createHash('sha256').update(downloaded.body).digest('hex')).toBe(evidence.sha256);
       await api().get(route).expect(401);
+      const readerMembership = {
+        userId_organizationId: { userId: readerId, organizationId: orgId },
+      };
+      await db.client.membership.update({ where: readerMembership, data: { isActive: false } });
+      try {
+        await api().get(route).set('Cookie', readerCookie).expect(404);
+      } finally {
+        await db.client.membership.update({ where: readerMembership, data: { isActive: true } });
+      }
       const other = await post().send(input).expect(201);
       await api()
         .get(`${base}/actions/${other.body.id}/evidence/${evidence.id}/download`)

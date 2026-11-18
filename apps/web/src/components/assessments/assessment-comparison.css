@@ -1,0 +1,47 @@
+.assessment-compare,
+.assessment-cycle-pair,
+.assessment-cycle-pair-fields {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.assessment-cycle-pair-fields {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+}
+.assessment-cycle-pair {
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  grid-column: 1 / -1;
+}
+.assessment-compare-scroll {
+  overflow: auto;
+  max-width: 100%;
+}
+.assessment-compare-scroll table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: start;
+}
+.assessment-compare-scroll :is(th, td) {
+  text-align: start;
+  vertical-align: top;
+  border-block-end: 1px solid var(--border);
+  padding: var(--space-3);
+}
+.assessment-compare-scroll td {
+  font-variant-numeric: tabular-nums;
+}
+.assessment-compare-records {
+  display: grid;
+  gap: var(--space-3);
+  list-style: none;
+  padding: 0;
+}
+.assessment-compare-records li {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-inline-start: 2px solid var(--border);
+}

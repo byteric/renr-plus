@@ -22,6 +22,11 @@ const notices = {
     'A política de privacidade oculta a contagem e a distribuição deste recorte. Totais que permitiriam deduzir essas respostas também ficam protegidos.',
 };
 const percentage = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 });
+const participationNotice = {
+  NOT_AVAILABLE: 'A adesão ficará disponível após o encerramento, conforme a política da coleta.',
+  UNKNOWN_BASE: 'Base de elegíveis indisponível',
+  PROTECTED: 'Adesão protegida',
+};
 function ResultNode({ node, depth = 0 }: { node: AssessmentResultNode; depth?: number }) {
   const [expanded, setExpanded] = useState(false);
   return (
@@ -98,8 +103,43 @@ function ResultNode({ node, depth = 0 }: { node: AssessmentResultNode; depth?: n
   );
 }
 export function AssessmentResults({ value }: { value: ResultsData }) {
+  const participation = value.participation;
   return (
     <div className="assessment-results">
+      {participation && (
+        <section className="assessment-result-node" aria-label="Adesão à coleta">
+          <h3>Adesão à coleta</h3>
+          {participation.status === 'AVAILABLE' ? (
+            <>
+              <p className="assessment-result-count">
+                {percentage.format(participation.percentage)}%
+              </p>
+              <dl className="assessment-adhesion-facts">
+                <div>
+                  <dt>Participantes elegíveis</dt>
+                  <dd>{participation.eligible}</dd>
+                </div>
+                <div>
+                  <dt>Convites emitidos</dt>
+                  <dd>{participation.issued}</dd>
+                </div>
+                <div>
+                  <dt>Respostas válidas</dt>
+                  <dd>{participation.responses}</dd>
+                </div>
+              </dl>
+              <p className="input-hint">
+                A taxa usa os colaboradores elegíveis na abertura. A contagem de convites inclui
+                cada código emitido, inclusive códigos novos que substituam convites anteriores.
+              </p>
+            </>
+          ) : (
+            <StatusMessage tone={participation.status === 'PROTECTED' ? 'warning' : 'info'}>
+              {participationNotice[participation.status]}
+            </StatusMessage>
+          )}
+        </section>
+      )}
       <p className="input-hint">
         Mínimo configurado para divulgação: {value.minimumResponses} envios. A política também
         protege resultados que permitiriam deduzir respostas de grupos menores.

@@ -59,7 +59,7 @@ export class ActionsController {
   ) {}
   private scope(request: Request, orgId: string, write = false) {
     if (write) this.identity.assertOrigin(request);
-    return this.identity.scope(request, parse(z.uuid(), orgId), write);
+    return this.identity.scope(request, parse(z.uuid(), orgId), write, undefined, !write);
   }
   @Post('risks/:riskId/actions')
   @ApiBody({ schema: documentation(createActionSchema) })

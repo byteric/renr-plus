@@ -1,16 +1,25 @@
 import { useEffect, useRef, useState } from 'react';
-import { assessmentConsolidationSchema, type AssessmentResults as Result } from '@renr/contracts';
+import {
+  assessmentConsolidationSchema,
+  assessmentCycleListSchema,
+  type AssessmentResults as Result,
+} from '@renr/contracts';
 import { request, RequestError } from '../../lib/api';
 import { Button } from '../ui/button';
 import { AssessmentReferenceFields } from './AssessmentReferenceFields';
 import { AssessmentResults } from './AssessmentResults';
+import { useWorkforceData } from '../workforce/useWorkforceData';
+import { Pagination } from '../ui/pagination';
+import { StatusMessage } from '../ui/status-message';
 import './assessments-policies.css';
 export function AssessmentConsolidation({
   organizationId,
   onExpire,
+  delegated = false,
 }: {
   organizationId: string;
   onExpire: () => void;
+  delegated?: boolean;
 }) {
   const [instrumentId, setInstrumentId] = useState('');
   const [instrumentVersionId, setInstrumentVersionId] = useState('');
@@ -87,23 +96,36 @@ export function AssessmentConsolidation({
         Consulte a família formada pela versão exata do instrumento e da política. Os totais
         representam envios, sem identificar pessoas únicas.
       </p>
-      <AssessmentReferenceFields
-        organizationId={organizationId}
-        instrumentId={instrumentId}
-        instrumentVersionId={instrumentVersionId}
-        policyVersionId={policyVersionId}
-        disabled={pending}
-        onExpire={onExpire}
-        onInstrumentChange={(id, version) => {
-          clear();
-          setInstrumentId(id);
-          setInstrumentVersionId(version);
-        }}
-        onPolicyChange={(id) => {
-          clear();
-          setPolicyVersionId(id);
-        }}
-      />
+      {delegated ? (
+        <DelegatedCollectionReference
+          organizationId={organizationId}
+          disabled={pending}
+          onExpire={onExpire}
+          onSelect={(instrument, policy) => {
+            clear();
+            setInstrumentVersionId(instrument);
+            setPolicyVersionId(policy);
+          }}
+        />
+      ) : (
+        <AssessmentReferenceFields
+          organizationId={organizationId}
+          instrumentId={instrumentId}
+          instrumentVersionId={instrumentVersionId}
+          policyVersionId={policyVersionId}
+          disabled={pending}
+          onExpire={onExpire}
+          onInstrumentChange={(id, version) => {
+            clear();
+            setInstrumentId(id);
+            setInstrumentVersionId(version);
+          }}
+          onPolicyChange={(id) => {
+            clear();
+            setPolicyVersionId(id);
+          }}
+        />
+      )}
       {units.length > 0 && (
         <label>
           Recorte da unidade
@@ -117,7 +139,9 @@ export function AssessmentConsolidation({
               setError('');
             }}
           >
-            <option value="">Toda a organização</option>
+            <option value="">
+              {delegated ? 'Todos os recortes autorizados' : 'Toda a organização'}
+            </option>
             {units.map((u) => (
               <option key={u.id} value={u.id}>
                 {u.name}
@@ -145,5 +169,67 @@ export function AssessmentConsolidation({
         </>
       )}
     </section>
+  );
+}
+
+function DelegatedCollectionReference({
+  organizationId,
+  disabled,
+  onExpire,
+  onSelect,
+}: {
+  organizationId: string;
+  disabled: boolean;
+  onExpire: () => void;
+  onSelect: (instrumentVersionId: string, policyVersionId: string) => void;
+}) {
+  const [page, setPage] = useState(1);
+  const [cycleId, setCycleId] = useState('');
+  const { data, loading, error } = useWorkforceData(
+    `/organizations/${organizationId}/assessment-cycles?page=${page}&pageSize=20`,
+    assessmentCycleListSchema,
+    organizationId,
+    onExpire,
+  );
+  const items = data?.items ?? [];
+  if (error) return <StatusMessage tone="error">{error}</StatusMessage>;
+  if (loading) return <StatusMessage tone="loading">Carregando coletas autorizadas…</StatusMessage>;
+  if (data?.total === 0) return <StatusMessage>Nenhuma coleta no seu recorte.</StatusMessage>;
+  return (
+    <div className="assessment-reference-fields">
+      <label>
+        Coleta que define instrumento e política
+        <select
+          value={cycleId}
+          disabled={disabled}
+          onChange={(event) => {
+            const item = items.find(({ id }) => id === event.target.value);
+            setCycleId(item?.id ?? '');
+            onSelect(item?.instrumentVersionId ?? '', item?.policyVersionId ?? '');
+          }}
+        >
+          <option value="">Selecione uma coleta</option>
+          {items.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.name} · {item.sectorName}
+            </option>
+          ))}
+        </select>
+      </label>
+      {data && data.total > data.pageSize && (
+        <Pagination
+          page={page}
+          pageSize={data.pageSize}
+          total={data.total}
+          label="Páginas de coletas"
+          pending={disabled}
+          onPageChange={(next) => {
+            setPage(next);
+            setCycleId('');
+            onSelect('', '');
+          }}
+        />
+      )}
+    </div>
   );
 }

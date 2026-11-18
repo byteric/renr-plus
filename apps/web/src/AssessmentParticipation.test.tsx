@@ -97,6 +97,20 @@ async function requiredAnswers(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole('radio', { name: '2. Frequentemente' }));
 }
 
+it('explica o acesso aos resultados e a política da coleta antes das perguntas', async () => {
+  publicFixture = { ...access, ...{ privacy: { minimumResponses: 7 } } };
+  render(<App />);
+  await enter();
+  const notice = screen.getByRole('region', { name: 'Como suas respostas são protegidas' });
+  expect(notice).toHaveTextContent(/perfis autorizados da empresa/i);
+  expect(notice).toHaveTextContent(/mínimo de 7 respostas/i);
+  expect(notice).toHaveTextContent(/código individual.+identidade/i);
+  const firstQuestion = screen.getByRole('group', { name: /as orientações são claras/i });
+  expect(
+    notice.compareDocumentPosition(firstQuestion) & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+});
+
 it('abre a coleta pública sem consultar sessão nem solicitar identificação do participante', async () => {
   render(<App />);
   expect(await screen.findByLabelText('Código do convite')).toBeInTheDocument();

@@ -9,6 +9,7 @@ import { request, RequestError } from '../../lib/api';
 import { Button } from '../ui/button';
 import { StatusMessage } from '../ui/status-message';
 import { CapabilityFields } from './access-ui';
+import { MemberScopeEditor } from './MemberScopeEditor';
 
 export function AccessMemberEditor({
   member,
@@ -33,6 +34,7 @@ export function AccessMemberEditor({
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [pending, setPending] = useState(false);
+  const [showScopes, setShowScopes] = useState(false);
   const controller = useRef(new AbortController());
   const heading = useRef<HTMLHeadingElement>(null);
   const path = `/organizations/${member.organizationId}/access-memberships/${member.userId}`;
@@ -203,6 +205,28 @@ export function AccessMemberEditor({
           </Button>
         </div>
       </form>
+      {member.isActive && member.role === 'READER' && (
+        <>
+          <div>
+            <Button
+              variant="outline"
+              disabled={pending}
+              aria-expanded={showScopes}
+              onClick={() => setShowScopes((open) => !open)}
+            >
+              {showScopes ? 'Fechar recortes do vínculo' : 'Gerenciar recortes do vínculo'}
+            </Button>
+          </div>
+          {showScopes && (
+            <MemberScopeEditor
+              member={member}
+              onSaved={setVersion}
+              onExpire={onExpire}
+              onDenied={onDenied}
+            />
+          )}
+        </>
+      )}
     </section>
   );
 }

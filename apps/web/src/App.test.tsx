@@ -127,27 +127,90 @@ async function enter() {
   return user;
 }
 describe('acesso e estrutura organizacional', () => {
-  it('abre primeiro o painel da plataforma para quem tem leitura global', async () => {
+  it.each(['#/', '#/empresas', '#/coletas?status=OPEN'])(
+    'abre apenas a plataforma no acesso exclusivamente global em %s',
+    async (path) => {
+      window.history.replaceState(null, '', path);
+      authenticated = true;
+      const original = fetchMock.getMockImplementation()!;
+      fetchMock.mockImplementation(async (input, options) => {
+        if (String(input).endsWith('/auth/session'))
+          return json({ ...session, memberships: [], activeOrganizationId: null });
+        if (String(input).endsWith('/platform/capabilities'))
+          return json({ capabilities: ['READ_OVERVIEW'] });
+        if (String(input).includes('/platform/clients?'))
+          return json(
+            list(
+              [
+                organization,
+                {
+                  id: '10000000-0000-4000-8000-000000000099',
+                  name: 'Segunda empresa fictícia',
+                },
+              ].map((company) => ({
+                organizationId: company.id,
+                name: company.name,
+                fiscalIdentifier: null,
+                normalizedFiscalIdentifier: null,
+                fiscalState: 'MISSING',
+                clientClassification: 'DEMONSTRATION',
+                isActive: true,
+                version: 1,
+                employees: { active: 0, inactive: 0 },
+              })),
+            ),
+          );
+        if (String(input).endsWith('/platform/overview'))
+          return json({
+            generatedAt: timestamp,
+            timeZone: 'America/Sao_Paulo',
+            referenceDate: '2026-10-03',
+            scope: 'PLATFORM_SERVED_CLIENTS',
+            countingUnit: 'EMPLOYEE_RECORDS_NOT_UNIQUE_PEOPLE',
+            organizations: 2,
+            validatedCnpjs: 0,
+            activeClients: 2,
+            inactiveClients: 0,
+            unclassified: 0,
+            demonstrations: 2,
+            pendingFiscal: 2,
+            employees: { active: 0, inactive: 0 },
+          });
+        return original(input, options);
+      });
+      render(<App />);
+      expect(
+        await screen.findByRole('heading', { name: 'Administração da plataforma', level: 1 }),
+      ).toBeVisible();
+      expect(await screen.findByText('Segunda empresa fictícia')).toBeVisible();
+      expect(screen.getByText(organization.name)).toBeVisible();
+      expect(window.location.hash).toBe('#/plataforma');
+      expect(
+        fetchMock.mock.calls.some(([path]) => String(path).includes('/organizations?page=')),
+      ).toBe(false);
+      expect(screen.getByText('Consulta Global', { exact: true })).toBeVisible();
+      expect(screen.queryByLabelText('Empresa ativa')).not.toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: /^Painel$/ })).not.toBeInTheDocument();
+    },
+  );
+
+  it('preserva a empresa selecionada ao alternar explicitamente para a plataforma e voltar', async () => {
     window.history.replaceState(null, '', '#/');
     authenticated = true;
     const original = fetchMock.getMockImplementation()!;
     fetchMock.mockImplementation(async (input, options) =>
       String(input).endsWith('/platform/capabilities')
-        ? json({ capabilities: ['READ_OVERVIEW'] })
+        ? json({ capabilities: ['READ_OVERVIEW', 'MANAGE_CLIENTS'] })
         : original(input, options),
     );
-    render(<App />);
-    expect(
-      await screen.findByRole('heading', { name: 'Administração da plataforma', level: 1 }),
-    ).toBeVisible();
-    expect(window.location.hash).toBe('#/plataforma');
-    expect(
-      fetchMock.mock.calls.some(([path]) => String(path).includes('/organizations?page=')),
-    ).toBe(false);
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: 'Cadastros' }));
-    await user.click(screen.getByRole('link', { name: 'Empresas' }));
+    render(<App />);
     expect(await screen.findByRole('heading', { name: 'Empresas', level: 1 })).toBeVisible();
+    await user.click(await screen.findByRole('link', { name: 'Abrir Plataforma' }));
+    expect(await screen.findByText('Administração Global', { exact: true })).toBeVisible();
+    await user.click(await screen.findByRole('link', { name: 'Voltar à empresa ativa' }));
+    expect(await screen.findByRole('heading', { name: 'Painel', level: 1 })).toBeVisible();
+    expect(screen.getByRole('combobox', { name: 'Empresa ativa' })).toHaveValue(organizationId);
   });
 
   it('mantém a entrada da empresa para quem não tem leitura global', async () => {
@@ -400,6 +463,10 @@ describe('acesso e estrutura organizacional', () => {
     await user.type(screen.getByLabelText('Nome do setor'), 'Operações');
     await user.click(screen.getByRole('button', { name: 'Salvar setor' }));
     expect(await screen.findByRole('heading', { name: 'Operações' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Ver grupos de Operações' })).toHaveAttribute(
+      'href',
+      `#/grupos?unitId=${unitId}&sectorId=${sectors[0]!.id}`,
+    );
     await user.click(
       within(screen.getByRole('navigation', { name: 'Estrutura organizacional' })).getByRole(
         'link',

@@ -3,6 +3,7 @@ import { competenceSchema, hrListSchema, hrPaginationSchema } from './people-ana
 import { platformQuerySchema } from './platform-administration';
 export const reportKindSchema = z.enum(['SST', 'PEOPLE', 'PLATFORM']);
 export const sstReportSectionLabels = {
+  'executive-summary': 'Resumo executivo',
   inventory: 'Inventário de riscos',
   'technical-evaluations': 'Avaliações técnicas',
   preliminary: 'Avaliações preliminares',
@@ -36,10 +37,11 @@ export const createTenantReportSchema = z
     competence: competenceSchema.optional(),
     includeDetails: z.boolean().default(false),
     includeFinancial: z.boolean().default(false),
+    comparison: z.strictObject({ referenceCycleId: z.uuid(), currentCycleId: z.uuid() }).optional(),
     sectionKeys: z
       .array(z.string().min(1).max(60))
       .min(1)
-      .max(13)
+      .max(Object.keys(sstReportSectionLabels).length)
       .refine((keys) => new Set(keys).size === keys.length, 'Selecione cada seção uma vez.')
       .optional(),
   })
@@ -62,6 +64,12 @@ export const createTenantReportSchema = z
         ),
       ) ?? true,
     'Selecione seções do tipo de relatório escolhido.',
+  )
+  .refine(
+    (value) =>
+      !value.comparison ||
+      (value.kind === 'SST' && value.sectionKeys?.includes('executive-summary') === true),
+    'O comparativo pertence ao resumo executivo SST.',
   );
 export const createPlatformReportSchema = platformQuerySchema
   .omit({ page: true, pageSize: true })
@@ -76,8 +84,21 @@ export const reportSectionSchema = z
     columns: z.array(z.string()).min(1).max(8),
     rows: z.array(z.array(z.string())),
     notes: z.array(z.string()),
+    references: z
+      .array(
+        z.strictObject({
+          row: z.number().int().nonnegative(),
+          kind: z.enum(['RISK', 'ACTION', 'CYCLE']),
+          id: z.uuid(),
+          unitId: z.uuid().optional(),
+          sectorId: z.uuid().optional(),
+          riskId: z.uuid().optional(),
+        }),
+      )
+      .optional(),
   })
-  .strict();
+  .strict()
+  .refine((section) => section.references?.every(({ row }) => row < section.rows.length) ?? true);
 export const reportSnapshotSchema = z
   .object({
     id: z.uuid(),
@@ -89,6 +110,11 @@ export const reportSnapshotSchema = z
     referenceDate: z.iso.date(),
     timeZone: z.string(),
     title: z.string(),
+    executiveVersion: z.literal(1).optional(),
+    organizationalScope: z
+      .object({ unitId: z.uuid(), sectorId: z.uuid().nullable() })
+      .strict()
+      .optional(),
     context: z.string(),
     filters: z.array(z.object({ label: z.string(), value: z.string() }).strict()),
     sections: z.array(reportSectionSchema),

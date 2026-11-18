@@ -230,6 +230,23 @@ export function AssessmentParticipation() {
             <form ref={form} aria-label="Responder à coleta" onSubmit={review} noValidate>
               <p className="assessment-preserve-text">{access.instrument.description}</p>
               <p className="assessment-preserve-text">{access.instrument.instructions}</p>
+              <section
+                className="assessment-notice"
+                aria-label="Como suas respostas são protegidas"
+              >
+                <h2>Como suas respostas são protegidas</h2>
+                <p>
+                  Os perfis autorizados da empresa consultam resultados coletivos. O código
+                  individual libera um envio e suas respostas ficam separadas da sua identidade.
+                </p>
+                {access.privacy && (
+                  <p>
+                    Esta coleta exige um mínimo de {access.privacy.minimumResponses} respostas para
+                    divulgar resultados. Totais e recortes também podem ficar protegidos quando
+                    permitiriam deduzir a participação de um grupo pequeno.
+                  </p>
+                )}
+              </section>
               {access.instrument.questions.map((question, index) => (
                 <fieldset
                   className="question"

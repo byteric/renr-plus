@@ -17,6 +17,7 @@ import { StatusBadge } from '../ui/status-badge';
 import { Pagination } from '../ui/pagination';
 import { ReferenceSelect } from './ReferenceSelect';
 import { WorkforceEditor, type WorkforceItem, type WorkforceKind } from './WorkforceEditor';
+import { EmployeeImport } from './EmployeeImport';
 import { resource } from './workforce-paths';
 import './workforce.css';
 
@@ -305,9 +306,29 @@ function WorkforceManager({
             <h2 ref={heading} tabIndex={-1}>
               {employee ? 'Pessoas da organização' : 'Grupos por setor'}
             </h2>
-            <Button onClick={() => navigate({ ...filters, edit: 'new' })}>
-              {employee ? 'Novo colaborador' : 'Novo grupo'}
-            </Button>
+            <div className="form-actions">
+              {employee && (
+                <EmployeeImport
+                  employeesPath={base}
+                  onExpire={onExpire}
+                  onDenied={() => setDenied(true)}
+                  onConfirmed={({ created, skipped }) => {
+                    const imported = `${created} ${created === 1 ? 'novo cadastro' : 'novos cadastros'}.`;
+                    const preserved =
+                      skipped === 1
+                        ? ' 1 matrícula já cadastrada foi preservada.'
+                        : skipped > 1
+                          ? ` ${skipped} matrículas já cadastradas foram preservadas.`
+                          : '';
+                    setNotice(imported + preserved);
+                    setAttempt((value) => value + 1);
+                  }}
+                />
+              )}
+              <Button onClick={() => navigate({ ...filters, edit: 'new' })}>
+                {employee ? 'Novo colaborador' : 'Novo grupo'}
+              </Button>
+            </div>
           </div>
           <form
             className="surface workforce-filters"

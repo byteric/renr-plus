@@ -26,6 +26,7 @@ describe('Organization overview HTTP', () => {
     S3_SECRET_KEY: 'synthetic',
   });
   const getSnapshot = jest.fn();
+  const getJourney = jest.fn();
   const findUnique = jest.fn();
   let app: INestApplication;
   beforeAll(async () => {
@@ -33,7 +34,7 @@ describe('Organization overview HTTP', () => {
       .overrideProvider(PrismaService)
       .useValue({ client: { session: { findUnique } } })
       .overrideProvider(OverviewRepository)
-      .useValue({ getSnapshot })
+      .useValue({ getSnapshot, getJourney })
       .compile();
     app = module.createNestApplication();
     configureApplication(app, environment);
@@ -86,6 +87,28 @@ describe('Organization overview HTTP', () => {
   it('does not disclose organizations outside the active session even with membership', async () => {
     await fetch(foreignId).expect(404);
     expect(getSnapshot).not.toHaveBeenCalled();
+  });
+  it('returns only journey states and blocks another organization before reaching the repository', async () => {
+    const states = {
+      organizationId: id,
+      demo: true,
+      structure: 'READY',
+      preparation: null,
+      instruments: 'READY',
+      collection: 'CLOSED',
+      result: 'PROTECTED',
+      actions: 'READY',
+    };
+    getJourney.mockResolvedValueOnce(states);
+    const journey = (organizationId: string) =>
+      request(app.getHttpServer())
+        .get(`/api/v1/organizations/${organizationId}/journey`)
+        .set('Cookie', `renr_session=${'a'.repeat(43)}`);
+    const response = await journey(id).expect(200);
+    expect(response.body).toEqual(states);
+    expect(response.headers['cache-control']).toBe('private, no-store');
+    await journey(foreignId).expect(404);
+    expect(getJourney).toHaveBeenCalledTimes(1);
   });
   it('honors revoked active membership', async () => {
     findUnique.mockResolvedValue({

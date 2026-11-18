@@ -52,6 +52,7 @@ model Organization {
   hrRevisions EmployeeHrRevision[]
   reportSnapshots ReportSnapshot[]
   registrationRevisions OrganizationRegistrationRevision[]
+  companyGroups CompanyGroupClient[]
 
   @@index([clientClassification, isActive, name, id])
   @@index([fiscalCandidate])
@@ -88,6 +89,7 @@ model User {
   accessHistorySubject AccessHistory[] @relation("AccessHistorySubject")
   accessHistoryActor AccessHistory[] @relation("AccessHistoryActor")
   assessmentSources AssessmentSource[]
+  assessmentInviteDeliveries AssessmentInviteDelivery[]
   instrumentsPublished InstrumentVersion[] @relation("InstrumentPublisher")
   policiesPublished ConsolidationPolicyVersion[] @relation("PolicyPublisher")
   evaluationMethods EvaluationMethod[]
@@ -107,6 +109,7 @@ model User {
   platformEventsAuthored PlatformAuditEvent[] @relation("PlatformActor")
   platformEventsReceived PlatformAuditEvent[] @relation("PlatformSubject")
   reportsCreated ReportSnapshot[]
+  companyGroupGrants CompanyGroupGrant[]
 }
 
 model Membership {
@@ -118,14 +121,30 @@ model Membership {
   version Int @default(1)
   capabilities Capability[] @default([])
   hrCapabilities Capability[] @default([]) @map("hr_capabilities")
+  scopeRestricted Boolean @default(false) @map("scope_restricted")
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   employees Employee[]
   @@id([userId, organizationId])
   assignedActions Action[]
+  scopes MembershipScope[]
   @@index([organizationId])
   @@map("memberships")
+}
+
+model MembershipScope {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  unitId String @map("unit_id") @db.Uuid
+  sectorId String? @map("sector_id") @db.Uuid
+  membership Membership @relation(fields: [userId, organizationId], references: [userId, organizationId], onDelete: Cascade, map: "membership_scopes_membership_fkey")
+  unit Unit @relation(fields: [organizationId, unitId], references: [organizationId, id], onDelete: Restrict, map: "membership_scopes_unit_fkey")
+  sector Sector? @relation(fields: [organizationId, unitId, sectorId], references: [organizationId, unitId, id], onDelete: Restrict, map: "membership_scopes_sector_fkey")
+  @@index([userId, organizationId], map: "membership_scopes_membership_idx")
+  @@index([organizationId, unitId, sectorId], map: "membership_scopes_structure_idx")
+  @@map("membership_scopes")
 }
 
 enum Capability {
@@ -137,6 +156,7 @@ enum Capability {
   HR_COMPENSATION_READ
   HR_COMPENSATION_MANAGE
   HR_EXPORT
+  HR_ASSESSMENT_INVITES_ISSUE
 }
 
 model AccessInvite {
@@ -204,6 +224,7 @@ model Unit {
   organization Organization @relation(fields: [organizationId], references: [id])
   sectors Sector[]
   employees Employee[]
+  membershipScopes MembershipScope[]
   @@unique([organizationId, id])
   @@unique([organizationId, normalizedName])
   @@map("units")
@@ -222,6 +243,7 @@ model Sector {
   unit Unit @relation(fields: [unitId], references: [id])
   assessmentGroups AssessmentGroup[]
   employees Employee[]
+  membershipScopes MembershipScope[]
   @@unique([organizationId, unitId, id])
   @@unique([organizationId, id])
   @@unique([unitId, normalizedName])
@@ -817,6 +839,35 @@ model PlatformAuditEvent {
   @@index([createdAt,id])
   @@map("platform_audit_events")
 }
+model CompanyGroup {
+  id String @id @default(uuid()) @db.Uuid
+  name String @db.VarChar(160)
+  version Int @default(1)
+  clients CompanyGroupClient[]
+  grants CompanyGroupGrant[]
+  @@index([name, id])
+  @@map("company_groups")
+}
+model CompanyGroupClient {
+  groupId String @map("group_id") @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  group CompanyGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  @@id([groupId, organizationId])
+  @@index([organizationId])
+  @@map("company_group_clients")
+}
+model CompanyGroupGrant {
+  groupId String @map("group_id") @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  isActive Boolean @default(true) @map("is_active")
+  version Int @default(1)
+  group CompanyGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  @@id([groupId, userId])
+  @@index([userId, isActive])
+  @@map("company_group_grants")
+}
 model OrganizationRegistrationRevision {
   id String @id @default(uuid()) @db.Uuid
   organizationId String @map("organization_id") @db.Uuid
@@ -881,9 +932,11 @@ model AssessmentCycle {
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
   organization Organization @relation(fields:[organizationId],references:[id],onDelete:Restrict)
   assessmentGroup AssessmentGroup @relation(fields:[organizationId,assessmentGroupId],references:[organizationId,id],onDelete:Restrict)
+  eligibleCount Int? @map("eligible_count")
   instrumentVersion InstrumentVersion @relation(fields:[organizationId,instrumentVersionId],references:[organizationId,id],onDelete:Restrict)
   policyVersion ConsolidationPolicyVersion @relation(fields:[organizationId,policyVersionId],references:[organizationId,id],onDelete:Restrict)
   invites AssessmentInvite[]
+  inviteDeliveries AssessmentInviteDelivery[]
   responses AssessmentResponse[]
   sources AssessmentSource[]
   @@unique([organizationId,id])
@@ -892,6 +945,23 @@ model AssessmentCycle {
   @@index([organizationId,assessmentGroupId])
   @@index([organizationId,policyVersionId])
   @@map("assessment_cycles")
+}
+model AssessmentInviteDelivery {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  cycleId String @map("cycle_id") @db.Uuid
+  actorId String @map("actor_id") @db.Uuid
+  channel String @db.VarChar(20)
+  idempotencyKey String @map("idempotency_key") @db.Uuid
+  count Int
+  createdAt DateTime @default(now()) @map("created_at")
+  expiresAt DateTime @map("expires_at")
+  issuedAt DateTime? @map("issued_at")
+  cycle AssessmentCycle @relation(fields:[organizationId,cycleId],references:[organizationId,id],onDelete:Restrict)
+  actor User @relation(fields:[actorId],references:[id],onDelete:Restrict)
+  @@unique([organizationId,cycleId,channel,idempotencyKey],map:"assessment_invite_deliveries_idempotency_key")
+  @@index([actorId])
+  @@map("assessment_invite_deliveries")
 }
 model AssessmentInvite {
   id String @id @default(uuid()) @db.Uuid

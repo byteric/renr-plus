@@ -2,8 +2,9 @@ import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/commo
 import { PrismaService } from '../../database/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
 import type { AuditHistoryQuery, AuditTargetKind } from '@renr/contracts';
+import type { OrganizationScope } from '../access/delegated-scope';
 
-export type AuditScope = { userId: string; organizationId: string };
+export type AuditScope = OrganizationScope;
 export type HistoryRow = {
   id: string;
   operation: string;
@@ -141,7 +142,9 @@ export class AuditRepository {
     admin: boolean,
   ): Promise<string> {
     const member = await tx.membership.findUnique({
-      where: { userId_organizationId: scope },
+      where: {
+        userId_organizationId: { userId: scope.userId, organizationId: scope.organizationId },
+      },
       select: { isActive: true, role: true, organization: { select: { timezone: true } } },
     });
     if (!member?.isActive) throw new NotFoundException();

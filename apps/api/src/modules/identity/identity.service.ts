@@ -7,16 +7,33 @@ import {
 } from '@nestjs/common';
 import { createHash, randomBytes } from 'node:crypto';
 import type { Request } from 'express';
-import type { SessionCapabilities, SessionResponse } from '@renr/contracts';
+import type { Capability, SessionCapabilities, SessionResponse } from '@renr/contracts';
 import { combineCapabilities, type LegacyCapability } from '../access/capabilities';
+import type { OrganizationScope } from '../access/delegated-scope';
 import { ENVIRONMENT, type Environment } from '../../config/env';
 import { PrismaService } from '../../database/prisma.service';
+import type { Prisma } from '../../generated/prisma/client';
 import { verifyPassword } from './password';
 
 export const SESSION_COOKIE = 'renr_session';
 const sessionDuration = 8 * 60 * 60 * 1000;
 const tokenHash = (token: string): string => createHash('sha256').update(token).digest('hex');
-const includeUser = { user: { include: { memberships: { include: { organization: true } } } } };
+const includeUser = {
+  user: {
+    include: {
+      memberships: {
+        include: {
+          organization: true,
+          scopes: {
+            select: { unitId: true, sectorId: true },
+            orderBy: [{ unitId: 'asc' }, { sectorId: 'asc' }],
+          },
+        },
+      },
+      companyGroupGrants: { where: { isActive: true }, select: { groupId: true }, take: 1 },
+    },
+  },
+} satisfies Prisma.SessionInclude;
 
 @Injectable()
 export class IdentityService {
@@ -127,7 +144,9 @@ export class IdentityService {
     request: Request,
     organizationId: string | undefined,
     write: boolean,
-  ): Promise<{ userId: string; organizationId: string }> {
+    delegatedWrite?: Capability,
+    allowRestricted = false,
+  ): Promise<OrganizationScope> {
     const session = await this.authenticate(request);
     const active = session.activeOrganizationId;
     const member = session.user.memberships.find((item) => item.organizationId === active);
@@ -138,7 +157,16 @@ export class IdentityService {
       (organizationId !== undefined && active !== organizationId)
     )
       throw new HttpException('Not found', 404);
-    if (write && member.role !== 'ADMIN') throw new ForbiddenException();
+    if (member.scopeRestricted) {
+      if (write || !allowRestricted) throw new ForbiddenException();
+      return { userId: session.userId, organizationId: active, delegation: [...member.scopes] };
+    }
+    if (
+      write &&
+      member.role !== 'ADMIN' &&
+      (!delegatedWrite || !combineCapabilities(member).includes(delegatedWrite))
+    )
+      throw new ForbiddenException();
     return { userId: session.userId, organizationId: active };
   }
 
@@ -153,8 +181,8 @@ export class IdentityService {
     const member = await this.activeMembership(request);
     return {
       organizationId: member?.organizationId ?? null,
-      capabilities: member ? combineCapabilities(member) : [],
-      canManageAccess: member?.role === 'ADMIN',
+      capabilities: member && !member.scopeRestricted ? combineCapabilities(member) : [],
+      canManageAccess: member?.role === 'ADMIN' && !member.scopeRestricted,
     };
   }
 
@@ -180,21 +208,29 @@ export class IdentityService {
   private toResponse(
     session: Awaited<ReturnType<IdentityService['authenticate']>>,
   ): SessionResponse {
+    const activeMemberships = session.user.memberships.filter((item) => item.isActive !== false);
+    const restricted = activeMemberships.filter((item) => item.scopeRestricted);
     return {
       user: { id: session.user.id, name: session.user.name, email: session.user.email },
-      memberships: session.user.memberships
-        .filter((item) => item.isActive !== false)
-        .map((item) => ({
-          organizationId: item.organizationId,
-          organizationName: item.organization.name,
-          role: item.role,
-        })),
+      memberships: activeMemberships.map((item) => ({
+        organizationId: item.organizationId,
+        organizationName: item.organization.name,
+        role: item.role,
+      })),
       activeOrganizationId: session.user.memberships.some(
         (item) => item.organizationId === session.activeOrganizationId && item.isActive !== false,
       )
         ? session.activeOrganizationId
         : null,
       expiresAt: session.expiresAt.toISOString(),
+      ...(restricted.length
+        ? {
+            organizationScopes: Object.fromEntries(
+              restricted.map((item) => [item.organizationId, item.scopes]),
+            ),
+          }
+        : {}),
+      ...(session.user.companyGroupGrants?.length ? { hasCompanyGroups: true } : {}),
     };
   }
 }

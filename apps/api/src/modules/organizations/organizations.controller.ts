@@ -56,7 +56,7 @@ export class OrganizationsController {
   @Get('organizations/:id/units')
   async units(@Req() request: Request, @Param('id') id: string, @Query() query: unknown) {
     return this.organizations.units(
-      await this.identity.scope(request, parse(z.uuid(), id), false),
+      await this.identity.scope(request, parse(z.uuid(), id), false, undefined, true),
       parse(unitQuerySchema, query),
     );
   }
@@ -80,7 +80,7 @@ export class OrganizationsController {
   @Get('units/:id/sectors')
   async sectors(@Req() request: Request, @Param('id') id: string, @Query() query: unknown) {
     return this.organizations.sectors(
-      await this.identity.scope(request, undefined, false),
+      await this.identity.scope(request, undefined, false, undefined, true),
       parse(z.uuid(), id),
       parse(sectorQuerySchema, query),
     );

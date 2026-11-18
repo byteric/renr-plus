@@ -10,6 +10,7 @@ import { Pagination } from '../ui/pagination';
 import { StatusMessage } from '../ui/status-message';
 import { StatusBadge } from '../ui/status-badge';
 import { request, RequestError } from '../../lib/api';
+import { comparisonReturn } from '../../lib/assessment-comparison-location';
 import { RiskForm } from './RiskForm';
 import { PreliminaryEvaluationForm } from './PreliminaryEvaluationForm';
 import { riskDate, statusLabels, useRiskData } from './useRiskData';
@@ -88,7 +89,10 @@ export function RiskDetail({
   const unavailableForWrite = detail.loading || !!detail.error || denied;
   const params = new URLSearchParams(query);
   const rawReturn = params.get('returnTo') ?? '';
-  const returnTo = /^#\/inventario(?:\?|$)/.test(rawReturn) ? rawReturn : '#/inventario';
+  const fromComparison = comparisonReturn(rawReturn);
+  const returnTo =
+    fromComparison ?? (/^#\/inventario(?:\?|$)/.test(rawReturn) ? rawReturn : '#/inventario');
+  const backLabel = fromComparison ? 'Voltar ao comparativo' : 'Voltar ao inventário';
   function contextualScroll(target: HTMLElement, behavior: ScrollBehavior) {
     const panel = root.current?.closest<HTMLElement>('.risk-context-panel');
     if (panel && window.matchMedia?.('(min-width: 1100px)').matches) {
@@ -211,7 +215,7 @@ export function RiskDetail({
         <Button variant="outline" onClick={reloadRisk}>
           Atualizar registro
         </Button>
-        <a href={returnTo}>Voltar ao inventário</a>
+        <a href={returnTo}>{backLabel}</a>
       </StatusMessage>
     );
   if (editing)
@@ -235,7 +239,7 @@ export function RiskDetail({
   return (
     <div className="risk-stack risk-detail" ref={root}>
       <a className="back-link" href={returnTo}>
-        ← Voltar ao inventário
+        ← {backLabel}
       </a>
       {detail.loading && <p role="status">Atualizando risco; o rascunho foi preservado.</p>}
       {detail.error && (

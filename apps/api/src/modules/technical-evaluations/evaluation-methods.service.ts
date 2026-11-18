@@ -16,6 +16,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
 import { parse } from '../../http/parse';
 import { technicalWrite, type TechnicalScope } from './technical-scope';
+import { methodVersionDelegation } from '../access/delegated-scope';
 
 const author = { select: { id: true, name: true } } as const;
 export const methodVersionInclude = {
@@ -113,7 +114,13 @@ export class EvaluationMethodsService {
   }
   async get(scope: TechnicalScope, id: string): Promise<EvaluationMethod> {
     const item = await this.database.client.evaluationMethod.findFirst({
-      where: { organizationId: scope.organizationId, id },
+      where: {
+        organizationId: scope.organizationId,
+        id,
+        ...(scope.delegation
+          ? { versions: { some: methodVersionDelegation(scope.delegation) } }
+          : {}),
+      },
       include: { createdBy: author },
     });
     if (!item) throw new NotFoundException();
@@ -131,6 +138,7 @@ export class EvaluationMethodsService {
       organizationId: scope.organizationId,
       ...(query.methodId ? { methodId: query.methodId } : {}),
       ...(query.status ? { status: query.status } : {}),
+      ...(scope.delegation ? { AND: methodVersionDelegation(scope.delegation) } : {}),
     };
     return this.database.client.$transaction(
       async (tx) => {
@@ -172,7 +180,11 @@ export class EvaluationMethodsService {
       await tx.$queryRaw`SELECT id FROM evaluation_method_versions WHERE organization_id=${scope.organizationId}::uuid AND id=${id}::uuid FOR UPDATE`;
     }
     const item = await tx.evaluationMethodVersion.findFirst({
-      where: { organizationId: scope.organizationId, id },
+      where: {
+        organizationId: scope.organizationId,
+        id,
+        ...methodVersionDelegation(scope.delegation),
+      },
       include: methodVersionInclude,
     });
     if (!item) throw new NotFoundException();

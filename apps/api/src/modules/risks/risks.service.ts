@@ -21,6 +21,7 @@ import {
 } from '@renr/contracts';
 import { parse } from '../../http/parse';
 import { Prisma } from '../../generated/prisma/client';
+import { sectorDelegation, unitDelegation } from '../access/delegated-scope';
 import {
   RisksRepository,
   riskInclude,
@@ -77,14 +78,22 @@ export class RisksService {
       if (
         query.unitId &&
         !(await tx.unit.findFirst({
-          where: { id: query.unitId, organizationId: scope.organizationId },
+          where: {
+            id: query.unitId,
+            organizationId: scope.organizationId,
+            AND: unitDelegation(scope.delegation),
+          },
           select: { id: true },
         }))
       )
         throw new NotFoundException();
       if (query.sectorId) {
         const sector = await tx.sector.findFirst({
-          where: { id: query.sectorId, organizationId: scope.organizationId },
+          where: {
+            id: query.sectorId,
+            organizationId: scope.organizationId,
+            ...sectorDelegation(scope.delegation),
+          },
           select: { unitId: true },
         });
         if (!sector) throw new NotFoundException();
@@ -98,6 +107,7 @@ export class RisksService {
         status: query.status ?? { in: ['DRAFT', 'REGISTERED'] },
         assessmentGroup: {
           sector: {
+            ...sectorDelegation(scope.delegation),
             ...(query.unitId ? { unitId: query.unitId } : {}),
             ...(query.sectorId ? { id: query.sectorId } : {}),
           },
@@ -122,7 +132,7 @@ export class RisksService {
   }
   async get(scope: RiskScope, id: string): Promise<RiskDetail> {
     return this.repository.snapshot(async (tx) =>
-      toRisk(await this.repository.get(tx, scope.organizationId, id)),
+      toRisk(await this.repository.get(tx, scope.organizationId, id, scope.delegation)),
     );
   }
   async create(scope: RiskScope, input: CreateRisk): Promise<RiskDetail> {
@@ -217,7 +227,7 @@ export class RisksService {
     page: { page: number; pageSize: number },
   ): Promise<PreliminaryEvaluationList> {
     return this.repository.snapshot(async (tx) => {
-      await this.repository.get(tx, scope.organizationId, id);
+      await this.repository.get(tx, scope.organizationId, id, scope.delegation);
       const where = { organizationId: scope.organizationId, riskId: id };
       const [items, total] = await Promise.all([
         tx.riskEvaluation.findMany({

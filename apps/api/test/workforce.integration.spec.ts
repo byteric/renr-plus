@@ -6,7 +6,9 @@ import { AppModule } from '../src/app.module';
 import { configureApplication } from '../src/app.factory';
 import { parseEnvironment } from '../src/config/env';
 import { PrismaService } from '../src/database/prisma.service';
+import { employeeImportPreviewSchema, employeeImportResultSchema } from '@renr/contracts';
 import { localDatabaseUrl } from './local-database-url';
+import { fixtureWorkbook } from './workforce-workbook.fixture';
 const describeDatabase = process.env.RUN_DB_TESTS === '1' ? describe : describe.skip;
 describeDatabase('Workforce PostgreSQL isolation and history', () => {
   let env: ReturnType<typeof parseEnvironment>;
@@ -36,6 +38,15 @@ describeDatabase('Workforce PostgreSQL isolation and history', () => {
       .send(body);
   const get = (resource: string) =>
     request(app.getHttpServer()).get(path(resource)).set('Cookie', cookie);
+  const upload = (file: Buffer, version?: string, sessionCookie = cookie, company = org) => {
+    const operation = version === undefined ? 'preview' : 'confirm';
+    const call = request(app.getHttpServer())
+      .post(`/api/v1/organizations/${company}/employees/import/${operation}`)
+      .set('Cookie', sessionCookie)
+      .set('Origin', env.CORS_ORIGIN);
+    if (version !== undefined) call.field('version', version);
+    return call.attach('file', file, 'colaboradores.xlsx');
+  };
   beforeAll(async () => {
     env = parseEnvironment({ ...process.env, NODE_ENV: 'test' });
     localDatabaseUrl(env.DATABASE_URL);
@@ -321,5 +332,136 @@ describeDatabase('Workforce PostgreSQL isolation and history', () => {
       await deactivation;
     }
     expect((await creation).status).toBe(409);
+  });
+  it('previews without writing, preserves leading zeroes and leaves existing staff unchanged', async () => {
+    const existing = await post('employees', {
+      name: 'Existing synthetic staff',
+      unitId: unit,
+      sectorId: sector,
+      internalIdentifier: 'IMPORT-EXISTING',
+    }).expect(201);
+    const workbook = fixtureWorkbook([
+      ['000007', 'Joana & Ana', ' unit alpha ', 'SECTOR ALPHA'],
+      ['import-existing', 'Name that is not applied', 'Unit alpha', 'Sector alpha'],
+    ]);
+    const before = await db.client.employee.count({ where: { organizationId: org } });
+    const response = await upload(workbook)
+      .expect(200)
+      .expect('Cache-Control', 'private, no-store');
+    const preview = employeeImportPreviewSchema.parse(response.body);
+    expect(preview).toMatchObject({ total: 2, ready: 1, existing: 1, invalid: 0 });
+    expect(preview.rows.map(({ row, status }) => ({ row, status }))).toEqual([
+      { row: 2, status: 'READY' },
+      { row: 3, status: 'EXISTING' },
+    ]);
+    expect(JSON.stringify(preview)).not.toMatch(/Joana|000007|IMPORT-EXISTING/i);
+    expect(await db.client.employee.count({ where: { organizationId: org } })).toBe(before);
+    expect(
+      await db.client.auditEvent.count({
+        where: { organizationId: org, action: 'EMPLOYEE_IMPORT' },
+      }),
+    ).toBe(0);
+
+    const confirmation = await upload(workbook, preview.version).expect(201);
+    expect(employeeImportResultSchema.parse(confirmation.body)).toEqual({ created: 1, skipped: 1 });
+    expect(
+      await db.client.employee.findFirst({
+        where: { organizationId: org, normalizedIdentifier: '000007' },
+      }),
+    ).toMatchObject({
+      internalIdentifier: '000007',
+      name: 'Joana & Ana',
+      unitId: unit,
+      sectorId: sector,
+    });
+    expect(await db.client.employee.findUnique({ where: { id: existing.body.id } })).toMatchObject({
+      name: 'Existing synthetic staff',
+      version: 1,
+    });
+    const events = await db.client.auditEvent.findMany({
+      where: { organizationId: org, action: 'EMPLOYEE_IMPORT' },
+    });
+    expect(events).toEqual([
+      expect.objectContaining({
+        actorId: admin,
+        resourceId: org,
+        reason: 'Cadastros criados: 1. Cadastros existentes mantidos: 1.',
+      }),
+    ]);
+    expect(JSON.stringify(events)).not.toMatch(/Joana|000007|IMPORT-EXISTING|colaboradores.xlsx/i);
+    const history = await get('audit-events?operation=EMPLOYEE_IMPORT').expect(200);
+    expect(history.body.items).toEqual([
+      expect.objectContaining({
+        operation: 'EMPLOYEE_IMPORT',
+        label: 'Colaboradores importados',
+        resource: expect.objectContaining({ type: 'organization', id: org }),
+      }),
+    ]);
+    await upload(workbook, preview.version).expect(409);
+  });
+  it('marks normalized duplicates and out-of-scope references invalid and never writes partial rows', async () => {
+    const workbook = fixtureWorkbook([
+      [' ID-A ', 'Synthetic A', 'Unit alpha', 'Sector alpha'],
+      ['ｉｄ-a', 'Synthetic B', 'Unit alpha', 'Sector alpha'],
+      ['FOREIGN', 'Synthetic C', 'Unit beta', 'Sector beta'],
+      ['MISMATCH', 'Synthetic D', 'Unit alpha', 'Sector beta'],
+      ['VALID-IN-REJECTED', 'Synthetic E', 'Unit alpha', 'Sector alpha'],
+    ]);
+    const preview = employeeImportPreviewSchema.parse((await upload(workbook).expect(200)).body);
+    expect(preview).toMatchObject({ total: 5, ready: 1, existing: 0, invalid: 4 });
+    expect(preview.rows[0]?.messages[0]).toMatch(/mais de uma vez/);
+    expect(preview.rows[2]?.messages[0]).toMatch(/unidade/);
+    expect(preview.rows[3]?.messages[0]).toMatch(/setor/);
+    const before = await db.client.employee.count({ where: { organizationId: org } });
+    await upload(workbook, preview.version).expect(409);
+    expect(await db.client.employee.count({ where: { organizationId: org } })).toBe(before);
+  });
+  it('binds confirmation to the previewed bytes, account and current database state', async () => {
+    const row = (identifier: string) =>
+      fixtureWorkbook([[identifier, 'Synthetic staff', 'Unit alpha', 'Sector alpha']]);
+    const workbook = row('IMPORT-RACE');
+    const preview = employeeImportPreviewSchema.parse((await upload(workbook).expect(200)).body);
+    const otherToken = randomUUID() + 'testing';
+    await db.client.membership.upsert({
+      where: { userId_organizationId: { organizationId: org, userId: linked } },
+      update: { role: 'ADMIN', isActive: true },
+      create: { organizationId: org, userId: linked, role: 'ADMIN' },
+    });
+    await db.client.session.create({
+      data: {
+        tokenHash: createHash('sha256').update(otherToken).digest('hex'),
+        userId: linked,
+        activeOrganizationId: org,
+        expiresAt: new Date(Date.now() + 3600000),
+      },
+    });
+    await upload(workbook, preview.version, `renr_session=${otherToken}`).expect(409);
+    await upload(workbook, preview.version, cookie, foreign).expect(404);
+    await upload(row('ALTERED-FILE'), preview.version).expect(409);
+    await upload(workbook, `1.${preview.version.split('.')[1]}`).expect(409);
+    await post('employees', {
+      name: 'Concurrent manual staff',
+      unitId: unit,
+      sectorId: sector,
+      internalIdentifier: 'IMPORT-RACE',
+    }).expect(201);
+    await upload(workbook, preview.version).expect(409);
+
+    const concurrent = row('IMPORT-CONCURRENT');
+    const current = employeeImportPreviewSchema.parse((await upload(concurrent).expect(200)).body);
+    const results = await Promise.all([
+      upload(concurrent, current.version),
+      upload(concurrent, current.version),
+    ]);
+    expect(results.map(({ status }) => status).sort()).toEqual([201, 409]);
+    expect(
+      await db.client.employee.count({
+        where: { organizationId: org, normalizedIdentifier: 'import-concurrent' },
+      }),
+    ).toBe(1);
+  });
+  it('rejects malformed and oversized multipart uploads', async () => {
+    await upload(Buffer.from('not a workbook')).expect(400);
+    await upload(Buffer.alloc(1024 * 1024 + 1)).expect(413);
   });
 });

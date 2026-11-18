@@ -1,3 +1,5 @@
+import fc from 'fast-check';
+import { participationProtected } from '../src/modules/assessments/assessment-eligibility';
 import {
   projectAssessment,
   type ResultQuestion,
@@ -93,6 +95,86 @@ describe('Conservative assessment projection', () => {
       expect(node.responseCount).toBeNull();
       expect(node.questions[0]?.answerCount).toBeNull();
     }
+  });
+  it('hides two protected cohorts equally in their detail and when a neighboring unit is visible', () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 2, max: 12 }),
+        fc.integer({ min: 1, max: 12 }),
+        fc.boolean(),
+        (minimum, extraResponses, protectIssued) => {
+          const neighbor = cycle(
+            'neighbor',
+            Array.from({ length: minimum }, () => response(['a'])),
+          );
+          const safeUnit: ResultInput = {
+            ...neighbor,
+            id: 'safe-unit',
+            nodeType: 'UNIT',
+            children: [neighbor],
+          };
+          const hidden = (count: number) => {
+            const eligible = protectIssued ? count + minimum : count + minimum - 1;
+            const issued = protectIssued ? count + minimum - 1 : count + minimum;
+            const protectedCycle: ResultInput = {
+              ...cycle(
+                'sensitive',
+                Array.from({ length: count }, () => response(['b'])),
+              ),
+              protectedParticipation: participationProtected(eligible, count, minimum, issued),
+            };
+            const family: ResultInput = {
+              id: 'organization',
+              name: 'Organization',
+              nodeType: 'ORGANIZATION',
+              responses: [...safeUnit.responses, ...protectedCycle.responses],
+              children: [
+                safeUnit,
+                {
+                  id: 'restricted-unit',
+                  name: 'Restricted unit',
+                  nodeType: 'UNIT',
+                  responses: protectedCycle.responses,
+                  children: [protectedCycle],
+                },
+              ],
+            };
+            return {
+              detail: projectAssessment(protectedCycle, [q], minimum),
+              family: projectAssessment(family, [q], minimum),
+            };
+          };
+          const projected = hidden(minimum);
+          expect(projected).toEqual(hidden(minimum + extraResponses));
+          expect(projected.detail).toMatchObject({
+            availability: 'SUPPRESSED',
+            responseCount: null,
+          });
+          expect(projected.detail.questions[0]).toMatchObject({ answerCount: null, options: [] });
+          expect(projected.family).toMatchObject({
+            availability: 'SUPPRESSED',
+            responseCount: null,
+          });
+          expect(projected.family.children[0]?.responseCount).toBe(minimum);
+          expect(projected.family.children[1]?.responseCount).toBeNull();
+        },
+      ),
+    );
+  });
+  it('keeps an old or empty eligibility base on the original technical projection', () => {
+    const minimum = 5;
+    const input = cycle(
+      'legacy',
+      Array.from({ length: 5 }, () => response(['a'])),
+    );
+    for (const base of [null, 0])
+      expect(
+        projectAssessment(
+          { ...input, protectedParticipation: participationProtected(base, 5, minimum, 5) },
+          [q],
+          minimum,
+        ),
+      ).toMatchObject({ availability: 'AVAILABLE', responseCount: 5 });
   });
   it('exhaustively preserves threshold and complement invariants across small populations', () => {
     for (let minimum = 2; minimum <= 10; minimum++)

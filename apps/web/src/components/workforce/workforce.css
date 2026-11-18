@@ -160,6 +160,57 @@
 .workforce-dialog p {
   overflow-wrap: anywhere;
 }
+.workforce-import-dialog {
+  width: min(42rem, calc(100% - 1.5rem));
+}
+.workforce-import-dialog .form-actions,
+.workforce-import-file,
+.workforce-import-preview {
+  margin-top: var(--space-4);
+}
+.workforce-download {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.workforce-import-file {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-2);
+}
+.workforce-import-file input {
+  box-sizing: border-box;
+  min-height: 44px;
+  width: 100%;
+  min-width: 0;
+}
+.workforce-import-file label {
+  font-weight: 650;
+}
+.workforce-import-file small {
+  color: var(--muted-foreground);
+}
+.workforce-import-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+.workforce-import-table th,
+.workforce-import-table td {
+  vertical-align: top;
+  text-align: left;
+  overflow-wrap: anywhere;
+  border-bottom: 1px solid var(--border);
+  padding: var(--space-2);
+}
+.workforce-import-table th:first-child {
+  width: 3.5rem;
+}
+.workforce-import-table p {
+  margin: var(--space-1) 0 0;
+}
 @media (max-width: 750px) {
   .registration-filters,
   .workforce-location {

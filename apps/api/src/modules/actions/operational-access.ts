@@ -17,18 +17,29 @@ export async function lockOperationalActor(
     },
     include: { organization: { select: { isActive: true } } },
   });
-  if (!member?.isActive || !member.organization.isActive || (manage && member.role !== 'ADMIN'))
+  if (
+    !member?.isActive ||
+    member.scopeRestricted ||
+    !member.organization.isActive ||
+    (manage && member.role !== 'ADMIN')
+  )
     throw new ForbiddenException('Active organizational permission required');
   return member;
 }
 export function assertOperationalActor(
-  member: { userId: string; role: string; capabilities: readonly string[] },
+  member: {
+    userId: string;
+    role: string;
+    capabilities: readonly string[];
+    scopeRestricted?: boolean;
+  },
   action: { assignedUserId: string | null },
 ) {
   if (
-    member.role !== 'ADMIN' &&
-    (!member.capabilities.includes('EXECUTE_ASSIGNED_ACTIONS') ||
-      action.assignedUserId !== member.userId)
+    member.scopeRestricted ||
+    (member.role !== 'ADMIN' &&
+      (!member.capabilities.includes('EXECUTE_ASSIGNED_ACTIONS') ||
+        action.assignedUserId !== member.userId))
   )
     throw new ForbiddenException('Explicit executor capability and persisted assignment required');
 }

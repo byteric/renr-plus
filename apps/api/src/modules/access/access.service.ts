@@ -16,8 +16,10 @@ import type {
   AcceptAccessInvite,
   CreateAccessInvite,
   MutateAccessInvite,
+  MembershipScopes,
   UpdateAccessCapabilities,
   UpdateAccessMembership,
+  UpdateMembershipScopes,
 } from '@renr/contracts';
 import type { AccessInvite as InviteRecord, Membership } from '../../generated/prisma/client';
 import { IdentityService } from '../identity/identity.service';
@@ -94,6 +96,87 @@ export class AccessService {
       return this.memberDto(await this.repository.member(tx, scope, userId));
     });
   }
+  private async readScopes(
+    tx: AccessTransaction,
+    scope: AccessScope,
+    userId: string,
+  ): Promise<MembershipScopes> {
+    const member = await this.repository.member(tx, scope, userId);
+    const scopes = await tx.membershipScope.findMany({
+      where: { organizationId: scope.organizationId, userId },
+      select: {
+        unitId: true,
+        sectorId: true,
+        unit: { select: { name: true } },
+        sector: { select: { name: true } },
+      },
+      orderBy: [{ unitId: 'asc' }, { sectorId: 'asc' }],
+    });
+    return {
+      restricted: member.scopeRestricted,
+      scopes: scopes.map(({ unitId, sectorId, unit, sector }) => ({
+        unitId,
+        sectorId,
+        unitName: unit.name,
+        sectorName: sector?.name ?? null,
+      })),
+      version: member.version,
+    };
+  }
+  scopes(scope: AccessScope, userId: string): Promise<MembershipScopes> {
+    return this.repository.transaction(scope.organizationId, async (tx) => {
+      await this.repository.administrator(tx, scope);
+      return this.readScopes(tx, scope, userId);
+    });
+  }
+  updateScopes(
+    scope: AccessScope,
+    userId: string,
+    input: UpdateMembershipScopes,
+  ): Promise<MembershipScopes> {
+    return this.repository.transaction(scope.organizationId, async (tx) => {
+      await this.repository.administrator(tx, scope);
+      const current = await this.repository.member(tx, scope, userId);
+      if (
+        current.version !== input.expectedVersion ||
+        current.role !== 'READER' ||
+        !current.isActive
+      )
+        throw new ConflictException();
+      const organizationId = scope.organizationId;
+      const unitIds = [...new Set(input.scopes.map(({ unitId }) => unitId))];
+      const sectors = input.scopes.filter((item) => item.sectorId !== null);
+      const [units, validSectors] = await Promise.all([
+        tx.unit.count({ where: { organizationId, id: { in: unitIds }, isActive: true } }),
+        tx.sector.count({
+          where: {
+            organizationId,
+            isActive: true,
+            OR: sectors.map(({ sectorId, unitId }) => ({ id: sectorId!, unitId })),
+          },
+        }),
+      ]);
+      if (units !== unitIds.length || validSectors !== sectors.length)
+        throw new NotFoundException();
+      await tx.membershipScope.deleteMany({ where: { userId, organizationId } });
+      if (input.scopes.length)
+        await tx.membershipScope.createMany({
+          data: input.scopes.map((item) => ({ ...item, userId, organizationId })),
+        });
+      await tx.membership.update({
+        where: { userId_organizationId: { userId, organizationId } },
+        data: { scopeRestricted: true, version: { increment: 1 } },
+      });
+      await this.repository.history(
+        tx,
+        scope,
+        userId,
+        'ACCESS_MEMBERSHIP_SCOPES_UPDATED',
+        input.reason,
+      );
+      return this.readScopes(tx, scope, userId);
+    });
+  }
   async invites(scope: AccessScope, page: Page) {
     const result = await this.repository.invites(scope, page);
     return { ...result, items: result.items.map((i) => this.inviteDto(i.item, i.actor)) };
@@ -113,6 +196,7 @@ export class AccessService {
           ? splitCapabilities(input.capabilities)
           : { role: input.role, isActive: input.isActive };
       const role = 'role' in input ? (input.role ?? current.role) : current.role;
+      if (current.scopeRestricted && role === 'ADMIN') throw new ConflictException();
       const active = 'isActive' in input ? (input.isActive ?? current.isActive) : current.isActive;
       if (current.isActive && current.role === 'ADMIN' && (!active || role !== 'ADMIN')) {
         if (
@@ -314,6 +398,7 @@ export class AccessService {
       const previous = await tx.membership.findUnique({ where });
       // An outstanding invitation cannot downgrade or silently change an active membership.
       if (previous?.isActive) throw new ConflictException('Membership already active');
+      if (previous?.scopeRestricted && invite.role === 'ADMIN') throw new ConflictException();
       const { capabilities, hrCapabilities } = invite;
       await tx.membership.upsert({
         where,

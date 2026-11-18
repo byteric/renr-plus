@@ -4,6 +4,7 @@ import {
   type ReportSection,
 } from '@renr/contracts';
 import { Prisma } from '../../generated/prisma/client';
+import { participationProtected } from '../assessments/assessment-eligibility';
 import { ReportScopeTooLargeException } from './report-errors';
 
 const text = (v: unknown): string =>
@@ -22,10 +23,15 @@ const section = (
   notes: string[] = [],
 ): ReportSection => ({ key, title, columns, rows, notes });
 const unsafe = (n: number, min: number) => n > 0 && n < min;
+type ComparisonProtection = {
+  cycles?: ReadonlySet<string>;
+  questions?: { cycles: ReadonlySet<string>; ids: ReadonlySet<string> };
+};
 export async function captureSst(
   tx: Prisma.TransactionClient,
   organizationId: string,
   input: CreateTenantReport,
+  protection: ComparisonProtection = {},
 ): Promise<ReportSection[]> {
   const group = {
     sector: {
@@ -267,7 +273,7 @@ export async function captureSst(
       ['Não inclui registros de acesso, remuneração ou respostas individuais.'],
     ),
   ];
-  sections.push(...(await captureAssessmentAggregates(tx, organizationId, group)));
+  sections.push(...(await captureAssessmentAggregates(tx, organizationId, group, protection)));
   const demos = await tx.diagnosticCycle.findMany({
     where: {
       organizationId,
@@ -304,6 +310,7 @@ async function captureAssessmentAggregates(
   tx: Prisma.TransactionClient,
   organizationId: string,
   group: Prisma.AssessmentGroupWhereInput,
+  protection: ComparisonProtection,
 ): Promise<ReportSection[]> {
   const cycles = await tx.assessmentCycle.findMany({
     where: { organizationId, assessmentGroup: group },
@@ -352,12 +359,22 @@ async function captureAssessmentAggregates(
         [],
       ),
     ];
-  const [counts, answers, options, sources] = await Promise.all([
+  const knownBaseIds = cycles
+    .filter((cycle) => cycle.status === 'CLOSED' && (cycle.eligibleCount ?? 0) > 0)
+    .map(({ id }) => id);
+  const [counts, issued, answers, options, sources] = await Promise.all([
     tx.assessmentResponse.groupBy({
       by: ['cycleId'],
       where: { organizationId, cycleId: { in: ids } },
       _count: { _all: true },
     }),
+    knownBaseIds.length
+      ? tx.assessmentInvite.groupBy({
+          by: ['cycleId'],
+          where: { organizationId, cycleId: { in: knownBaseIds } },
+          _count: { _all: true },
+        })
+      : [],
     tx.$queryRaw<{ cycleId: string; questionId: string; count: number }[]>(Prisma.sql`
       SELECT r.cycle_id::text "cycleId",a.question_id::text "questionId",count(DISTINCT r.id)::int count
       FROM assessment_responses r JOIN assessment_answers a ON a.response_id=r.id
@@ -376,10 +393,16 @@ async function captureAssessmentAggregates(
   ]);
   if (sources.length > 1000) throw new ReportScopeTooLargeException();
   const questions: string[][] = [];
+  const issuedByCycle = new Map(issued.map((entry) => [entry.cycleId, entry._count._all]));
   const summaries = cycles.map((c) => {
     const count = counts.find((r) => r.cycleId === c.id)?._count._all ?? 0;
     const minimum = c.policyVersion.minimumResponses;
-    const available = c.status === 'CLOSED' && minimum !== null && count >= minimum;
+    const available =
+      c.status === 'CLOSED' &&
+      minimum !== null &&
+      count >= minimum &&
+      !protection.cycles?.has(c.id) &&
+      !participationProtected(c.eligibleCount, count, minimum, issuedByCycle.get(c.id) ?? 0);
     for (const question of c.instrumentVersion.questions) {
       const answered =
         answers.find((r) => r.cycleId === c.id && r.questionId === question.id)?.count ?? 0;
@@ -392,6 +415,7 @@ async function captureAssessmentAggregates(
       }));
       const hidden =
         !available ||
+        (protection.questions?.cycles.has(c.id) && protection.questions.ids.has(question.id)) ||
         unsafe(answered, minimum!) ||
         unsafe(count - answered, minimum!) ||
         values.some((o) => unsafe(o.count, minimum!) || unsafe(answered - o.count, minimum!));

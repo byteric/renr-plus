@@ -1,0 +1,41 @@
+.dashboard-journey {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.dashboard-journey h2,
+.dashboard-journey h3,
+.dashboard-journey p {
+  margin: 0;
+}
+
+.dashboard-journey-next {
+  padding: var(--space-3) var(--space-4);
+  border-inline-start: 3px solid var(--primary);
+  background: var(--muted);
+}
+
+.dashboard-journey-stages {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  column-gap: var(--space-5);
+  row-gap: var(--space-2);
+  margin: 0;
+  padding-inline-start: 1.6rem;
+}
+
+.dashboard-journey-stages li {
+  padding: var(--space-2) 0;
+  border-block-end: 1px solid var(--border);
+}
+
+.dashboard-journey h3,
+.dashboard-journey-stages li::marker {
+  color: var(--foreground);
+  font-size: var(--font-label);
+  font-weight: 650;
+}
+
+.dashboard-journey-ready {
+  font-weight: 600;
+}

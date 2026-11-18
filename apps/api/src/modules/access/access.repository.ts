@@ -42,7 +42,7 @@ export class AccessRepository {
   async administrator(tx: AccessTransaction, scope: AccessScope): Promise<void> {
     const member = await tx.membership.findUnique({ where: { userId_organizationId: scope } });
     if (!member?.isActive) throw new NotFoundException();
-    if (member.role !== 'ADMIN') throw new ForbiddenException();
+    if (member.role !== 'ADMIN' || member.scopeRestricted) throw new ForbiddenException();
   }
 
   async member(tx: AccessTransaction, scope: AccessScope, userId: string) {

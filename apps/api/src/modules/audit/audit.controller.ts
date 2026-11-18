@@ -52,7 +52,7 @@ export class AuditController {
     @Query() query: unknown,
   ) {
     return this.audit.history(
-      await this.identity.scope(request, parse(z.uuid(), orgId), false),
+      await this.identity.scope(request, parse(z.uuid(), orgId), false, undefined, true),
       'risk',
       parse(z.uuid(), id),
       parse(auditHistoryQuerySchema, query),
@@ -67,7 +67,7 @@ export class AuditController {
     @Query() query: unknown,
   ) {
     return this.audit.history(
-      await this.identity.scope(request, parse(z.uuid(), orgId), false),
+      await this.identity.scope(request, parse(z.uuid(), orgId), false, undefined, true),
       'action',
       parse(z.uuid(), id),
       parse(auditHistoryQuerySchema, query),
@@ -82,7 +82,13 @@ export class AuditController {
     @Param('id') id: string,
     @Query() query: unknown,
   ) {
-    const scope = await this.identity.scope(request, parse(z.uuid(), orgId), false);
+    const scope = await this.identity.scope(
+      request,
+      parse(z.uuid(), orgId),
+      false,
+      undefined,
+      true,
+    );
     parse(z.object({}).strict(), query);
     const parsedKind = auditTargetKindSchema.safeParse(kind);
     if (!parsedKind.success) {

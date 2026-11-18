@@ -41,7 +41,7 @@ export class ActionEfficacyController {
       this.identity.assertOrigin(request);
       return this.identity.requireCapability(request, organizationId, 'TECHNICAL_DECISIONS');
     }
-    return this.identity.scope(request, organizationId, false);
+    return this.identity.scope(request, organizationId, false, undefined, true);
   }
   @Get('efficacy')
   @ApiResponse({ status: 200, schema: documentation(efficacyContextSchema) })

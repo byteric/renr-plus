@@ -128,7 +128,7 @@ export class AssessmentsController {
   @Get('organizations/:orgId/assessment-cycles')
   @ApiResponse({ status: 200, schema: documentation(assessmentCycleListSchema) })
   async list(@Req() req: Request, @Param('orgId') org: string, @Query() q: unknown) {
-    return this.service.list(await this.scope(req, org), parse(assessmentCycleQuerySchema, q));
+    return this.service.list(await this.readScope(req, org), parse(assessmentCycleQuerySchema, q));
   }
   @Post('organizations/:orgId/assessment-cycles')
   @ApiBody({ schema: documentation(createAssessmentCycleSchema) })
@@ -142,7 +142,7 @@ export class AssessmentsController {
   @Get('organizations/:orgId/assessment-cycles/:id')
   @ApiResponse({ status: 200, schema: documentation(assessmentCycleSchema) })
   async get(@Req() req: Request, @Param('orgId') org: string, @Param('id') id: string) {
-    return this.service.get(await this.scope(req, org), parse(z.uuid(), id));
+    return this.service.get(await this.readScope(req, org), parse(z.uuid(), id));
   }
   @Put('organizations/:orgId/assessment-cycles/:id')
   @ApiBody({ schema: documentation(updateAssessmentCycleSchema) })
@@ -200,8 +200,9 @@ export class AssessmentsController {
     @Param('id') id: string,
     @Body() body: unknown,
   ) {
+    this.identity.assertOrigin(req);
     return this.service.invites(
-      await this.scope(req, org, true, true),
+      await this.identity.scope(req, parse(z.uuid(), org), true, 'HR_ASSESSMENT_INVITES_ISSUE'),
       parse(z.uuid(), id),
       parse(createAssessmentInvitesSchema, body).count,
     );
@@ -215,7 +216,7 @@ export class AssessmentsController {
     @Query() q: unknown,
   ) {
     return this.service.sources(
-      await this.scope(req, org),
+      await this.readScope(req, org),
       parse(z.uuid(), id),
       parse(paginationSchema, q),
     );
@@ -238,15 +239,18 @@ export class AssessmentsController {
   @Get('organizations/:orgId/assessment-cycles/:id/results')
   @ApiResponse({ status: 200, schema: documentation(assessmentResultsSchema) })
   async results(@Req() req: Request, @Param('orgId') org: string, @Param('id') id: string) {
-    return this.service.results(await this.scope(req, org), parse(z.uuid(), id));
+    return this.service.results(await this.readScope(req, org), parse(z.uuid(), id));
   }
   @Get('organizations/:orgId/assessment-consolidation')
   @ApiResponse({ status: 200, schema: documentation(assessmentConsolidationSchema) })
   async consolidation(@Req() req: Request, @Param('orgId') org: string, @Query() q: unknown) {
     return this.service.consolidation(
-      await this.scope(req, org),
+      await this.readScope(req, org),
       parse(assessmentConsolidationQuerySchema, q),
     );
+  }
+  private readScope(req: Request, orgId: string) {
+    return this.identity.scope(req, parse(z.uuid(), orgId), false, undefined, true);
   }
   @Post('assessment-participation/access')
   @ApiBody({ schema: documentation(assessmentAccessSchema) })

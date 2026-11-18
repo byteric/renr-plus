@@ -133,6 +133,48 @@ describeDatabase('Overview with local PostgreSQL', () => {
       expect(response.body.code).toBe('NOT_FOUND');
     }
   });
+  it('projects active prerequisites and hides preparation outside the administrator profile', async () => {
+    const organizationId = ids[0]!;
+    const journey = () =>
+      request(app.getHttpServer())
+        .get(`/api/v1/organizations/${organizationId}/journey`)
+        .set('Cookie', cookie)
+        .expect(200);
+    const where = { userId_organizationId: { userId, organizationId } };
+
+    expect((await journey()).body.structure).toBe('INACTIVE');
+    await database.client.organization.update({
+      where: { id: organizationId },
+      data: { isActive: true, clientClassification: 'DEMONSTRATION' },
+    });
+    const sectorWhere = { organizationId, normalizedName: 'inactive sector' };
+    try {
+      expect((await journey()).body).toEqual({
+        organizationId,
+        demo: true,
+        structure: 'MISSING_SECTOR',
+        preparation: null,
+        instruments: 'MISSING_INSTRUMENT',
+        collection: 'MISSING',
+        result: 'PENDING',
+        actions: 'MISSING',
+      });
+      await database.client.sector.updateMany({ where: sectorWhere, data: { isActive: true } });
+      await database.client.membership.update({ where, data: { role: 'ADMIN' } });
+      expect((await journey()).body).toMatchObject({
+        structure: 'READY',
+        preparation: { employees: false, groups: false },
+      });
+    } finally {
+      await database.client.membership.update({ where, data: { role: 'READER' } });
+      await database.client.sector.updateMany({ where: sectorWhere, data: { isActive: false } });
+      await database.client.organization.update({
+        where: { id: organizationId },
+        data: { isActive: false, clientClassification: 'UNCLASSIFIED' },
+      });
+    }
+  });
+
   it('returns zero counts after selecting an empty organization', async () => {
     await database.client.session.updateMany({
       where: { userId },

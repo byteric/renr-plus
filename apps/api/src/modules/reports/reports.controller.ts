@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, Post, Query, Req, StreamableFile } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Header,
+  Param,
+  Post,
+  Query,
+  Req,
+  StreamableFile,
+} from '@nestjs/common';
 import {
   createPlatformReportSchema,
   createTenantReportSchema,
@@ -18,16 +28,18 @@ export class ReportsController {
   ) {}
 
   private tenant(request: Request, orgId: string) {
-    return this.identity.scope(request, parse(z.uuid(), orgId), false);
+    return this.identity.scope(request, parse(z.uuid(), orgId), false, undefined, true);
   }
 
   @Get('organizations/:orgId/reports')
+  @Header('Cache-Control', 'private, no-store')
   async list(@Req() request: Request, @Param('orgId') orgId: string, @Query() query: unknown) {
     const scope = await this.tenant(request, orgId);
     return this.reports.list(scope.userId, scope.organizationId, parse(reportQuerySchema, query));
   }
 
   @Post('organizations/:orgId/reports')
+  @Header('Cache-Control', 'private, no-store')
   async create(@Req() request: Request, @Param('orgId') orgId: string, @Body() body: unknown) {
     this.identity.assertOrigin(request);
     const scope = await this.tenant(request, orgId);
@@ -35,12 +47,14 @@ export class ReportsController {
   }
 
   @Get('organizations/:orgId/reports/:id')
+  @Header('Cache-Control', 'private, no-store')
   async read(@Req() request: Request, @Param('orgId') orgId: string, @Param('id') id: string) {
     const scope = await this.tenant(request, orgId);
     return this.reports.read(scope.userId, scope.organizationId, parse(z.uuid(), id));
   }
 
   @Get('organizations/:orgId/reports/:id/pdf')
+  @Header('Cache-Control', 'private, no-store')
   async download(@Req() request: Request, @Param('orgId') orgId: string, @Param('id') id: string) {
     const scope = await this.tenant(request, orgId);
     const reportId = parse(z.uuid(), id);

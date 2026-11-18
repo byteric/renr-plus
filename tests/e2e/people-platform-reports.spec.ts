@@ -139,6 +139,11 @@ test('relatório PLATFORM exige concessão global e expõe somente catálogo e a
 
   await hr.allowPlatform();
   await page.goto('/');
+  await expect(page).toHaveURL(/#\/empresas$/);
+  await expect(
+    page.getByRole('link', { name: 'Abrir Plataforma', exact: true, includeHidden: true }).first(),
+  ).toBeAttached();
+  await navigateWorkspace(page, 'Abrir Plataforma');
   await expect(page).toHaveURL(/#\/plataforma$/);
   await expect(
     page.getByRole('heading', { name: 'Administração da plataforma', level: 1 }),
