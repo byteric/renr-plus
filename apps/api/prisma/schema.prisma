@@ -43,6 +43,7 @@ model Organization {
   accessInvites AccessInvite[]
   accessHistory AccessHistory[]
   employees Employee[]
+  employeeBulkUpdates EmployeeBulkUpdate[]
   actionEfficacyOpinions ActionEfficacyOpinion[]
   hrProfiles EmployeeHrProfile[]
   settlementParameters EmployeeSettlementParameters[]
@@ -53,6 +54,17 @@ model Organization {
   reportSnapshots ReportSnapshot[]
   registrationRevisions OrganizationRegistrationRevision[]
   companyGroups CompanyGroupClient[]
+  commercialProfile CommercialClientProfile?
+  commercialContract CommercialContract?
+  commercialBillingCharges CommercialBillingCharge[]
+  commercialBillingChargeRevisions CommercialBillingChargeRevision[]
+  commercialContractAccess CommercialContractAccess?
+  commercialContractAccessTransitions CommercialContractAccessTransition[]
+  riskTechnicalContributions RiskTechnicalContribution[]
+  riskTechnicalContributionRevisions RiskTechnicalContributionRevision[]
+  riskTechnicalContributionAttachments RiskTechnicalContributionAttachment[]
+  supportTickets SupportTicket[]
+  passwordRecoveries PasswordRecovery[]
 
   @@index([clientClassification, isActive, name, id])
   @@index([fiscalCandidate])
@@ -77,6 +89,13 @@ model User {
   updatedAt DateTime @updatedAt @map("updated_at")
   memberships Membership[]
   sessions Session[]
+  mfaFactor MfaFactor?
+  mfaChallenges MfaChallenge[]
+  mfaEnrollments MfaEnrollment[]
+  mfaRecoveryCodes MfaRecoveryCode[]
+  mfaAttempts MfaAttempt[]
+  mfaRecoveries MfaRecovery[] @relation("MfaRecoveryAccount")
+  mfaRecoveriesIssued MfaRecovery[] @relation("MfaRecoveryIssuer")
   risksCreated Risk[] @relation("RiskCreator")
   risksUpdated Risk[] @relation("RiskUpdater")
   riskEvaluations RiskEvaluation[]
@@ -110,6 +129,20 @@ model User {
   platformEventsReceived PlatformAuditEvent[] @relation("PlatformSubject")
   reportsCreated ReportSnapshot[]
   companyGroupGrants CompanyGroupGrant[]
+  commercialPlanVersions CommercialPlanVersion[]
+  commercialContractRevisions CommercialContractRevision[]
+  commercialContractDocuments CommercialContractDocument[]
+  commercialBillingChargesCreated CommercialBillingCharge[] @relation("CommercialBillingChargeCreator")
+  commercialBillingChargesUpdated CommercialBillingCharge[] @relation("CommercialBillingChargeUpdater")
+  commercialBillingChargeRevisions CommercialBillingChargeRevision[]
+  commercialContractAccessesUpdated CommercialContractAccess[] @relation("CommercialContractAccessUpdater")
+  commercialContractAccessTransitions CommercialContractAccessTransition[]
+  employeeBulkUpdates EmployeeBulkUpdate[]
+  supportTicketsOpened SupportTicket[] @relation("SupportTicketOpenedBy")
+  supportTicketsAssigned SupportTicket[] @relation("SupportTicketAssignee")
+  supportTicketRevisions SupportTicketRevision[]
+  passwordRecoveries PasswordRecovery[] @relation("PasswordRecoveryAccount")
+  passwordRecoveriesIssued PasswordRecovery[] @relation("PasswordRecoveryIssuer")
 }
 
 model Membership {
@@ -129,6 +162,12 @@ model Membership {
   @@id([userId, organizationId])
   assignedActions Action[]
   scopes MembershipScope[]
+  riskTechnicalContributionsAuthored RiskTechnicalContribution[] @relation("RiskContributionAuthorMembership")
+  riskTechnicalContributionsShared RiskTechnicalContribution[] @relation("RiskContributionSharerMembership")
+  riskTechnicalContributionsArchived RiskTechnicalContribution[] @relation("RiskContributionArchiverMembership")
+  riskTechnicalContributionRevisions RiskTechnicalContributionRevision[] @relation("RiskContributionRevisionAuthorMembership")
+  riskTechnicalContributionAttachmentsCreated RiskTechnicalContributionAttachment[] @relation("RiskContributionAttachmentCreatorMembership")
+  riskTechnicalContributionAttachmentsArchived RiskTechnicalContributionAttachment[] @relation("RiskContributionAttachmentArchiverMembership")
   @@index([organizationId])
   @@map("memberships")
 }
@@ -150,6 +189,7 @@ model MembershipScope {
 enum Capability {
   EXECUTE_ASSIGNED_ACTIONS
   TECHNICAL_DECISIONS
+  PSYCHOLOGY_COLLABORATION
   HR_PROFILE_READ
   HR_PROFILE_MANAGE
   HR_ANALYTICS_READ
@@ -206,7 +246,10 @@ model Session {
   activeOrganizationId String? @map("active_organization_id") @db.Uuid
   expiresAt DateTime @map("expires_at")
   createdAt DateTime @default(now()) @map("created_at")
+  mfaVersion Int? @map("mfa_version")
+  mfaVerifiedAt DateTime? @map("mfa_verified_at")
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mfaEnrollment MfaEnrollment?
   @@index([userId])
   @@index([expiresAt])
   @@map("sessions")
@@ -496,6 +539,9 @@ model Risk {
   evaluations RiskEvaluation[]
   technicalEvaluations TechnicalRiskEvaluation[]
   actions Action[]
+  technicalContributions RiskTechnicalContribution[]
+  technicalContributionRevisions RiskTechnicalContributionRevision[]
+  technicalContributionAttachments RiskTechnicalContributionAttachment[]
   @@unique([organizationId, id])
   @@index([organizationId, status, createdAt, id])
   actionEfficacyOpinions ActionEfficacyOpinion[]
@@ -690,12 +736,47 @@ model Employee {
   remunerations EmployeeRemuneration[]
   vacationPeriods EmployeeVacationPeriod[]
   hrRevisions EmployeeHrRevision[]
+  registrationRevisions EmployeeRegistrationRevision[]
   @@unique([organizationId, id])
   @@unique([organizationId, normalizedIdentifier])
   @@index([organizationId, isActive, name, id])
   @@index([organizationId, unitId, sectorId])
   @@index([linkedUserId, organizationId])
   @@map("employees")
+}
+
+model EmployeeBulkUpdate {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  actorId String @map("actor_id") @db.Uuid
+  fileDigest String @map("file_digest") @db.Char(64)
+  proposalDigest String @map("proposal_digest") @db.Char(64)
+  createdAt DateTime @default(now()) @map("created_at")
+  expiresAt DateTime @map("expires_at")
+  confirmedAt DateTime? @map("confirmed_at")
+  updatedCount Int? @map("updated_count")
+  unchangedCount Int? @map("unchanged_count")
+  organization Organization @relation(fields:[organizationId],references:[id],onDelete:Restrict)
+  actor User @relation(fields:[actorId],references:[id],onDelete:Restrict)
+  revisions EmployeeRegistrationRevision[]
+  @@unique([organizationId,id])
+  @@index([organizationId,actorId,confirmedAt,expiresAt],map:"employee_bulk_updates_expiry_idx")
+  @@index([actorId])
+  @@map("employee_bulk_updates")
+}
+
+model EmployeeRegistrationRevision {
+  organizationId String @map("organization_id") @db.Uuid
+  employeeId String @map("employee_id") @db.Uuid
+  batchId String @map("batch_id") @db.Uuid
+  version Int
+  before Json
+  after Json
+  employee Employee @relation(fields:[organizationId,employeeId],references:[organizationId,id],onDelete:Restrict,map:"employee_registration_revisions_organization_id_employee_id_fke")
+  batch EmployeeBulkUpdate @relation(fields:[organizationId,batchId],references:[organizationId,id],onDelete:Restrict)
+  @@id([organizationId,employeeId,version])
+  @@unique([organizationId,batchId,employeeId],map:"employee_registration_revisions_organization_id_batch_id_em_key")
+  @@map("employee_registration_revisions")
 }
 
 model EmployeeHrProfile {
@@ -814,7 +895,479 @@ enum PlatformCapability {
   READ_OVERVIEW
   MANAGE_CLIENTS
   MANAGE_GRANTS
+  READ_COMMERCIAL
+  MANAGE_COMMERCIAL
+  READ_BILLING
+  MANAGE_BILLING
+  READ_CONTRACT_ACCESS
+  MANAGE_CONTRACT_ACCESS
+  READ_SUPPORT
+  MANAGE_SUPPORT
+  ASSIST_COMPANY_PASSWORD_RECOVERY
+  MANAGE_PASSWORD_RECOVERY
+  RECOVER_ACCOUNT_MFA
 }
+
+enum MfaChallengePurpose {
+  VERIFY
+  ENROLL
+  RECOVER
+}
+
+enum MfaAttemptPurpose {
+  PROOF
+  RECOVERY_PASSWORD
+  ACCOUNT_PASSWORD
+}
+
+model MfaFactor {
+  userId String @id @map("user_id") @db.Uuid
+  version Int
+  encryptedSecret String @map("encrypted_secret")
+  lastAcceptedStep Int @map("last_accepted_step")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("mfa_factors")
+}
+
+model MfaChallenge {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  tokenHash String @unique @map("token_hash") @db.Char(64)
+  purpose MfaChallengePurpose
+  factorVersion Int? @map("factor_version")
+  recoveryId String? @map("recovery_id") @db.Uuid
+  expiresAt DateTime @map("expires_at")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recovery MfaRecovery? @relation(fields: [recoveryId], references: [id], onDelete: Cascade)
+  enrollment MfaEnrollment?
+
+  @@index([userId, expiresAt])
+  @@map("mfa_challenges")
+}
+
+model MfaEnrollment {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  challengeId String? @unique @map("challenge_id") @db.Uuid
+  sessionId String? @unique @map("session_id") @db.Uuid
+  encryptedSecret String @map("encrypted_secret")
+  expiresAt DateTime @map("expires_at")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  challenge MfaChallenge? @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  session Session? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@map("mfa_enrollments")
+}
+
+model MfaRecoveryCode {
+  userId String @map("user_id") @db.Uuid
+  factorVersion Int @map("factor_version")
+  codeHash String @map("code_hash") @db.Char(64)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, factorVersion, codeHash])
+  @@map("mfa_recovery_codes")
+}
+
+model MfaAttempt {
+  userId String @map("user_id") @db.Uuid
+  purpose MfaAttemptPurpose
+  failures Int
+  expiresAt DateTime @map("expires_at")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, purpose])
+  @@map("mfa_attempts")
+}
+
+model MfaRecovery {
+  id String @id @default(uuid()) @db.Uuid
+  tokenHash String @unique @map("token_hash") @db.Char(64)
+  userId String @map("user_id") @db.Uuid
+  issuerId String @map("issuer_id") @db.Uuid
+  issuerGrantVersion Int @map("issuer_grant_version")
+  factorVersion Int @map("factor_version")
+  verificationReference String @map("verification_reference") @db.VarChar(64)
+  issuedAt DateTime @default(now()) @map("issued_at")
+  expiresAt DateTime @map("expires_at")
+  consumedAt DateTime? @map("consumed_at")
+  revokedAt DateTime? @map("revoked_at")
+  user User @relation("MfaRecoveryAccount", fields: [userId], references: [id], onDelete: Cascade)
+  issuer User @relation("MfaRecoveryIssuer", fields: [issuerId], references: [id], onDelete: Restrict)
+  challenges MfaChallenge[]
+
+  @@index([userId, issuedAt])
+  @@map("mfa_recoveries")
+}
+
+enum PasswordRecoveryPurpose {
+  PASSWORD_RESET
+}
+
+model PasswordRecovery {
+  id String @id @default(uuid()) @db.Uuid
+  tokenHash String @unique @map("token_hash") @db.Char(64)
+  userId String @map("user_id") @db.Uuid
+  issuerId String @map("issuer_id") @db.Uuid
+  organizationId String? @map("organization_id") @db.Uuid
+  purpose PasswordRecoveryPurpose @default(PASSWORD_RESET)
+  verificationReference String @map("verification_reference") @db.VarChar(64)
+  policyVersion String @map("policy_version") @db.VarChar(32)
+  issuedAt DateTime @default(now()) @map("issued_at")
+  expiresAt DateTime @map("expires_at")
+  consumedAt DateTime? @map("consumed_at")
+  revokedAt DateTime? @map("revoked_at")
+  user User @relation("PasswordRecoveryAccount", fields: [userId], references: [id], onDelete: Cascade)
+  issuer User @relation("PasswordRecoveryIssuer", fields: [issuerId], references: [id], onDelete: Restrict)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@index([userId, issuedAt])
+  @@map("password_recoveries")
+}
+
+enum SupportTicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+}
+
+enum SupportTicketCategory {
+  ACCESS
+  BILLING
+  TECHNICAL
+  OTHER
+}
+
+model SupportTicket {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  openedById String @map("opened_by_id") @db.Uuid
+  subject String @db.VarChar(160)
+  category SupportTicketCategory
+  description String @db.VarChar(2000)
+  status SupportTicketStatus @default(OPEN)
+  assigneeId String? @map("assignee_id") @db.Uuid
+  dueOn DateTime? @map("due_on") @db.Date
+  version Int @default(1)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  resolvedAt DateTime? @map("resolved_at")
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  openedBy User @relation("SupportTicketOpenedBy", fields: [openedById], references: [id], onDelete: Restrict)
+  assignee User? @relation("SupportTicketAssignee", fields: [assigneeId], references: [id], onDelete: Restrict)
+  revisions SupportTicketRevision[]
+
+  @@unique([organizationId, id])
+  @@index([organizationId, updatedAt, id])
+  @@index([status, dueOn, id])
+  @@map("support_tickets")
+}
+
+model SupportTicketRevision {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  ticketId String @map("ticket_id") @db.Uuid
+  version Int
+  status SupportTicketStatus
+  assigneeId String? @map("assignee_id") @db.Uuid
+  assigneeName String? @map("assignee_name") @db.VarChar(120)
+  dueOn DateTime? @map("due_on") @db.Date
+  note String @db.VarChar(2000)
+  actorId String @map("actor_id") @db.Uuid
+  actorName String @map("actor_name") @db.VarChar(120)
+  createdAt DateTime @default(now()) @map("created_at")
+  ticket SupportTicket @relation(fields: [organizationId, ticketId], references: [organizationId, id], onDelete: Restrict)
+  actor User @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, ticketId, version])
+  @@map("support_ticket_revisions")
+}
+
+enum CommercialContractAccessStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum CommercialContractAccessFromStatus {
+  UNRECORDED
+  ACTIVE
+  SUSPENDED
+}
+
+enum CommercialContractAccessTransitionKind {
+  ACTIVATION
+  SUSPENSION
+  REACTIVATION
+}
+
+enum CommercialContractAccessOrigin {
+  MANUAL_OPERATION
+}
+
+enum CommercialContractAccessRule {
+  MANUAL_CONTRACT_ACTIVATION
+  MANUAL_CONTRACT_SUSPENSION
+  MANUAL_CONTRACT_REACTIVATION
+}
+
+enum CommercialBillingChargeRevisionKind {
+  CREATED
+  PAYMENT_CONFIRMED
+  CORRECTION
+}
+
+enum CommercialPlanKind {
+  PLAN
+  SERVICE
+}
+
+enum CommercialPricingUnit {
+  EMPLOYEE_MONTH
+  TRAINING_CLASS
+  SERVICE
+}
+
+enum CommercialPriceMode {
+  FIXED
+  STARTING_AT
+}
+
+enum CommercialContractRevisionKind {
+  INITIAL
+  RENEWAL
+  AMENDMENT
+  CANCELLATION
+}
+
+model CommercialPlan {
+  id String @id @default(uuid()) @db.Uuid
+  name String @db.VarChar(160)
+  kind CommercialPlanKind
+  version Int @default(1)
+  versions CommercialPlanVersion[]
+  @@index([kind, name, id])
+  @@map("commercial_plans")
+}
+
+model CommercialPlanVersion {
+  id String @id @default(uuid()) @db.Uuid
+  planId String @map("plan_id") @db.Uuid
+  ordinal Int
+  effectiveOn DateTime @map("effective_on") @db.Date
+  priceCents Int @map("price_cents")
+  pricingUnit CommercialPricingUnit @map("pricing_unit")
+  priceMode CommercialPriceMode @map("price_mode")
+  conditions String @db.VarChar(4000)
+  limits String @db.VarChar(4000)
+  includedFeatures String[] @map("included_features")
+  plannedFeatures String[] @map("planned_features")
+  reason String @db.VarChar(1000)
+  createdBy String @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  plan CommercialPlan @relation(fields:[planId],references:[id],onDelete:Restrict)
+  creator User @relation(fields:[createdBy],references:[id],onDelete:Restrict)
+  contractRevisions CommercialContractRevision[]
+  billingCharges CommercialBillingCharge[]
+  billingChargeRevisions CommercialBillingChargeRevision[]
+  @@unique([planId, ordinal])
+  @@unique([planId, effectiveOn])
+  @@map("commercial_plan_versions")
+}
+
+model CommercialClientProfile {
+  organizationId String @id @map("organization_id") @db.Uuid
+  contactName String? @map("contact_name") @db.VarChar(160)
+  contactEmail String? @map("contact_email") @db.VarChar(254)
+  adoptedOn DateTime? @map("adopted_on") @db.Date
+  version Int @default(1)
+  organization Organization @relation(fields:[organizationId],references:[id],onDelete:Restrict)
+  @@map("commercial_client_profiles")
+}
+
+model CommercialContract {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @unique @map("organization_id") @db.Uuid
+  version Int @default(1)
+  organization Organization @relation(fields:[organizationId],references:[id],onDelete:Restrict)
+  revisions CommercialContractRevision[]
+  billingCharges CommercialBillingCharge[]
+  billingChargeRevisions CommercialBillingChargeRevision[]
+  contractAccess CommercialContractAccess?
+  contractAccessTransitions CommercialContractAccessTransition[]
+  @@unique([organizationId, id])
+  @@map("commercial_contracts")
+}
+
+model CommercialContractRevision {
+  id String @id @default(uuid()) @db.Uuid
+  contractId String @map("contract_id") @db.Uuid
+  planVersionId String @map("plan_version_id") @db.Uuid
+  ordinal Int
+  kind CommercialContractRevisionKind
+  startsOn DateTime @map("starts_on") @db.Date
+  endsOn DateTime @map("ends_on") @db.Date
+  terms String @db.VarChar(8000)
+  reason String @db.VarChar(1000)
+  createdBy String @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  contract CommercialContract @relation(fields:[contractId],references:[id],onDelete:Restrict)
+  planVersion CommercialPlanVersion @relation(fields:[planVersionId],references:[id],onDelete:Restrict)
+  creator User @relation(fields:[createdBy],references:[id],onDelete:Restrict)
+  document CommercialContractDocument?
+  withdrawal CommercialContractWithdrawal?
+  billingCharges CommercialBillingCharge[]
+  billingChargeRevisions CommercialBillingChargeRevision[]
+  @@unique([contractId, ordinal])
+  @@unique([contractId, id, planVersionId])
+  @@index([planVersionId])
+  @@map("commercial_contract_revisions")
+}
+
+model CommercialBillingCharge {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  contractId String @map("contract_id") @db.Uuid
+  contractRevisionId String @map("contract_revision_id") @db.Uuid
+  planVersionId String @map("plan_version_id") @db.Uuid
+  competence String @db.VarChar(7)
+  amountCents Int @map("amount_cents")
+  dueOn DateTime @map("due_on") @db.Date
+  paidOn DateTime? @map("paid_on") @db.Date
+  receiptReference String? @map("receipt_reference") @db.VarChar(240)
+  version Int @default(1)
+  createdBy String @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedBy String @map("updated_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at")
+  organization Organization @relation(fields:[organizationId],references:[id],onDelete:Restrict,map:"commercial_billing_charges_org_fkey")
+  contract CommercialContract @relation(fields:[organizationId,contractId],references:[organizationId,id],onDelete:Restrict,map:"commercial_billing_charges_contract_fkey")
+  contractRevision CommercialContractRevision @relation(fields:[contractId,contractRevisionId,planVersionId],references:[contractId,id,planVersionId],onDelete:Restrict,map:"commercial_billing_charges_contract_rev_fkey")
+  planVersion CommercialPlanVersion @relation(fields:[planVersionId],references:[id],onDelete:Restrict,map:"commercial_billing_charges_plan_ver_fkey")
+  creator User @relation("CommercialBillingChargeCreator",fields:[createdBy],references:[id],onDelete:Restrict,map:"commercial_billing_charges_created_by_fkey")
+  updater User @relation("CommercialBillingChargeUpdater",fields:[updatedBy],references:[id],onDelete:Restrict,map:"commercial_billing_charges_updated_by_fkey")
+  revisions CommercialBillingChargeRevision[]
+  @@unique([organizationId, id])
+  @@unique([organizationId, contractId, competence], map: "commercial_billing_charges_org_contract_competence_key")
+  @@index([organizationId, competence, dueOn, id], map: "commercial_billing_charges_org_competence_due_idx")
+  @@index([competence, paidOn, dueOn, id], map: "commercial_billing_charges_period_status_idx")
+  @@index([contractId, contractRevisionId], map: "commercial_billing_charges_contract_revision_idx")
+  @@index([planVersionId])
+  @@index([createdBy])
+  @@index([updatedBy])
+  @@map("commercial_billing_charges")
+}
+
+model CommercialBillingChargeRevision {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  chargeId String @map("charge_id") @db.Uuid
+  contractId String @map("contract_id") @db.Uuid
+  contractRevisionId String @map("contract_revision_id") @db.Uuid
+  planVersionId String @map("plan_version_id") @db.Uuid
+  ordinal Int
+  kind CommercialBillingChargeRevisionKind
+  competence String @db.VarChar(7)
+  amountCents Int @map("amount_cents")
+  dueOn DateTime @map("due_on") @db.Date
+  paidOn DateTime? @map("paid_on") @db.Date
+  receiptReference String? @map("receipt_reference") @db.VarChar(240)
+  reason String @db.VarChar(1000)
+  idempotencyKey String? @map("idempotency_key") @db.Uuid
+  createdBy String @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  organization Organization @relation(fields:[organizationId],references:[id],onDelete:Restrict,map:"commercial_billing_charge_revs_org_fkey")
+  charge CommercialBillingCharge @relation(fields:[organizationId,chargeId],references:[organizationId,id],onDelete:Restrict,map:"commercial_billing_charge_revs_charge_fkey")
+  contract CommercialContract @relation(fields:[organizationId,contractId],references:[organizationId,id],onDelete:Restrict,map:"commercial_billing_charge_revs_contract_fkey")
+  contractRevision CommercialContractRevision @relation(fields:[contractId,contractRevisionId,planVersionId],references:[contractId,id,planVersionId],onDelete:Restrict,map:"commercial_billing_charge_revs_contract_rev_fkey")
+  planVersion CommercialPlanVersion @relation(fields:[planVersionId],references:[id],onDelete:Restrict,map:"commercial_billing_charge_revs_plan_ver_fkey")
+  creator User @relation(fields:[createdBy],references:[id],onDelete:Restrict,map:"commercial_billing_charge_revs_created_by_fkey")
+  @@unique([chargeId, ordinal])
+  @@index([organizationId, chargeId, ordinal], map: "commercial_billing_charge_revisions_org_charge_ordinal_idx")
+  @@index([contractId, contractRevisionId], map: "commercial_billing_charge_revisions_contract_revision_idx")
+  @@index([planVersionId])
+  @@index([createdBy])
+  @@map("commercial_billing_charge_revisions")
+}
+
+model CommercialContractAccess {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @unique @map("organization_id") @db.Uuid
+  contractId String @unique @map("contract_id") @db.Uuid
+  status CommercialContractAccessStatus
+  version Int @default(1)
+  lastTransitionKind CommercialContractAccessTransitionKind @map("last_transition_kind")
+  lastRule CommercialContractAccessRule @map("last_rule")
+  lastOrigin CommercialContractAccessOrigin @default(MANUAL_OPERATION) @map("last_origin")
+  lastEffectiveOn DateTime @map("last_effective_on") @db.Date
+  lastReason String @map("last_reason") @db.VarChar(1000)
+  lastNextStep String @map("last_next_step") @db.VarChar(500)
+  updatedBy String @map("updated_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  organization Organization @relation(fields:[organizationId],references:[id],onDelete:Restrict,map:"commercial_contract_accesses_org_fkey")
+  contract CommercialContract @relation(fields:[organizationId,contractId],references:[organizationId,id],onDelete:Restrict,map:"commercial_contract_accesses_contract_fkey")
+  updater User @relation("CommercialContractAccessUpdater",fields:[updatedBy],references:[id],onDelete:Restrict,map:"commercial_contract_accesses_updated_by_fkey")
+  transitions CommercialContractAccessTransition[]
+  @@unique([organizationId, id])
+  @@unique([organizationId, contractId])
+  @@index([status, updatedAt, id], map: "commercial_contract_accesses_status_updated_idx")
+  @@index([updatedBy])
+  @@map("commercial_contract_accesses")
+}
+
+model CommercialContractAccessTransition {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  contractId String @map("contract_id") @db.Uuid
+  accessId String @map("access_id") @db.Uuid
+  ordinal Int
+  kind CommercialContractAccessTransitionKind
+  fromStatus CommercialContractAccessFromStatus @map("from_status")
+  toStatus CommercialContractAccessStatus @map("to_status")
+  rule CommercialContractAccessRule
+  origin CommercialContractAccessOrigin @default(MANUAL_OPERATION)
+  effectiveOn DateTime @map("effective_on") @db.Date
+  reason String @db.VarChar(1000)
+  nextStep String @map("next_step") @db.VarChar(500)
+  idempotencyKey String? @map("idempotency_key") @db.Uuid
+  actorId String @map("actor_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  organization Organization @relation(fields:[organizationId],references:[id],onDelete:Restrict,map:"commercial_contract_access_trans_org_fkey")
+  contract CommercialContract @relation(fields:[organizationId,contractId],references:[organizationId,id],onDelete:Restrict,map:"commercial_contract_access_trans_contract_fkey")
+  access CommercialContractAccess @relation(fields:[organizationId,accessId],references:[organizationId,id],onDelete:Restrict,map:"commercial_contract_access_trans_access_fkey")
+  actor User @relation(fields:[actorId],references:[id],onDelete:Restrict,map:"commercial_contract_access_trans_actor_fkey")
+  @@unique([accessId, ordinal])
+  @@index([organizationId, accessId, ordinal], map: "commercial_contract_access_trans_org_access_ordinal_idx")
+  @@index([contractId])
+  @@index([actorId])
+  @@map("commercial_contract_access_transitions")
+}
+
+model CommercialContractWithdrawal {
+  revisionId String @id @map("revision_id") @db.Uuid
+  reason String @db.VarChar(1000)
+  createdAt DateTime @default(now()) @map("created_at")
+  revision CommercialContractRevision @relation(fields:[revisionId],references:[id],onDelete:Restrict)
+  @@map("commercial_contract_withdrawals")
+}
+
+model CommercialContractDocument {
+  id String @id @default(uuid()) @db.Uuid
+  revisionId String @unique @map("revision_id") @db.Uuid
+  fileName String @map("file_name") @db.VarChar(200)
+  size Int
+  sha256 String @db.Char(64)
+  storageKey String @unique @map("storage_key") @db.VarChar(300)
+  createdBy String @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  storedAt DateTime? @map("stored_at")
+  revision CommercialContractRevision @relation(fields:[revisionId],references:[id],onDelete:Restrict)
+  creator User @relation(fields:[createdBy],references:[id],onDelete:Restrict)
+  @@map("commercial_contract_documents")
+}
+
 model PlatformGrant {
   userId String @map("user_id") @db.Uuid
   capability PlatformCapability
@@ -1221,4 +1774,114 @@ model EvidenceUploadAttempt {
   creator Membership @relation(fields: [creatorId, organizationId], references: [userId, organizationId], onDelete: Restrict, onUpdate: NoAction, map: "evidence_upload_attempts_creator_fkey")
   @@unique([organizationId, actionId, creatorId, key], map: "evidence_upload_attempts_scope_key")
   @@map("evidence_upload_attempts")
+}
+
+enum RiskContributionSpecialty {
+  SST
+  PSYCHOLOGY_ORGANIZATIONAL
+}
+
+enum RiskContributionVisibility {
+  RESTRICTED
+  SHARED
+}
+
+enum RiskContributionStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum RiskContributionKind {
+  PSYCHOSOCIAL_ANALYSIS
+  WORK_ORGANIZATION_NOTE
+  PREVENTIVE_RECOMMENDATION
+  TECHNICAL_FOLLOW_UP
+}
+
+model RiskTechnicalContribution {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  riskId String @map("risk_id") @db.Uuid
+  specialty RiskContributionSpecialty
+  kind RiskContributionKind
+  status RiskContributionStatus @default(ACTIVE)
+  visibility RiskContributionVisibility @default(RESTRICTED)
+  title String @db.VarChar(160)
+  workFactors String @map("work_factors") @db.VarChar(2000)
+  preventiveRecommendations String @map("preventive_recommendations") @db.VarChar(2000)
+  nextStep String? @map("next_step") @db.VarChar(500)
+  sourceRiskVersion Int @map("source_risk_version")
+  version Int @default(1)
+  authorId String @map("author_id") @db.Uuid
+  sharedAt DateTime? @map("shared_at") @db.Timestamptz(6)
+  sharedById String? @map("shared_by_id") @db.Uuid
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(6)
+  archivedById String? @map("archived_by_id") @db.Uuid
+  archiveReason String? @map("archive_reason") @db.VarChar(1000)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "risk_tech_contrib_org_fkey")
+  risk Risk @relation(fields: [organizationId, riskId], references: [organizationId, id], onDelete: Restrict, onUpdate: NoAction, map: "risk_tech_contrib_risk_fkey")
+  authorMembership Membership @relation("RiskContributionAuthorMembership", fields: [authorId, organizationId], references: [userId, organizationId], onDelete: Restrict, onUpdate: NoAction, map: "risk_tech_contrib_author_fkey")
+  sharedByMembership Membership? @relation("RiskContributionSharerMembership", fields: [sharedById, organizationId], references: [userId, organizationId], onDelete: Restrict, onUpdate: NoAction, map: "risk_tech_contrib_sharer_fkey")
+  archivedByMembership Membership? @relation("RiskContributionArchiverMembership", fields: [archivedById, organizationId], references: [userId, organizationId], onDelete: Restrict, onUpdate: NoAction, map: "risk_tech_contrib_archiver_fkey")
+  revisions RiskTechnicalContributionRevision[]
+  attachments RiskTechnicalContributionAttachment[]
+  @@unique([organizationId, id], map: "risk_tech_contrib_org_id_key")
+  @@unique([organizationId, riskId, id], map: "risk_tech_contrib_org_risk_id_key")
+  @@index([organizationId, riskId, visibility, createdAt, id], map: "risk_tech_contrib_org_risk_vis_idx")
+  @@index([organizationId, authorId, createdAt, id], map: "risk_tech_contrib_org_author_idx")
+  @@map("risk_technical_contributions")
+}
+
+model RiskTechnicalContributionRevision {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  riskId String @map("risk_id") @db.Uuid
+  contributionId String @map("contribution_id") @db.Uuid
+  version Int
+  event String @db.VarChar(32)
+  visibility RiskContributionVisibility
+  snapshot Json
+  changeReason String? @map("change_reason") @db.VarChar(1000)
+  authorId String @map("author_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "risk_tech_contrib_rev_org_fkey")
+  risk Risk @relation(fields: [organizationId, riskId], references: [organizationId, id], onDelete: Restrict, onUpdate: NoAction, map: "risk_tech_contrib_rev_risk_fkey")
+  contribution RiskTechnicalContribution @relation(fields: [organizationId, riskId, contributionId], references: [organizationId, riskId, id], onDelete: Restrict, onUpdate: NoAction, map: "risk_tech_contrib_rev_contrib_fkey")
+  authorMembership Membership @relation("RiskContributionRevisionAuthorMembership", fields: [authorId, organizationId], references: [userId, organizationId], onDelete: Restrict, onUpdate: NoAction, map: "risk_tech_contrib_rev_author_fkey")
+  attachments RiskTechnicalContributionAttachment[]
+  @@unique([contributionId, version], map: "risk_tech_contrib_rev_contrib_ver_key")
+  @@index([organizationId, contributionId, createdAt, id], map: "risk_tech_contrib_rev_org_contrib_idx")
+  @@map("risk_technical_contribution_revisions")
+}
+
+model RiskTechnicalContributionAttachment {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  riskId String @map("risk_id") @db.Uuid
+  contributionId String @map("contribution_id") @db.Uuid
+  contributionVersion Int @map("contribution_version")
+  visibility RiskContributionVisibility @default(RESTRICTED)
+  description String @db.VarChar(1000)
+  fileName String @map("file_name") @db.VarChar(100)
+  objectKey String @unique @map("object_key") @db.VarChar(240)
+  mimeType String @map("mime_type") @db.VarChar(64)
+  size Int
+  sha256 String @db.Char(64)
+  version Int @default(1)
+  createdById String @map("created_by_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(6)
+  archivedById String? @map("archived_by_id") @db.Uuid
+  archiveReason String? @map("archive_reason") @db.VarChar(1000)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "risk_tech_contrib_att_org_fkey")
+  risk Risk @relation(fields: [organizationId, riskId], references: [organizationId, id], onDelete: Restrict, onUpdate: NoAction, map: "risk_tech_contrib_att_risk_fkey")
+  contribution RiskTechnicalContribution @relation(fields: [organizationId, riskId, contributionId], references: [organizationId, riskId, id], onDelete: Restrict, onUpdate: NoAction, map: "risk_tech_contrib_att_contrib_fkey")
+  revision RiskTechnicalContributionRevision @relation(fields: [contributionId, contributionVersion], references: [contributionId, version], onDelete: Restrict, onUpdate: NoAction, map: "risk_tech_contrib_att_rev_fkey")
+  createdByMembership Membership @relation("RiskContributionAttachmentCreatorMembership", fields: [createdById, organizationId], references: [userId, organizationId], onDelete: Restrict, onUpdate: NoAction, map: "risk_tech_contrib_att_creator_fkey")
+  archivedByMembership Membership? @relation("RiskContributionAttachmentArchiverMembership", fields: [archivedById, organizationId], references: [userId, organizationId], onDelete: Restrict, onUpdate: NoAction, map: "risk_tech_contrib_att_archiver_fkey")
+  @@unique([organizationId, contributionId, id], map: "risk_tech_contrib_att_org_contrib_id_key")
+  @@index([organizationId, contributionId, createdAt, id], map: "risk_tech_contrib_att_org_contrib_idx")
+  @@map("risk_technical_contribution_attachments")
 }
