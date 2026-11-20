@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { actionCivilDateSchema } from './actions';
 import { hrPaginationSchema } from './people-analytics';
 
 const id = z.uuid().transform((value) => value.toLowerCase());
@@ -41,11 +42,41 @@ const metrics = z.strictObject({
 });
 
 export const companyGroupListSchema = z.strictObject({ items: z.array(groupSummary) });
-export const companyGroupOverviewQuerySchema = z.strictObject({ organizationId: id.optional() });
+export const companyGroupOverviewQuerySchema = z.strictObject({
+  organizationId: id.optional(),
+  view: z.literal('operational').optional(),
+});
 export const companyGroupOverviewSchema = z.strictObject({
   group: groupSummary,
   totals: metrics,
   companies: z.array(companySummary.extend({ metrics })),
+});
+const operational = z.strictObject({
+  collections: z.strictObject({ inProgress: count, completed: count, pending: count }),
+  evaluations: z.strictObject({ records: count, completed: count, pending: count }),
+  overdueActions: count,
+  lastActivity: z.discriminatedUnion('status', [
+    z.strictObject({ status: z.literal('AVAILABLE'), date: actionCivilDateSchema }),
+    z.strictObject({ status: z.literal('UNAVAILABLE') }),
+  ]),
+});
+export const companyGroupOperationalOverviewSchema = companyGroupOverviewSchema.extend({
+  referenceDate: actionCivilDateSchema,
+  timeZone: z.literal('America/Sao_Paulo'),
+  portfolio: z.strictObject({
+    active: count,
+    inactive: count,
+    activeDemonstrations: count,
+    inactiveDemonstrations: count,
+  }),
+  operational,
+  companies: z.array(
+    companySummary.extend({
+      classification: z.enum(['CLIENT', 'DEMONSTRATION']),
+      metrics,
+      operational,
+    }),
+  ),
 });
 export const companyGroupEligibleClientQuerySchema = hrPaginationSchema
   .extend({
@@ -79,6 +110,8 @@ export const companyGroupEligibleClientPageSchema = page.extend({ items: z.array
 
 export type CompanyGroupOverview = z.infer<typeof companyGroupOverviewSchema>;
 export type CompanyGroupMetrics = z.infer<typeof metrics>;
+export type CompanyGroupOverviewQuery = z.infer<typeof companyGroupOverviewQuerySchema>;
+export type CompanyGroupOperationalMetrics = z.infer<typeof operational>;
 export type CreateCompanyGroup = z.infer<typeof createCompanyGroupSchema>;
 export type UpdateCompanyGroup = z.infer<typeof updateCompanyGroupSchema>;
 export type WriteCompanyGroupGrant = z.infer<typeof writeCompanyGroupGrantSchema>;

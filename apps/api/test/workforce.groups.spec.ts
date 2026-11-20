@@ -83,6 +83,7 @@ describe('Inactive assessment groups', () => {
     const tx = {
       $queryRaw: async () => [],
       sector: { findFirst: async () => sector },
+      commercialContractAccess: { findUnique: async () => null },
       instrumentVersion: { findFirst: async () => instrument },
       assessmentGroup: { upsert: async () => ({ id, isActive: false }) },
       diagnosticCycle: {

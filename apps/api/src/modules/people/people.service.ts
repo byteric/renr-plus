@@ -26,6 +26,7 @@ import type { HrCapability } from '../access/capabilities';
 import { PrismaService } from '../../database/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
 import { referenceDate } from '../actions/actions.repository';
+import { assertContractAccessAllowed } from '../commercial/contract-access';
 import { calculateCltSettlement, CltInputError, CLT_POLICY_VERSION } from './clt-calculator';
 import { peopleDataAvailable } from './people-availability';
 
@@ -37,6 +38,7 @@ export async function requirePeopleCapability(
 ) {
   const member = await tx.membership.findUnique({ where: { userId_organizationId: scope } });
   if (!member?.isActive) throw new NotFoundException();
+  await assertContractAccessAllowed(tx, scope.organizationId);
   if (!capabilities.some((capability) => member.hrCapabilities.includes(capability)))
     throw new ForbiddenException();
 }

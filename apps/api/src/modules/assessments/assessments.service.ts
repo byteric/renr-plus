@@ -21,6 +21,10 @@ import type {
 } from '@renr/contracts';
 import { PrismaService } from '../../database/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
+import {
+  isContractAccessSuspended,
+  lockAndAssertContractAccessAllowed,
+} from '../commercial/contract-access';
 import { participationProtected } from './assessment-eligibility';
 import { projectAssessment, type ResultInput } from './assessment-projection';
 import {
@@ -38,7 +42,7 @@ const instrumentInclude = {
   },
 } satisfies Prisma.InstrumentVersionInclude;
 const include = {
-  organization: true,
+  organization: { include: { commercialContractAccess: { select: { status: true } } } },
   assessmentGroup: { include: { sector: { include: { unit: true } } } },
   instrumentVersion: { include: instrumentInclude },
   policyVersion: true,
@@ -229,6 +233,7 @@ export class AssessmentsService {
     });
   }
   private async context(tx: Prisma.TransactionClient, s: Scope, input: CreateAssessmentCycle) {
+    await lockAndAssertContractAccessAllowed(tx, s.organizationId);
     const [g, i, p, o] = await Promise.all([
       tx.assessmentGroup.findFirst({
         where: { id: input.assessmentGroupId, organizationId: s.organizationId },
@@ -397,7 +402,8 @@ export class AssessmentsService {
       c.status !== 'OPEN' ||
       c.startsAt.getTime() > Date.now() ||
       c.endsAt.getTime() <= Date.now() ||
-      !c.organization.isActive
+      !c.organization.isActive ||
+      isContractAccessSuspended(c.organization)
     )
       throw new ConflictException('Invite unavailable');
   }
@@ -444,6 +450,7 @@ export class AssessmentsService {
         select: { cycleId: true, organizationId: true },
       });
       if (!invitation) throw new ConflictException('Invite unavailable');
+      await tx.$queryRaw`SELECT id FROM organizations WHERE id = ${invitation.organizationId}::uuid FOR SHARE`;
       await this.lock(
         tx,
         { organizationId: invitation.organizationId, userId: '' },

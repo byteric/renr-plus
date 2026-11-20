@@ -1,5 +1,6 @@
 import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma/client';
+import { assertContractAccessAllowed } from '../commercial/contract-access';
 import type { ActionScope } from './actions.repository';
 
 export async function lockOperationalActor(
@@ -24,6 +25,31 @@ export async function lockOperationalActor(
     (manage && member.role !== 'ADMIN')
   )
     throw new ForbiddenException('Active organizational permission required');
+  await assertContractAccessAllowed(tx, scope.organizationId);
+  return member;
+}
+export async function lockPreventiveActionCreator(
+  tx: Prisma.TransactionClient,
+  scope: ActionScope,
+  targets: string[] = [],
+) {
+  await tx.$queryRaw`SELECT id FROM organizations WHERE id=${scope.organizationId}::uuid FOR SHARE`;
+  const users = [...new Set([scope.userId, ...targets])].sort();
+  await tx.$queryRaw`SELECT user_id FROM memberships WHERE organization_id=${scope.organizationId}::uuid AND user_id IN (${Prisma.join(users.map((id) => Prisma.sql`${id}::uuid`))}) ORDER BY user_id FOR SHARE`;
+  const member = await tx.membership.findUnique({
+    where: {
+      userId_organizationId: { userId: scope.userId, organizationId: scope.organizationId },
+    },
+    include: { organization: { select: { isActive: true } } },
+  });
+  if (
+    !member?.isActive ||
+    member.scopeRestricted ||
+    !member.organization.isActive ||
+    (member.role !== 'ADMIN' && !member.capabilities.includes('TECHNICAL_DECISIONS'))
+  )
+    throw new ForbiddenException('Active organizational or technical permission required');
+  await assertContractAccessAllowed(tx, scope.organizationId);
   return member;
 }
 export function assertOperationalActor(

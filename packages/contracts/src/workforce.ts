@@ -101,6 +101,76 @@ export const employeeImportResultSchema = z
   .strict();
 export type EmployeeImportPreview = z.infer<typeof employeeImportPreviewSchema>;
 export type EmployeeImportResult = z.infer<typeof employeeImportResultSchema>;
+export const employeeBulkUpdateVersionSchema = z.uuid();
+const bulkCount = z.number().int().min(0).max(500);
+// Display stored values verbatim, including legacy labels; new names follow createEmployeeSchema.
+const storedName = z.string().max(120);
+const employeeBulkFields = z
+  .object({ name: storedName, unitName: storedName, sectorName: storedName })
+  .strict();
+const employeeBulkRow = z
+  .object({
+    row: z.number().int().min(2).max(1_048_576),
+    messages: z.array(z.string()),
+    preserved: z.array(z.enum(['name', 'unit', 'sector'])).max(3),
+  })
+  .strict();
+export const employeeBulkUpdatePreviewSchema = z
+  .object({
+    version: employeeBulkUpdateVersionSchema,
+    expiresAt: z.iso.datetime(),
+    total: bulkCount.min(1),
+    ready: bulkCount,
+    unchanged: bulkCount,
+    invalid: bulkCount,
+    rows: z
+      .array(
+        z.discriminatedUnion('status', [
+          employeeBulkRow.extend({
+            status: z.literal('INVALID'),
+            before: z.null(),
+            after: z.null(),
+          }),
+          employeeBulkRow.extend({
+            status: z.enum(['READY', 'UNCHANGED']),
+            before: employeeBulkFields,
+            after: employeeBulkFields,
+          }),
+        ]),
+      )
+      .min(1)
+      .max(500),
+  })
+  .strict();
+export const employeeBulkUpdateResultSchema = z
+  .object({
+    updated: bulkCount.min(1),
+    unchanged: bulkCount,
+  })
+  .strict();
+export const employeeBulkUpdateStatusSchema = z.discriminatedUnion('status', [
+  z.object({ status: z.enum(['PENDING', 'EXPIRED']), result: z.null() }).strict(),
+  z.object({ status: z.literal('CONFIRMED'), result: employeeBulkUpdateResultSchema }).strict(),
+]);
+export const employeeBulkUpdateHistoryQuerySchema = organizationQuerySchema.pick({
+  page: true,
+  pageSize: true,
+});
+export const employeeBulkUpdateHistorySchema = list(
+  z
+    .object({
+      version: z.number().int().min(2),
+      batchId: employeeBulkUpdateVersionSchema,
+      confirmedAt: z.iso.datetime(),
+      before: employeeBulkFields,
+      after: employeeBulkFields,
+    })
+    .strict(),
+);
+export type EmployeeBulkUpdatePreview = z.infer<typeof employeeBulkUpdatePreviewSchema>;
+export type EmployeeBulkUpdateResult = z.infer<typeof employeeBulkUpdateResultSchema>;
+export type EmployeeBulkUpdateStatus = z.infer<typeof employeeBulkUpdateStatusSchema>;
+export type EmployeeBulkUpdateHistory = z.infer<typeof employeeBulkUpdateHistorySchema>;
 export type Employee = z.infer<typeof employeeSchema>;
 export type CreateEmployee = z.infer<typeof createEmployeeSchema>;
 export type UpdateEmployee = z.infer<typeof updateEmployeeSchema>;

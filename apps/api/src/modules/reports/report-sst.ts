@@ -58,79 +58,121 @@ export async function captureSst(
     take: 1001,
   });
   const actionIds = actions.map((a) => a.id);
-  const [evaluations, preliminary, evidence, efficacy, reassessments, closures, history] =
-    await Promise.all([
-      tx.technicalRiskEvaluation.findMany({
-        where: { organizationId, riskId: { in: riskIds } },
-        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-        take: 2001,
-        select: {
-          id: true,
-          riskId: true,
-          sequence: true,
-          result: true,
-          context: true,
-          rationale: true,
-          sources: true,
-          createdAt: true,
-          author: { select: { name: true } },
-          methodVersion: { select: { title: true, version: true } },
-        },
-      }),
-      tx.riskEvaluation.findMany({
-        where: { organizationId, riskId: { in: riskIds } },
-        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-        take: 2001,
-        include: { author: { select: { name: true } } },
-      }),
-      tx.actionEvidence.findMany({
-        where: { organizationId, actionId: { in: actionIds } },
-        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-        take: 20001,
-        select: {
-          id: true,
-          actionId: true,
-          fileName: true,
-          description: true,
-          mimeType: true,
-          size: true,
-          sha256: true,
-          createdAt: true,
-          archivedAt: true,
-        },
-      }),
-      tx.actionEfficacyOpinion.findMany({
-        where: { organizationId, actionId: { in: actionIds } },
-        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-        take: 2001,
-        include: { author: { select: { name: true } } },
-      }),
-      tx.riskReassessment.findMany({
-        where: { organizationId, riskId: { in: riskIds } },
-        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-        take: 2001,
-        include: { author: { select: { name: true } }, measures: true },
-      }),
-      tx.actionTechnicalClosure.findMany({
-        where: { organizationId, actionId: { in: actionIds } },
-        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-        take: 2001,
-        include: { author: { select: { name: true } } },
-      }),
-      tx.auditEvent.findMany({
-        where: { organizationId, resourceId: { in: [...riskIds, ...actionIds] } },
-        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-        take: 5001,
-        select: {
-          id: true,
-          action: true,
-          resourceId: true,
-          createdAt: true,
-          referenceId: true,
-          referenceType: true,
-        },
-      }),
-    ]);
+  const [
+    evaluations,
+    preliminary,
+    evidence,
+    efficacy,
+    reassessments,
+    closures,
+    history,
+    sharedContributions,
+  ] = await Promise.all([
+    tx.technicalRiskEvaluation.findMany({
+      where: { organizationId, riskId: { in: riskIds } },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      take: 2001,
+      select: {
+        id: true,
+        riskId: true,
+        sequence: true,
+        result: true,
+        context: true,
+        rationale: true,
+        sources: true,
+        createdAt: true,
+        author: { select: { name: true } },
+        methodVersion: { select: { title: true, version: true } },
+      },
+    }),
+    tx.riskEvaluation.findMany({
+      where: { organizationId, riskId: { in: riskIds } },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      take: 2001,
+      include: { author: { select: { name: true } } },
+    }),
+    tx.actionEvidence.findMany({
+      where: { organizationId, actionId: { in: actionIds } },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      take: 20001,
+      select: {
+        id: true,
+        actionId: true,
+        fileName: true,
+        description: true,
+        mimeType: true,
+        size: true,
+        sha256: true,
+        createdAt: true,
+        archivedAt: true,
+      },
+    }),
+    tx.actionEfficacyOpinion.findMany({
+      where: { organizationId, actionId: { in: actionIds } },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      take: 2001,
+      include: { author: { select: { name: true } } },
+    }),
+    tx.riskReassessment.findMany({
+      where: { organizationId, riskId: { in: riskIds } },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      take: 2001,
+      include: { author: { select: { name: true } }, measures: true },
+    }),
+    tx.actionTechnicalClosure.findMany({
+      where: { organizationId, actionId: { in: actionIds } },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      take: 2001,
+      include: { author: { select: { name: true } } },
+    }),
+    tx.auditEvent.findMany({
+      where: { organizationId, resourceId: { in: [...riskIds, ...actionIds] } },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      take: 5001,
+      select: {
+        id: true,
+        action: true,
+        resourceId: true,
+        createdAt: true,
+        referenceId: true,
+        referenceType: true,
+      },
+    }),
+    tx.riskTechnicalContribution
+      ? tx.riskTechnicalContribution.findMany({
+          where: { organizationId, riskId: { in: riskIds }, visibility: 'SHARED' },
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+          take: 2001,
+          select: {
+            id: true,
+            riskId: true,
+            specialty: true,
+            kind: true,
+            status: true,
+            title: true,
+            workFactors: true,
+            preventiveRecommendations: true,
+            nextStep: true,
+            version: true,
+            sharedAt: true,
+            createdAt: true,
+            authorMembership: { include: { user: { select: { name: true } } } },
+            attachments: {
+              where: { visibility: 'SHARED' },
+              orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+              select: {
+                id: true,
+                fileName: true,
+                mimeType: true,
+                size: true,
+                sha256: true,
+                archivedAt: true,
+              },
+            },
+          },
+        })
+      : Promise.resolve([]),
+  ]);
   if (
     evaluations.length > 2000 ||
     preliminary.length > 2000 ||
@@ -138,7 +180,8 @@ export async function captureSst(
     efficacy.length > 2000 ||
     reassessments.length > 2000 ||
     closures.length > 2000 ||
-    history.length > 5000
+    history.length > 5000 ||
+    sharedContributions.length > 2000
   )
     throw new ReportScopeTooLargeException();
   const riskNames = new Map(risks.map((risk) => [risk.id, risk.factor]));
@@ -189,6 +232,45 @@ export async function captureSst(
         r.author.name + '\n' + text(r.createdAt),
       ]),
       ['Avaliação preliminar não substitui uma avaliação técnica.'],
+    ),
+    section(
+      'technical-contributions',
+      'Colaboração técnica compartilhada',
+      [
+        'Risco / especialidade',
+        'Tipo / situação',
+        'Fatores do trabalho e recomendações',
+        'Autoria, versão e anexos compartilhados',
+      ],
+      sharedContributions.map((c) => [
+        riskName(c.riskId) +
+          '\n' +
+          (c.specialty === 'SST' ? 'SST' : 'Psicologia Organizacional') +
+          ' · ' +
+          c.id,
+        c.kind + '\n' + c.status + ' · versão ' + c.version,
+        c.title +
+          '\nFatores: ' +
+          c.workFactors +
+          '\nRecomendações: ' +
+          c.preventiveRecommendations +
+          (c.nextStep ? '\nPróximo passo: ' + c.nextStep : ''),
+        c.authorMembership.user.name +
+          '\nCompartilhado em ' +
+          text(c.sharedAt ?? c.createdAt) +
+          (c.attachments.length
+            ? '\nAnexos compartilhados:\n' +
+              c.attachments
+                .map(
+                  (a) =>
+                    `${a.fileName} (${a.mimeType}, ${a.size} bytes, SHA-256 ${a.sha256}${a.archivedAt ? ', arquivado' : ''})`,
+                )
+                .join('\n')
+            : '\nSem anexos compartilhados'),
+      ]),
+      [
+        'Inclui apenas registros compartilhados autorizados. Registros reservados permanecem protegidos fora do relatório; anexos permanecem privados.',
+      ],
     ),
     section(
       'actions',

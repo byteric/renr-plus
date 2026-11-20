@@ -17,6 +17,13 @@ export const environmentSchema = z
     WEB_DIST_PATH: z.string().min(1).optional(),
     STORAGE_ENABLED: booleanFlag.default(false),
     HR_REAL_DATA_ENABLED: booleanFlag.default(false),
+    RISK_COLLABORATION_WRITES_ENABLED: booleanFlag.default(false),
+    PASSWORD_RECOVERY_ASSISTED_ENABLED: booleanFlag.default(false),
+    MFA_REQUIRE_GLOBAL_ADMINS: booleanFlag.default(false),
+    MFA_ENCRYPTION_KEY: z
+      .string()
+      .regex(/^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$/)
+      .optional(),
     HR_DEMO_ORGANIZATION_IDS: z
       .string()
       .default('')
@@ -46,6 +53,13 @@ export const environmentSchema = z
         code: 'custom',
         path: ['WEB_DIST_PATH'],
         message: 'Web dist path required',
+      });
+    }
+    if (environment.MFA_REQUIRE_GLOBAL_ADMINS && !environment.MFA_ENCRYPTION_KEY) {
+      context.addIssue({
+        code: 'custom',
+        path: ['MFA_ENCRYPTION_KEY'],
+        message: 'Encryption key required when MFA is enforced',
       });
     }
     if (environment.STORAGE_ENABLED) {

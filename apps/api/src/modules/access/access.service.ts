@@ -23,6 +23,7 @@ import type {
 } from '@renr/contracts';
 import type { AccessInvite as InviteRecord, Membership } from '../../generated/prisma/client';
 import { IdentityService } from '../identity/identity.service';
+import { isContractAccessSuspended } from '../commercial/contract-access';
 import { hashPassword } from '../identity/password';
 import { AccessInviteUnavailableException } from './access.errors';
 import { combineCapabilities, splitCapabilities } from './capabilities';
@@ -379,8 +380,10 @@ export class AccessService {
         throw new AccessInviteUnavailableException();
       const organization = await tx.organization.findUniqueOrThrow({
         where: { id: invite.organizationId },
+        include: { commercialContractAccess: { select: { status: true } } },
       });
-      if (!organization.isActive) throw new AccessInviteUnavailableException();
+      if (!organization.isActive || isContractAccessSuspended(organization))
+        throw new AccessInviteUnavailableException();
       let user = await tx.user.findUnique({ where: { email: invite.email } });
       if (user) {
         if (!authenticatedId) throw new UnauthorizedException();

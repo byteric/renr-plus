@@ -1,5 +1,6 @@
-import type { CompanyGroupMetrics } from '@renr/contracts';
+import type { CompanyGroupMetrics, CompanyGroupOperationalMetrics } from '@renr/contracts';
 import { Prisma } from '../../generated/prisma/client';
+import { referenceDate } from '../actions/actions.repository';
 import { compareAssessmentRates } from '../assessments/assessment-comparison.service';
 import { participationProtected } from '../assessments/assessment-eligibility';
 
@@ -22,6 +23,38 @@ type Cycle = {
 type Pair = { current: Cycle; previous: Cycle | undefined };
 type Rate = { positive: number; size: number };
 type Measurable = Cycle & { eligible: number; minimum: number };
+type Collections = CompanyGroupOperationalMetrics['collections'];
+type Evaluations = CompanyGroupOperationalMetrics['evaluations'];
+
+export const companyGroupTimeZone = 'America/Sao_Paulo';
+
+const activityActions = [
+  'EMPLOYEE_CREATE',
+  'EMPLOYEE_UPDATE',
+  'EMPLOYEE_IMPORT',
+  'EMPLOYEE_BULK_UPDATE',
+  'assessment.cycle.created',
+  'assessment.cycle.open',
+  'assessment.cycle.closed',
+  'RISK_CREATE',
+  'RISK_UPDATE',
+  'RISK_ARCHIVE',
+  'RISK_PRELIMINARY_EVALUATION_CREATE',
+  'risk.technical_evaluation_created',
+  'risk.reassessment_created',
+  'ACTION_CREATED',
+  'ACTION_UPDATED',
+  'ACTION_STARTED',
+  'ACTION_IMPLEMENTED',
+  'ACTION_CANCELLED',
+  'ACTION_NOTE',
+  'ACTION_EVIDENCE_ADDED',
+  'ACTION_EVIDENCE_ARCHIVED',
+  'ACTION_EFFICACY_RECORDED',
+  'action.technical_closure_created',
+  'action.corrective_created',
+  'REPORT_SNAPSHOT_CREATED',
+];
 
 function measurable(cycle: Cycle): cycle is Measurable {
   return cycle.eligible !== null && cycle.eligible > 0 && cycle.minimum !== null;
@@ -151,7 +184,7 @@ async function recentCycles(tx: Prisma.TransactionClient, organizationIds: strin
         ROW_NUMBER() OVER (PARTITION BY organization_id, assessment_group_id
           ORDER BY starts_at DESC, id) AS position
       FROM assessment_cycles
-      WHERE organization_id IN (${Prisma.join(organizationIds.map((id) => Prisma.sql`${id}::uuid`))})
+      WHERE organization_id IN (${organizationUuids(organizationIds)})
         AND status = 'CLOSED' AND closed_at IS NOT NULL
     )
     SELECT c.organization_id AS "organizationId", c.assessment_group_id AS "assessmentGroupId",
@@ -165,6 +198,121 @@ async function recentCycles(tx: Prisma.TransactionClient, organizationIds: strin
     FROM ranked c JOIN consolidation_policy_versions p
       ON p.organization_id = c.organization_id AND p.id = c.policy_version_id
     WHERE c.position <= 2`;
+}
+
+function organizationUuids(organizationIds: string[]) {
+  return Prisma.join(organizationIds.map((id) => Prisma.sql`${id}::uuid`));
+}
+
+async function collectionsByCompany(
+  tx: Prisma.TransactionClient,
+  organizationIds: string[],
+  now: Date,
+) {
+  const rows = await tx.$queryRaw<
+    { organizationId: string; inProgress: number; completed: number; total: number }[]
+  >`
+    SELECT organization_id AS "organizationId", count(*)::integer AS total,
+      count(*) FILTER (WHERE status = 'OPEN' AND starts_at <= ${now} AND ends_at > ${now})::integer AS "inProgress",
+      count(*) FILTER (WHERE status = 'CLOSED')::integer AS completed
+    FROM assessment_cycles
+    WHERE organization_id IN (${organizationUuids(organizationIds)})
+    GROUP BY organization_id`;
+  return new Map(
+    rows.map(({ organizationId, inProgress, completed, total }) => [
+      organizationId,
+      { inProgress, completed, pending: total - inProgress - completed },
+    ]),
+  );
+}
+
+async function evaluationsByCompany(tx: Prisma.TransactionClient, organizationIds: string[]) {
+  const rows = await tx.$queryRaw<{ organizationId: string; completed: number; records: number }[]>`
+    WITH registered AS (
+      SELECT organization_id, id FROM risks
+      WHERE organization_id IN (${organizationUuids(organizationIds)}) AND status = 'REGISTERED'
+    ), evaluations AS (
+      SELECT e.organization_id, e.risk_id FROM risk_evaluations e
+      JOIN registered r ON r.organization_id = e.organization_id AND r.id = e.risk_id
+      UNION ALL
+      SELECT e.organization_id, e.risk_id FROM technical_risk_evaluations e
+      JOIN registered r ON r.organization_id = e.organization_id AND r.id = e.risk_id
+    )
+    SELECT organization_id AS "organizationId", count(DISTINCT risk_id)::integer AS completed,
+      count(*)::integer AS records
+    FROM evaluations GROUP BY organization_id`;
+  return new Map(rows.map(({ organizationId, ...aggregate }) => [organizationId, aggregate]));
+}
+
+export async function companyGroupOperationalMetrics(
+  tx: Prisma.TransactionClient,
+  companies: ReadonlyMap<string, CompanyGroupMetrics>,
+  now: Date,
+) {
+  const date = referenceDate(companyGroupTimeZone, now);
+  const emptyCollections: Collections = { inProgress: 0, completed: 0, pending: 0 };
+  const emptyEvaluations: Evaluations = { completed: 0, pending: 0, records: 0 };
+  const totals: CompanyGroupOperationalMetrics = {
+    collections: { ...emptyCollections },
+    evaluations: { ...emptyEvaluations },
+    overdueActions: 0,
+    lastActivity: unavailable,
+  };
+  const byCompany = new Map<string, CompanyGroupOperationalMetrics>();
+  const organizationIds = [...companies.keys()];
+  if (organizationIds.length === 0) return { date, totals, byCompany };
+
+  const where = { organizationId: { in: organizationIds } };
+  const [collections, evaluations, actionsOverdue, events] = await Promise.all([
+    collectionsByCompany(tx, organizationIds, now),
+    evaluationsByCompany(tx, organizationIds),
+    tx.action.groupBy({
+      by: ['organizationId'],
+      where: {
+        ...where,
+        status: { in: ['PLANNED', 'IN_PROGRESS'] },
+        dueDate: { lt: new Date(`${date}T00:00:00.000Z`) },
+      },
+      _count: { _all: true },
+    }),
+    tx.auditEvent.groupBy({
+      by: ['organizationId'],
+      where: { ...where, action: { in: activityActions }, createdAt: { lte: now } },
+      _max: { createdAt: true },
+    }),
+  ]);
+  const overdue = new Map(actionsOverdue.map((row) => [row.organizationId, row._count._all]));
+  const activity = new Map(events.map((row) => [row.organizationId, row._max.createdAt]));
+
+  for (const [id, metrics] of companies) {
+    const cycles = collections.get(id) ?? emptyCollections;
+    const evaluated = evaluations.get(id) ?? emptyEvaluations;
+    const pendingEvaluation = metrics.openRisks - evaluated.completed;
+    const overdueActions = overdue.get(id) ?? 0;
+    const lastActivity = activity.get(id);
+    const recent = lastActivity
+      ? { status: 'AVAILABLE' as const, date: referenceDate(companyGroupTimeZone, lastActivity) }
+      : unavailable;
+    byCompany.set(id, {
+      collections: cycles,
+      evaluations: { ...evaluated, pending: pendingEvaluation },
+      overdueActions,
+      lastActivity: recent,
+    });
+    totals.collections.inProgress += cycles.inProgress;
+    totals.collections.completed += cycles.completed;
+    totals.collections.pending += cycles.pending;
+    totals.evaluations.completed += evaluated.completed;
+    totals.evaluations.pending += pendingEvaluation;
+    totals.evaluations.records += evaluated.records;
+    totals.overdueActions += overdueActions;
+    if (
+      recent.status === 'AVAILABLE' &&
+      (totals.lastActivity.status === 'UNAVAILABLE' || recent.date > totals.lastActivity.date)
+    )
+      totals.lastActivity = recent;
+  }
+  return { date, totals, byCompany };
 }
 
 export async function companyGroupMetrics(tx: Prisma.TransactionClient, organizationIds: string[]) {

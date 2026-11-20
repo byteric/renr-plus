@@ -2,9 +2,12 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import {
   managementIndicatorHistorySchema,
   managementIndicatorsSchema,
+  nr01PendenciesSchema,
   type ManagementIndicatorHistoryQuery,
   type ManagementIndicators,
   type ManagementIndicatorsQuery,
+  type Nr01PendenciesQuery,
+  type Nr01PendencyItem,
 } from '@renr/contracts';
 import { PrismaService } from '../../database/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
@@ -20,7 +23,16 @@ import { technicalClosureReviewReasons } from '../risk-continuity/risk-continuit
 import {
   currentRiskLevel,
   riskWorkspaceRecords,
+  type WorkspaceRecord,
 } from '../technical-evaluations/risk-workspaces.service';
+import {
+  buildNr01PendenciesResult,
+  classifyActionPendency,
+  classifyRiskPendency,
+  nr01ActionInclude,
+  type Nr01ActionRecord,
+  type Nr01EvidenceRecord,
+} from './nr01-pendencies';
 
 type Filter = Pick<ManagementIndicatorsQuery, 'unitId' | 'sectorId'>;
 type Level = ManagementIndicators['risks']['levels'][number];
@@ -486,6 +498,127 @@ export class ManagementIndicatorsService {
         });
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+    );
+  }
+
+  nr01Pendencies(scope: OrganizationScope, query: Nr01PendenciesQuery) {
+    return this.database.client.$transaction(
+      async (tx) => {
+        const {
+          organization,
+          generatedAt,
+          referenceDate: today,
+          timeZone,
+          filters,
+        } = await this.context(tx, scope, query);
+        const organizationId = scope.organizationId;
+        const { unitId, sectorId } = filters;
+        const riskWhere = {
+          organizationId,
+          assessmentGroup: {
+            sector: {
+              unitId: unitId ?? undefined,
+              id: sectorId ?? undefined,
+              ...sectorDelegation(scope.delegation),
+            },
+          },
+        } satisfies Prisma.RiskWhereInput;
+
+        const actionItems: Nr01PendencyItem[] = [];
+        const actionsByRisk = new Map<string, Nr01PendencyItem[]>();
+        let cursor: string | undefined;
+        while (true) {
+          const records: Nr01ActionRecord[] = await tx.action.findMany({
+            where: { organizationId, risk: riskWhere, status: { not: 'CANCELLED' } },
+            include: nr01ActionInclude,
+            orderBy: [{ organizationId: 'asc' }, { id: 'asc' }],
+            take: 200,
+            ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+          });
+          if (!records.length) break;
+          const implementedWithOpinionIds = records
+            .filter((record) => record.status === 'IMPLEMENTED' && record.efficacyOpinions.length)
+            .map((record) => record.id);
+          const countOnlyIds = records
+            .filter(
+              (record) => !(record.status === 'IMPLEMENTED' && record.efficacyOpinions.length),
+            )
+            .map((record) => record.id);
+          const [proofs, countGroups] = await Promise.all([
+            implementedWithOpinionIds.length
+              ? tx.actionEvidence.findMany({
+                  where: { organizationId, actionId: { in: implementedWithOpinionIds } },
+                  select: { id: true, actionId: true, archivedAt: true, sha256: true },
+                })
+              : [],
+            countOnlyIds.length
+              ? tx.actionEvidence.findMany({
+                  where: { organizationId, actionId: { in: countOnlyIds } },
+                  select: { id: true, actionId: true, archivedAt: true },
+                })
+              : [],
+          ]);
+          const evidenceByAction = new Map<string, Map<string, Nr01EvidenceRecord>>();
+          for (const proof of proofs) {
+            const actionFiles = evidenceByAction.get(proof.actionId) ?? new Map();
+            actionFiles.set(proof.id, proof);
+            evidenceByAction.set(proof.actionId, actionFiles);
+          }
+          for (const row of countGroups) {
+            const actionFiles = evidenceByAction.get(row.actionId) ?? new Map();
+            actionFiles.set(row.id, { ...row, sha256: '' });
+            evidenceByAction.set(row.actionId, actionFiles);
+          }
+          for (const record of records) {
+            const item = classifyActionPendency(
+              record,
+              evidenceByAction.get(record.id) ?? new Map(),
+              today,
+            );
+            actionItems.push(item);
+            const list = actionsByRisk.get(record.riskId) ?? [];
+            list.push(item);
+            actionsByRisk.set(record.riskId, list);
+          }
+          if (records.length < 200) break;
+          cursor = records.at(-1)!.id;
+        }
+
+        const cancelledRows = await tx.action.groupBy({
+          by: ['riskId'],
+          where: { organizationId, risk: riskWhere, status: 'CANCELLED' },
+          _count: { _all: true },
+        });
+        const cancelledByRisk = new Map(cancelledRows.map((row) => [row.riskId, row._count._all]));
+
+        const riskItems: Nr01PendencyItem[] = [];
+        for await (const risk of riskWorkspaceRecords(tx, {
+          ...riskWhere,
+          status: { in: ['DRAFT', 'REGISTERED'] },
+        })) {
+          riskItems.push(
+            classifyRiskPendency(
+              risk as WorkspaceRecord,
+              actionsByRisk.get(risk.id) ?? [],
+              cancelledByRisk.get(risk.id) ?? 0,
+            ),
+          );
+        }
+
+        return nr01PendenciesSchema.parse(
+          buildNr01PendenciesResult({
+            organizationId,
+            organization,
+            generatedAt,
+            referenceDate: today,
+            timeZone,
+            filters,
+            query,
+            allItems: [...actionItems, ...riskItems],
+          }),
+        );
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, timeout: 30_000 },
     );
   }
 }

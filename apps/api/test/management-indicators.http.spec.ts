@@ -25,7 +25,7 @@ describe('Management indicators HTTP boundary', () => {
     await app.init();
   });
   afterAll(async () => app.close());
-  it.each(['', '/history?from=2026-10-01&to=2026-10-31'])(
+  it.each(['', '/history?from=2026-10-01&to=2026-10-31', '/nr01-pendencies'])(
     'authenticates before returning private metrics (%s)',
     async (suffix) => {
       const response = await request(app.getHttpServer())

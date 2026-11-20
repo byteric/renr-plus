@@ -3,6 +3,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
 import type { AuditHistoryQuery, AuditTargetKind } from '@renr/contracts';
 import type { OrganizationScope } from '../access/delegated-scope';
+import { assertContractAccessAllowed } from '../commercial/contract-access';
 
 export type AuditScope = OrganizationScope;
 export type HistoryRow = {
@@ -148,6 +149,7 @@ export class AuditRepository {
       select: { isActive: true, role: true, organization: { select: { timezone: true } } },
     });
     if (!member?.isActive) throw new NotFoundException();
+    await assertContractAccessAllowed(tx, scope.organizationId);
     if (admin && member.role !== 'ADMIN') throw new ForbiddenException();
     return member.organization.timezone;
   }

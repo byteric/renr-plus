@@ -9,30 +9,37 @@ import {
   companyGroupGrantPageSchema,
   companyGroupGrantSchema,
   companyGroupListSchema,
+  companyGroupOperationalOverviewSchema,
   companyGroupOverviewSchema,
   managedCompanyGroupPageSchema,
   managedCompanyGroupSchema,
   normalizeCnpj,
   type CompanyGroupEligibleClientQuery,
+  type CompanyGroupOverviewQuery,
   type CreateCompanyGroup,
   type UpdateCompanyGroup,
   type WriteCompanyGroupGrant,
 } from '@renr/contracts';
 import { PrismaService } from '../../database/prisma.service';
 import { Prisma, type PlatformCapability } from '../../generated/prisma/client';
-import { companyGroupMetrics } from './company-group-metrics';
+import {
+  companyGroupMetrics,
+  companyGroupOperationalMetrics,
+  companyGroupTimeZone,
+} from './company-group-metrics';
 
 type Page = { page: number; pageSize: number };
+type VerifyGrantSession = (tx: Prisma.TransactionClient) => Promise<void>;
 const orderBy = [{ name: 'asc' }, { id: 'asc' }] as const;
 const summary = { id: true, name: true } as const;
 const company = { ...summary, fiscalIdentifier: true } as const;
-const activeCompany = {
-  isActive: true,
+const cataloguedCompany = {
   OR: [
     { clientClassification: 'CLIENT', fiscalState: 'VALID' },
     { clientClassification: 'DEMONSTRATION', fiscalState: { in: ['VALID', 'MISSING'] } },
   ],
 } satisfies Prisma.OrganizationWhereInput;
+const activeCompany = { ...cataloguedCompany, isActive: true };
 const managedGroup = {
   ...summary,
   version: true,
@@ -91,37 +98,89 @@ export class CompanyGroupsService {
     return companyGroupListSchema.parse({ items });
   }
 
-  async overview(userId: string, id: string, organizationId?: string) {
+  async overview(userId: string, id: string, { organizationId, view }: CompanyGroupOverviewQuery) {
     return this.read(async (tx) => {
+      const includeOperational = view === 'operational';
+      const now = new Date();
       const group = await tx.companyGroup.findFirst({
         where: { id, grants: { some: { userId, isActive: true } } },
         select: {
           ...summary,
           clients: {
-            where: { ...(organizationId && { organizationId }), organization: activeCompany },
-            select: { organization: { select: company } },
+            where: {
+              ...(organizationId && { organizationId }),
+              organization:
+                includeOperational && !organizationId ? cataloguedCompany : activeCompany,
+            },
+            select: {
+              organization: {
+                select: { ...company, isActive: true, clientClassification: true },
+              },
+            },
             orderBy: { organization: { name: 'asc' } },
           },
         },
       });
       if (!group || (organizationId && !group.clients.length)) throw new NotFoundException();
 
-      const companies = group.clients.map(({ organization }) => organization);
+      const portfolio = group.clients.map(({ organization }) => organization);
+      const companies = portfolio.filter(({ isActive }) => isActive);
       const metrics = await companyGroupMetrics(
         tx,
         companies.map(({ id: companyId }) => companyId),
       );
-      return companyGroupOverviewSchema.parse({
+      const rows = companies.map(({ id, name, fiscalIdentifier, clientClassification }) => ({
+        id,
+        name,
+        fiscalIdentifier,
+        metrics: metrics.companies.get(id),
+        classification: clientClassification,
+      }));
+      const overview = {
         group: { id: group.id, name: group.name },
         totals: metrics.totals,
-        companies: companies.map((item) => ({ ...item, metrics: metrics.companies.get(item.id) })),
+      };
+      if (!includeOperational)
+        return companyGroupOverviewSchema.parse({
+          ...overview,
+          companies: rows.map(({ id, name, fiscalIdentifier, metrics }) => ({
+            id,
+            name,
+            fiscalIdentifier,
+            metrics,
+          })),
+        });
+
+      const usage = await companyGroupOperationalMetrics(tx, metrics.companies, now);
+      const activeDemonstrations = companies.filter(
+        ({ clientClassification }) => clientClassification === 'DEMONSTRATION',
+      ).length;
+      const demonstrations = portfolio.filter(
+        ({ clientClassification }) => clientClassification === 'DEMONSTRATION',
+      ).length;
+      return companyGroupOperationalOverviewSchema.parse({
+        ...overview,
+        referenceDate: usage.date,
+        timeZone: companyGroupTimeZone,
+        portfolio: {
+          active: companies.length,
+          inactive: portfolio.length - companies.length,
+          activeDemonstrations,
+          inactiveDemonstrations: demonstrations - activeDemonstrations,
+        },
+        operational: usage.totals,
+        companies: rows.map((item) => ({
+          ...item,
+          operational: usage.byCompany.get(item.id),
+        })),
       });
     });
   }
 
-  async management(userId: string, page: Page) {
+  async management(userId: string, page: Page, verifySession?: VerifyGrantSession) {
     return this.read(async (tx) => {
       await authorizePlatform(tx, userId, ['MANAGE_CLIENTS', 'MANAGE_GRANTS']);
+      await verifySession?.(tx);
       const items = await tx.companyGroup.findMany({
         ...pagination(page),
         select: managedGroup,
@@ -229,9 +288,10 @@ export class CompanyGroupsService {
     });
   }
 
-  async grants(userId: string, groupId: string, page: Page) {
+  async grants(userId: string, groupId: string, page: Page, verifySession?: VerifyGrantSession) {
     return this.read(async (tx) => {
       await authorizePlatform(tx, userId, ['MANAGE_GRANTS']);
+      await verifySession?.(tx);
       if (!(await tx.companyGroup.findUnique({ where: { id: groupId }, select: { id: true } })))
         throw new NotFoundException();
       const items = await tx.companyGroupGrant.findMany({
@@ -248,8 +308,14 @@ export class CompanyGroupsService {
     });
   }
 
-  async writeGrant(userId: string, groupId: string, input: WriteCompanyGroupGrant) {
+  async writeGrant(
+    userId: string,
+    groupId: string,
+    input: WriteCompanyGroupGrant,
+    verifySession?: VerifyGrantSession,
+  ) {
     return this.write(userId, 'MANAGE_GRANTS', async (tx) => {
+      await verifySession?.(tx);
       const group = await tx.companyGroup.findUnique({
         where: { id: groupId },
         select: { id: true },

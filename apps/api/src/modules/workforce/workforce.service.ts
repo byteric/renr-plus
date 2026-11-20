@@ -8,6 +8,7 @@ import type {
 } from '@renr/contracts';
 import { PrismaService } from '../../database/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
+import { EmployeeBulkUpdates } from './employee-bulk-update';
 import { EmployeeImports, normalizeEmployeeIdentifier } from './employee-import';
 type Scope = { userId: string; organizationId: string };
 const employeeSelect = {
@@ -44,9 +45,11 @@ const groupDto = ({ sector, ...group }: GroupRecord) => ({
 @Injectable()
 export class WorkforceService {
   private readonly employeeImports: EmployeeImports;
+  readonly employeeBulkUpdates: EmployeeBulkUpdates;
 
   constructor(private readonly database: PrismaService) {
     this.employeeImports = new EmployeeImports(database);
+    this.employeeBulkUpdates = new EmployeeBulkUpdates(database);
   }
   previewEmployeeImport(scope: Scope, file: Express.Multer.File | undefined) {
     return this.employeeImports.preview(scope, file);

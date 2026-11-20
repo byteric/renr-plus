@@ -243,20 +243,22 @@ export class PeopleAnalyticsService {
         terminationGrossCents = await this.termination(tx, filter, today, a.eligible, sectors);
       }
       const vacationKnown = a.eligible - a.unknown;
-      const vacationMetric = (value: number) =>
+      const vacationMetric = (value: number | null) =>
         metric(
-          String(value),
+          value === null ? null : String(value),
           vacationKnown,
           a.unknown,
           'Classificação exclusiva de ativos; prioridade: vencidas, histórico desconhecido, prazo até 60 dias, acompanhamento, regular.',
         );
       const vacationSuppressed = protectedDimensions.has('vacation');
       // The minority/complement is protected even when a metric discloses just one category.
-      const protectedVacation = (value: number) => {
+      const protectedVacation = (value: number | null) => {
         const result = vacationMetric(value);
         if (
           vacationSuppressed ||
-          (result.state !== 'SUPPRESSED' && [value, a.eligible - value].some((n) => n > 0 && n < 5))
+          (result.state !== 'SUPPRESSED' &&
+            value !== null &&
+            [value, a.eligible - value].some((n) => n > 0 && n < 5))
         )
           return suppressedMetric();
         return result;
@@ -289,9 +291,9 @@ export class PeopleAnalyticsService {
         salaryMassCents,
         averageSalaryCents,
         terminationGrossCents,
-        vacationOverdue: protectedVacation(a.overdue),
-        vacationUnknown: protectedVacation(a.unknown),
-        vacationDueSoon: protectedVacation(a.due),
+        vacationOverdue: protectedVacation(vacationKnown > 0 ? a.overdue : null),
+        vacationUnknown: protectedVacation(a.eligible > 0 ? a.unknown : null),
+        vacationDueSoon: protectedVacation(vacationKnown > 0 ? a.due : null),
       };
       if (!canReadExact) {
         for (const key of Object.keys(metrics) as (keyof typeof metrics)[])

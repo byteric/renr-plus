@@ -1261,13 +1261,14 @@
             "maximum": 9007199254740991
           },
           "capabilities": {
-            "maxItems": 9,
+            "maxItems": 10,
             "type": "array",
             "items": {
               "type": "string",
               "enum": [
                 "EXECUTE_ASSIGNED_ACTIONS",
                 "TECHNICAL_DECISIONS",
+                "PSYCHOLOGY_COLLABORATION",
                 "HR_PROFILE_READ",
                 "HR_PROFILE_MANAGE",
                 "HR_ANALYTICS_READ",
@@ -1337,13 +1338,14 @@
                   "maximum": 9007199254740991
                 },
                 "capabilities": {
-                  "maxItems": 9,
+                  "maxItems": 10,
                   "type": "array",
                   "items": {
                     "type": "string",
                     "enum": [
                       "EXECUTE_ASSIGNED_ACTIONS",
                       "TECHNICAL_DECISIONS",
+                      "PSYCHOLOGY_COLLABORATION",
                       "HR_PROFILE_READ",
                       "HR_PROFILE_MANAGE",
                       "HR_ANALYTICS_READ",
@@ -1433,13 +1435,14 @@
             "maxLength": 1000
           },
           "capabilities": {
-            "maxItems": 9,
+            "maxItems": 10,
             "type": "array",
             "items": {
               "type": "string",
               "enum": [
                 "EXECUTE_ASSIGNED_ACTIONS",
                 "TECHNICAL_DECISIONS",
+                "PSYCHOLOGY_COLLABORATION",
                 "HR_PROFILE_READ",
                 "HR_PROFILE_MANAGE",
                 "HR_ANALYTICS_READ",
@@ -1471,13 +1474,14 @@
             ]
           },
           "capabilities": {
-            "maxItems": 9,
+            "maxItems": 10,
             "type": "array",
             "items": {
               "type": "string",
               "enum": [
                 "EXECUTE_ASSIGNED_ACTIONS",
                 "TECHNICAL_DECISIONS",
+                "PSYCHOLOGY_COLLABORATION",
                 "HR_PROFILE_READ",
                 "HR_PROFILE_MANAGE",
                 "HR_ANALYTICS_READ",
@@ -1606,13 +1610,14 @@
             "enum": ["ADMIN", "READER"]
           },
           "capabilities": {
-            "maxItems": 9,
+            "maxItems": 10,
             "type": "array",
             "items": {
               "type": "string",
               "enum": [
                 "EXECUTE_ASSIGNED_ACTIONS",
                 "TECHNICAL_DECISIONS",
+                "PSYCHOLOGY_COLLABORATION",
                 "HR_PROFILE_READ",
                 "HR_PROFILE_MANAGE",
                 "HR_ANALYTICS_READ",
@@ -1670,13 +1675,14 @@
                   "enum": ["ADMIN", "READER"]
                 },
                 "capabilities": {
-                  "maxItems": 9,
+                  "maxItems": 10,
                   "type": "array",
                   "items": {
                     "type": "string",
                     "enum": [
                       "EXECUTE_ASSIGNED_ACTIONS",
                       "TECHNICAL_DECISIONS",
+                      "PSYCHOLOGY_COLLABORATION",
                       "HR_PROFILE_READ",
                       "HR_PROFILE_MANAGE",
                       "HR_ANALYTICS_READ",
@@ -1810,13 +1816,14 @@
             "enum": ["ADMIN", "READER"]
           },
           "capabilities": {
-            "maxItems": 9,
+            "maxItems": 10,
             "type": "array",
             "items": {
               "type": "string",
               "enum": [
                 "EXECUTE_ASSIGNED_ACTIONS",
                 "TECHNICAL_DECISIONS",
+                "PSYCHOLOGY_COLLABORATION",
                 "HR_PROFILE_READ",
                 "HR_PROFILE_MANAGE",
                 "HR_ANALYTICS_READ",
@@ -1933,13 +1940,14 @@
                 "enum": ["ADMIN", "READER"]
               },
               "capabilities": {
-                "maxItems": 9,
+                "maxItems": 10,
                 "type": "array",
                 "items": {
                   "type": "string",
                   "enum": [
                     "EXECUTE_ASSIGNED_ACTIONS",
                     "TECHNICAL_DECISIONS",
+                    "PSYCHOLOGY_COLLABORATION",
                     "HR_PROFILE_READ",
                     "HR_PROFILE_MANAGE",
                     "HR_ANALYTICS_READ",

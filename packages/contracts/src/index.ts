@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { fiscalIdentifierInputSchema } from './fiscal-identifier';
 import { membershipScopeSchema } from './membership-scopes';
+import { mfaChallengeSchema, mfaRecoveryCodeSchema } from './mfa';
+import { passwordRecoveryTokenSchema } from './password-recovery';
 export * from './fiscal-identifier';
 export * from './people-analytics';
 export * from './platform-administration';
@@ -14,6 +16,8 @@ export * from './actions';
 export * from './action-overview';
 export * from './evidence';
 export * from './access';
+export * from './password-recovery';
+export * from './mfa';
 export * from './membership-scopes';
 export * from './evaluation-methods';
 export * from './risk-workspaces';
@@ -71,6 +75,13 @@ export const membershipSchema = z.object({
   organizationName: z.string(),
   role: z.enum(['ADMIN', 'READER']),
 });
+export const suspendedOrganizationSchema = z.strictObject({
+  organizationId: z.uuid(),
+  organizationName: z.string(),
+  role: z.enum(['ADMIN', 'READER']),
+  reason: z.string().trim().min(3).max(1000).nullable(),
+  nextStep: z.string().trim().min(3).max(500).nullable(),
+});
 export const sessionResponseSchema = z.object({
   user: z.object({ id: z.uuid(), name: z.string(), email: z.email() }),
   memberships: z.array(membershipSchema),
@@ -78,6 +89,14 @@ export const sessionResponseSchema = z.object({
   expiresAt: z.iso.datetime(),
   organizationScopes: z.record(z.uuid(), z.array(membershipScopeSchema)).optional(),
   hasCompanyGroups: z.boolean().optional(),
+  suspendedOrganizations: z.array(suspendedOrganizationSchema).optional(),
+});
+export const loginResultSchema = z.union([mfaChallengeSchema, sessionResponseSchema]);
+export type LoginResult = z.infer<typeof loginResultSchema>;
+export const mfaRecoverSchema = loginSchema.extend(passwordRecoveryTokenSchema.shape);
+export const mfaEnrollmentConfirmedSchema = z.strictObject({
+  session: sessionResponseSchema,
+  recoveryCodes: z.array(mfaRecoveryCodeSchema).min(1).max(20),
 });
 export const createOrganizationSchema = z
   .object({
@@ -154,3 +173,9 @@ export * from './assessment-comparison';
 export * from './assessment-delivery';
 export * from './management-indicators';
 export * from './workspace-journey';
+export * from './commercial';
+export * from './commercial-billing';
+export * from './commercial-contract-access';
+export * from './commercial-dashboard';
+export * from './risk-collaboration';
+export * from './support';

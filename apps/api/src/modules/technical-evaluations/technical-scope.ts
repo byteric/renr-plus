@@ -2,6 +2,7 @@ import { ConflictException, ForbiddenException } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import type { OrganizationScope } from '../access/delegated-scope';
+import { assertContractAccessAllowed } from '../commercial/contract-access';
 
 export type TechnicalScope = OrganizationScope;
 function isProtectedCheckViolation(error: Prisma.PrismaClientKnownRequestError): boolean {
@@ -32,6 +33,7 @@ export async function assertTechnicalScope(
     !membership.capabilities.includes('TECHNICAL_DECISIONS')
   )
     throw new ForbiddenException('Explicit technical capability required');
+  await assertContractAccessAllowed(tx, scope.organizationId);
 }
 export async function technicalWrite<T>(
   database: PrismaService,

@@ -15,6 +15,8 @@ describe('Environment validation', () => {
       CORS_ORIGIN: 'http://127.0.0.1:5173',
       SERVE_WEB: false,
       STORAGE_ENABLED: false,
+      PASSWORD_RECOVERY_ASSISTED_ENABLED: false,
+      MFA_REQUIRE_GLOBAL_ADMINS: false,
     });
   });
 
@@ -26,12 +28,33 @@ describe('Environment validation', () => {
     { NODE_ENV: 'invalid' },
     { SERVE_WEB: 'yes' },
     { STORAGE_ENABLED: '0' },
+    { PASSWORD_RECOVERY_ASSISTED_ENABLED: 'yes' },
+    { MFA_REQUIRE_GLOBAL_ADMINS: 'yes' },
+    { MFA_ENCRYPTION_KEY: 'a'.repeat(43) },
+    { MFA_ENCRYPTION_KEY: 'a'.repeat(42) + 'A=' },
     { SERVE_WEB: 'true' },
     { NODE_ENV: 'production' },
   ])('rejects invalid environment values: %p', (override) => {
     expect(() => parseEnvironment({ ...testEnvironment, ...override })).toThrow(
       'Invalid environment variables',
     );
+  });
+
+  it('accepts an unpadded base64url key encoding 32 bytes', () => {
+    const key = Buffer.alloc(32, 255).toString('base64url');
+    expect(
+      parseEnvironment({
+        ...testEnvironment,
+        MFA_ENCRYPTION_KEY: key,
+        MFA_REQUIRE_GLOBAL_ADMINS: 'true',
+      }),
+    ).toMatchObject({ MFA_ENCRYPTION_KEY: key, MFA_REQUIRE_GLOBAL_ADMINS: true });
+  });
+
+  it('refuses to start with required MFA and no encryption key', () => {
+    expect(() =>
+      parseEnvironment({ ...testEnvironment, MFA_REQUIRE_GLOBAL_ADMINS: 'true' }),
+    ).toThrow('Invalid environment variables: MFA_ENCRYPTION_KEY');
   });
 
   it('does not disclose values in validation errors', () => {
@@ -64,11 +87,13 @@ describe('Environment validation', () => {
         SERVE_WEB: 'true',
         WEB_DIST_PATH: '/app/apps/web/dist',
         STORAGE_ENABLED: 'true',
+        PASSWORD_RECOVERY_ASSISTED_ENABLED: 'true',
       }),
     ).toMatchObject({
       SERVE_WEB: true,
       WEB_DIST_PATH: '/app/apps/web/dist',
       STORAGE_ENABLED: true,
+      PASSWORD_RECOVERY_ASSISTED_ENABLED: true,
     });
   });
 

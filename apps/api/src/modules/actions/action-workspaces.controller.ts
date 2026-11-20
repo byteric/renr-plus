@@ -58,16 +58,16 @@ export class ActionWorkspacesController {
   private async scope(
     request: Request,
     orgId: string,
-    operation: 'read' | 'manage' | 'execute' = 'read',
+    operation: 'read' | 'manage' | 'create' | 'assignees' | 'execute' = 'read',
     id?: string,
   ) {
-    if (operation !== 'read') this.identity.assertOrigin(request);
+    if (operation !== 'read' && operation !== 'assignees') this.identity.assertOrigin(request);
     const organizationId = parse(z.uuid(), orgId);
     const scope = await this.identity.scope(
       request,
       organizationId,
-      operation === 'manage',
-      undefined,
+      operation === 'manage' || operation === 'create' || operation === 'assignees',
+      operation === 'create' || operation === 'assignees' ? 'TECHNICAL_DECISIONS' : undefined,
       operation === 'read',
     );
     if (operation === 'execute' && !(await this.identity.capabilities(request)).canManageAccess) {
@@ -90,7 +90,7 @@ export class ActionWorkspacesController {
   @Get('action-assignees')
   @ApiResponse({ status: 200, schema: documentation(actionAssigneeListSchema) })
   assignees(@Req() request: Request, @Param('orgId') orgId: string, @Query() query: unknown) {
-    return this.scope(request, orgId).then((scope) =>
+    return this.scope(request, orgId, 'assignees').then((scope) =>
       this.workspaces.assignees(scope, parse(actionAssigneeQuerySchema, query)),
     );
   }
@@ -126,7 +126,7 @@ export class ActionWorkspacesController {
     @Param('riskId') riskId: string,
     @Body() body: unknown,
   ) {
-    const scope = await this.scope(request, orgId, 'manage');
+    const scope = await this.scope(request, orgId, 'create');
     const { assignedUserId, ...input } = parse(createAssignedActionSchema, body);
     return this.actions.create(scope, parse(z.uuid(), riskId), input, {
       assignedUserId: assignedUserId ?? null,

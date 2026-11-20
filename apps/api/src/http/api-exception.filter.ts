@@ -13,6 +13,9 @@ import { z } from 'zod';
 import { Prisma } from '../generated/prisma/client';
 import { InviteUnavailableException } from '../modules/diagnostics/diagnostics.service';
 import { AccessInviteUnavailableException } from '../modules/access/access.errors';
+import { MfaUnauthorizedException } from '../modules/identity/mfa-security';
+import { ContractAccessSuspendedException } from '../modules/commercial/contract-access';
+import { CollaborationWritesDisabledException } from '../modules/risk-collaboration/risk-collaboration.errors';
 import {
   ReportGenerationBusyException,
   ReportGenerationDeadlineException,
@@ -79,6 +82,17 @@ export class ApiExceptionFilter implements ExceptionFilter {
     if (exception instanceof AccessInviteUnavailableException) {
       body.code = 'ACCESS_INVITE_UNAVAILABLE';
       body.message = 'Activation invitation unavailable';
+    }
+    if (exception instanceof MfaUnauthorizedException) {
+      body.code = exception.code;
+    }
+    if (exception instanceof ContractAccessSuspendedException) {
+      body.code = 'CONTRACT_ACCESS_SUSPENDED';
+      body.message = 'Contractual access is suspended';
+    }
+    if (exception instanceof CollaborationWritesDisabledException) {
+      body.code = 'COLLABORATION_WRITES_DISABLED';
+      body.message = 'Technical collaboration writes are disabled in this environment';
     }
     if (exception instanceof ReportScopeTooLargeException) {
       body.code = 'REPORT_SCOPE_TOO_LARGE';

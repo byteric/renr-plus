@@ -17,6 +17,10 @@ import {
 } from '@renr/contracts';
 import { PrismaService } from '../../database/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
+import {
+  isContractAccessSuspended,
+  lockAndAssertContractAccessAllowed,
+} from '../commercial/contract-access';
 
 import { groupDelegation, type OrganizationScope as Scope } from '../access/delegated-scope';
 
@@ -34,7 +38,7 @@ const instrumentInclude = {
   },
 } satisfies Prisma.InstrumentVersionInclude;
 const cycleInclude = {
-  organization: true,
+  organization: { include: { commercialContractAccess: { select: { status: true } } } },
   instrumentVersion: { include: instrumentInclude },
   groups: { include: { assessmentGroup: { include: { sector: { include: { unit: true } } } } } },
 } satisfies Prisma.DiagnosticCycleInclude;
@@ -154,6 +158,7 @@ export class DiagnosticsService {
     const sector = cycle.groups[0]?.assessmentGroup.sector;
     return (
       cycle.organization.isActive &&
+      !isContractAccessSuspended(cycle.organization) &&
       !!sector?.isActive &&
       sector.unit.isActive &&
       sector.unit.organizationId === cycle.organizationId
@@ -213,6 +218,7 @@ export class DiagnosticsService {
   async create(scope: Scope, input: CreateDiagnosticCycle): Promise<DiagnosticCycle> {
     return this.database.client.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${scope.organizationId}))::text`;
+      await lockAndAssertContractAccessAllowed(tx, scope.organizationId);
       const sector = await tx.sector.findFirst({
         where: { id: input.sectorId, organizationId: scope.organizationId },
         include: { organization: true, unit: true },
@@ -337,6 +343,7 @@ export class DiagnosticsService {
         select: { organizationId: true, cycleId: true },
       });
       if (!reference) throw new InviteUnavailableException();
+      await tx.$queryRaw`SELECT id FROM organizations WHERE id = ${reference.organizationId}::uuid FOR SHARE`;
       await this.lockCycle(tx, reference.organizationId, reference.cycleId);
       await tx.$queryRaw`SELECT id FROM participation_invites WHERE token_hash = ${tokenHash} FOR UPDATE`;
       const invite = await this.availableInvite(tx, tokenHash);

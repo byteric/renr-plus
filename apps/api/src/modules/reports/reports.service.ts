@@ -22,6 +22,7 @@ import { PlatformService } from '../platform/platform.service';
 import { PeopleAnalyticsService } from '../people/people-analytics.service';
 import { canReadExactPeopleIndicators, peopleDataAvailable } from '../people/people-availability';
 import { referenceDate } from '../actions/actions.repository';
+import { lockAndAssertContractAccessAllowed } from '../commercial/contract-access';
 import { readAssessmentComparison } from '../assessments/assessment-comparison.service';
 import { executiveComparison } from './report-executive-comparison';
 import { captureExecutiveSst } from './report-executive-sst';
@@ -133,6 +134,7 @@ export class ReportsService {
       include: { scopes: { select: { unitId: true, sectorId: true } } },
     });
     if (!m?.isActive) throw new NotFoundException();
+    await lockAndAssertContractAccessAllowed(tx, scope.organizationId);
     return m;
   }
   private async authorize(

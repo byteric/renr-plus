@@ -174,10 +174,11 @@ describeDatabase('Company group grants and aggregate privacy on PostgreSQL', () 
 
   it('limits the group to linked companies, protects complements and revokes an open session', async () => {
     const api = request(app.getHttpServer());
-    const [a, b, outsider] = await Promise.all([
+    const [a, b, outsider, inactive] = await Promise.all([
       company('Cliente sintético Alfa', 6),
       company('Cliente sintético Beta', 7),
       company('Terceiro CNPJ sintético', 8),
+      company('Sem detalhamento fictício', 9),
     ]);
     const [admin, reader, registry, grants, global] = await Promise.all([
       account('Administrador local', a.id),
@@ -236,7 +237,7 @@ describeDatabase('Company group grants and aggregate privacy on PostgreSQL', () 
     const get = (path: string, cookie: string) => api.get(path).set('Cookie', cookie);
     const newGroup = {
       name: 'Grupo sintético',
-      organizationIds: [a.id, b.id],
+      organizationIds: [a.id, b.id, inactive.id],
       reason: 'Mapeamento fictício',
     };
     await write('post', managerPath, grants.cookie, newGroup).expect(403);
@@ -254,8 +255,9 @@ describeDatabase('Company group grants and aggregate privacy on PostgreSQL', () 
     }).expect(400);
     const group = (await write('post', managerPath, registry.cookie, newGroup).expect(201)).body;
     expect(group.organizations.map(({ id }: { id: string }) => id).sort()).toEqual(
-      [a.id, b.id].sort(),
+      [a.id, b.id, inactive.id].sort(),
     );
+    await db.client.organization.update({ where: { id: inactive.id }, data: { isActive: false } });
     const readPath = `/api/v1/company-groups/${group.id}`;
     const grantPath = `${managerPath}/${group.id}/grants`;
     const grant = {
@@ -316,6 +318,163 @@ describeDatabase('Company group grants and aggregate privacy on PostgreSQL', () 
       });
     await get(readPath, reader.cookie).query({ organizationId: outsider.id }).expect(404);
     await closedCycle(assessmentB, 2, 20, 2);
+    const today = new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Sao_Paulo' }).format(
+      new Date(),
+    );
+    const dueToday = new Date(`${today}T00:00:00.000Z`);
+    const dueYesterday = new Date(dueToday.getTime() - 86_400_000);
+    const writeAction = (dueDate: Date, status: 'PLANNED' | 'IN_PROGRESS' | 'IMPLEMENTED') =>
+      db.client.action.create({
+        data: {
+          organizationId: a.id,
+          riskId: risk.id,
+          status,
+          sourceRiskVersion: 1,
+          title: 'Operação privada',
+          description: 'Descrição',
+          contextSnapshot: {},
+          responsibleName: 'Pessoa privada',
+          dueDate,
+          expectedResult: 'Resultado',
+          verificationCriterion: 'Critério',
+          createdById: admin.id,
+          updatedById: admin.id,
+          ...(status === 'IMPLEMENTED' && {
+            implementationNote: 'Finalizada',
+            implementedAt: dueYesterday,
+          }),
+        },
+      });
+    const pendingRisk = await db.client.risk.create({
+      data: {
+        organizationId: a.id,
+        assessmentGroupId: a.assessmentGroupId,
+        factor: 'Fator sem avaliação',
+        status: 'REGISTERED',
+        createdById: admin.id,
+        updatedById: admin.id,
+      },
+    });
+    await db.client.riskEvaluation.create({
+      data: {
+        organizationId: a.id,
+        riskId: risk.id,
+        sequence: 1,
+        riskVersion: 1,
+        contextSnapshot: {},
+        methodReference: 'Método',
+        methodVersion: '1',
+        observation: 'Observação privada',
+        rationale: 'Justificativa',
+        authorId: admin.id,
+      },
+    });
+    await Promise.all([
+      db.client.organization.update({
+        where: { id: b.id },
+        data: { clientClassification: 'DEMONSTRATION' },
+      }),
+      ...[dueYesterday, dueToday].map((dueDate) => writeAction(dueDate, 'IN_PROGRESS')),
+      writeAction(dueYesterday, 'IMPLEMENTED'),
+      db.client.auditEvent.createMany({
+        data: [
+          {
+            organizationId: a.id,
+            action: 'assessment.cycle.created',
+            createdAt: new Date(dueYesterday.getTime() - 43_200_000),
+          },
+          {
+            organizationId: a.id,
+            action: 'EMPLOYEE_BULK_UPDATE',
+            createdAt: new Date(dueYesterday.getTime() + 43_200_000),
+          },
+          { organizationId: a.id, action: 'LOGIN_SUCCEEDED', reason: 'Motivo privado' },
+          { organizationId: outsider.id, action: 'assessment.cycle.created' },
+        ],
+      }),
+    ]);
+    const now = Date.now();
+    const unclosed = await db.client.assessmentCycle.create({
+      data: {
+        ...assessmentA,
+        name: 'Coleta vigente privada',
+        startsAt: new Date(now - 3000),
+        endsAt: new Date(now + 60_000),
+      },
+    });
+    await db.client.assessmentCycle.update({
+      where: { id: unclosed.id },
+      data: { status: 'OPEN', eligibleCount: 6 },
+    });
+    await db.client.assessmentCycle.create({
+      data: {
+        ...assessmentB,
+        name: 'Rascunho privado',
+        startsAt: new Date(now + 60_000),
+        endsAt: new Date(now + 120_000),
+      },
+    });
+    const usage = (await get(readPath, reader.cookie).query({ view: 'operational' }).expect(200))
+      .body;
+    expect(usage).toMatchObject({
+      referenceDate: today,
+      timeZone: 'America/Sao_Paulo',
+      portfolio: { active: 2, inactive: 1, activeDemonstrations: 1, inactiveDemonstrations: 0 },
+      operational: {
+        collections: { inProgress: 1, completed: 5, pending: 1 },
+        evaluations: { records: 1, completed: 1, pending: 1 },
+        overdueActions: 1,
+        lastActivity: { status: 'AVAILABLE', date: dueYesterday.toISOString().slice(0, 10) },
+      },
+      totals: { employees: 13, participation: { status: 'PROTECTED' } },
+    });
+    expect(usage.companies).toHaveLength(2);
+    const first = usage.companies.find((item: { id: string }) => item.id === a.id);
+    const second = usage.companies.find((item: { id: string }) => item.id === b.id);
+    expect(first).toMatchObject({
+      classification: 'CLIENT',
+      operational: {
+        collections: { inProgress: 1, completed: 2, pending: 0 },
+        evaluations: { records: 1, completed: 1, pending: 1 },
+        overdueActions: 1,
+      },
+    });
+    expect(second).toMatchObject({
+      classification: 'DEMONSTRATION',
+      operational: {
+        collections: { inProgress: 0, completed: 3, pending: 1 },
+        evaluations: { records: 0, completed: 0, pending: 0 },
+        overdueActions: 0,
+        lastActivity: { status: 'UNAVAILABLE' },
+      },
+    });
+    const publicBody = JSON.stringify(usage);
+    for (const fragment of [
+      pendingRisk.id,
+      risk.id,
+      inactive.id,
+      outsider.id,
+      'privada',
+      'privado',
+    ]) {
+      expect(publicBody).not.toContain(fragment);
+    }
+    const detail = (
+      await get(readPath, reader.cookie)
+        .query({ view: 'operational', organizationId: b.id })
+        .expect(200)
+    ).body;
+    expect(detail).toMatchObject({
+      portfolio: { active: 1, inactive: 0, activeDemonstrations: 1 },
+      operational: second.operational,
+      companies: [second],
+    });
+    await get(readPath, reader.cookie)
+      .query({ view: 'operational', organizationId: inactive.id })
+      .expect(404);
+    await get(readPath, reader.cookie)
+      .query({ view: 'operational', organizationId: outsider.id })
+      .expect(404);
     await get(readPath, reader.cookie)
       .expect(200)
       .expect((res) => {

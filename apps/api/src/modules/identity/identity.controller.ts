@@ -11,13 +11,24 @@ import {
   Req,
   Res,
 } from '@nestjs/common';
-import { activeOrganizationSchema, loginSchema, sessionCapabilitiesSchema } from '@renr/contracts';
+import {
+  activeOrganizationSchema,
+  loginResultSchema,
+  loginSchema,
+  sessionCapabilitiesSchema,
+} from '@renr/contracts';
 import { ApiResponse } from '@nestjs/swagger';
 import { documentation } from '../risks/risks.controller';
 import type { Request, Response } from 'express';
 import { ENVIRONMENT, type Environment } from '../../config/env';
 import { parse } from '../../http/parse';
-import { IdentityService, SESSION_COOKIE } from './identity.service';
+import { IdentityService } from './identity.service';
+import {
+  clearChallengeCookie,
+  clearSessionCookie,
+  setChallengeCookie,
+  setSessionCookie,
+} from './mfa-cookies';
 
 @Controller('auth')
 export class IdentityController {
@@ -26,6 +37,8 @@ export class IdentityController {
     @Inject(ENVIRONMENT) private readonly environment: Environment,
   ) {}
   @Post('sessions')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiResponse({ status: 201, schema: documentation(loginResultSchema) })
   async login(
     @Body() body: unknown,
     @Req() request: Request,
@@ -34,13 +47,12 @@ export class IdentityController {
     this.identity.assertOrigin(request);
     const input = parse(loginSchema, body);
     const result = await this.identity.login(input.email, input.password, request.ip ?? 'unknown');
-    response.cookie(SESSION_COOKIE, result.token, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: this.environment.NODE_ENV === 'production',
-      path: '/api/v1',
-      expires: new Date(result.session.expiresAt),
-    });
+    if ('challenge' in result) {
+      setChallengeCookie(request, response, this.environment, result);
+      return result.challenge;
+    }
+    setSessionCookie(response, this.environment, result);
+    clearChallengeCookie(response, this.environment);
     return result.session;
   }
   @Get('session') current(@Req() request: Request) {
@@ -60,12 +72,8 @@ export class IdentityController {
   ): Promise<void> {
     this.identity.assertOrigin(request);
     await this.identity.logout(request);
-    response.clearCookie(SESSION_COOKIE, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: this.environment.NODE_ENV === 'production',
-      path: '/api/v1',
-    });
+    clearSessionCookie(response, this.environment);
+    clearChallengeCookie(response, this.environment);
   }
   @Put('session/organization')
   activate(@Body() body: unknown, @Req() request: Request) {
