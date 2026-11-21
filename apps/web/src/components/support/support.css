@@ -1,0 +1,79 @@
+.support-workspace {
+  display: grid;
+  gap: var(--space-4);
+  min-inline-size: 0;
+}
+
+.support-card,
+.support-form {
+  display: grid;
+  gap: var(--space-4);
+  padding: clamp(var(--space-3), 2.5vw, var(--space-6));
+  overflow-wrap: anywhere;
+}
+
+.support-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+}
+
+.support-card :is(h2, h3, p, dd, ol, ul) {
+  margin: 0;
+}
+
+.support-filter,
+.support-form label {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.support-filter {
+  justify-self: start;
+}
+
+.support-card :is(select, input, textarea) {
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: var(--control-min-height);
+  padding: var(--space-2);
+  color: var(--foreground);
+  background: var(--background);
+  border: 1px solid var(--input);
+  border-radius: var(--radius-control);
+}
+
+.support-card textarea {
+  resize: vertical;
+}
+
+.support-facts,
+.support-edit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: var(--space-3);
+}
+
+.support-facts dt {
+  color: var(--muted-foreground);
+}
+
+.support-note {
+  white-space: pre-wrap;
+}
+
+.support-list {
+  display: grid;
+  gap: var(--space-3);
+  padding: 0;
+  list-style: none;
+}
+
+.support-list > li {
+  display: grid;
+  gap: var(--space-1);
+  padding-block: var(--space-3);
+  border-block-start: 1px solid var(--border);
+}
