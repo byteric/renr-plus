@@ -20,6 +20,15 @@ import { WorkspaceNavigation } from './WorkspaceNavigation';
 import { RouteMotion } from './RouteMotion';
 import { StructureEditor } from './StructureEditor';
 import { useRiskData } from './risks/useRiskData';
+import {
+  hasBillingAccess,
+  hasCommercialAccess,
+  hasCommercialCatalogAccess,
+  hasContractAccessPermission,
+  hasPlatformAdministration,
+  hasSupportAccess,
+} from '../lib/commercial-permissions';
+import { StatusBadge } from './ui/status-badge';
 import './workforce/workforce.css';
 
 const RiskWorkspace = lazy(() =>
@@ -33,6 +42,11 @@ const ManagementDashboard = lazy(() =>
 );
 const AccessWorkspace = lazy(() =>
   import('./access/AccessWorkspace').then((module) => ({ default: module.AccessWorkspace })),
+);
+const PasswordRecoveryIssue = lazy(() =>
+  import('./access/PasswordRecoveryIssue').then((module) => ({
+    default: module.PasswordRecoveryIssue,
+  })),
 );
 const WorkforceWorkspace = lazy(() =>
   import('./workforce/WorkforceWorkspace').then((module) => ({
@@ -68,6 +82,14 @@ const CompanyGroupsAdmin = lazy(() =>
     default: module.CompanyGroupsAdmin,
   })),
 );
+const CommercialWorkspace = lazy(() =>
+  import('./platform/commercial/CommercialWorkspace').then((module) => ({
+    default: module.CommercialWorkspace,
+  })),
+);
+const SupportWorkspace = lazy(() =>
+  import('./support/SupportWorkspace').then((module) => ({ default: module.SupportWorkspace })),
+);
 const ReportsWorkspace = lazy(() =>
   import('./reports/ReportsWorkspace').then((module) => ({ default: module.ReportsWorkspace })),
 );
@@ -91,15 +113,25 @@ type Route = {
     | 'pessoas'
     | 'plataforma'
     | 'platform-groups'
+    | 'platform-commercial'
+    | 'platform-support'
+    | 'platform-recovery'
+    | 'chamados'
     | 'consolidado'
     | 'relatorios'
     | 'platform-reports';
   unitId: string | null;
+  ticketId?: string;
 };
 function readRoute(): Route {
   const hash = window.location.hash;
   if (!hash || hash === '#/') return { kind: 'home', unitId: null };
   const parts = hash.replace(/^#\/?/, '').split('?')[0]?.split('/') ?? [];
+  if (parts[0] === 'chamados') return { kind: 'chamados', unitId: null, ticketId: parts[1] };
+  if (parts[0] === 'plataforma' && parts[1] === 'chamados')
+    return { kind: 'platform-support', unitId: null, ticketId: parts[2] };
+  if (parts[0] === 'plataforma' && parts[1] === 'recuperacao')
+    return { kind: 'platform-recovery', unitId: null };
   if (parts[0] === 'pessoas' || parts[0] === 'relatorios') return { kind: parts[0], unitId: null };
   if (parts[0] === 'plataforma')
     return {
@@ -108,7 +140,9 @@ function readRoute(): Route {
           ? 'platform-reports'
           : parts[1] === 'grupos'
             ? 'platform-groups'
-            : 'plataforma',
+            : parts[1] === 'comercial'
+              ? 'platform-commercial'
+              : 'plataforma',
       unitId: null,
     };
   if (parts[0] === 'consolidado') return { kind: 'consolidado', unitId: null };
@@ -131,6 +165,10 @@ const titles: Record<Exclude<Route['kind'], 'home'>, string> = {
   pessoas: 'Gestão de Pessoas',
   plataforma: 'Administração da plataforma',
   'platform-groups': 'Gerenciar grupos de empresas',
+  'platform-commercial': 'Comercial',
+  'platform-support': 'Atendimento de chamados',
+  'platform-recovery': 'Recuperação de acesso',
+  chamados: 'Chamados',
   consolidado: 'Consolidado de empresas',
   relatorios: 'Relatórios',
   'platform-reports': 'Relatórios da plataforma',
@@ -152,6 +190,11 @@ const descriptions: Record<keyof typeof titles, string> = {
   pessoas: 'Consulte perfis e indicadores de RH conforme suas permissões na empresa.',
   plataforma: 'Acompanhe as empresas atendidas pela ReTech+ no catálogo da plataforma.',
   'platform-groups': 'Organize os CNPJs por grupo e conceda acesso à visão consolidada.',
+  'platform-commercial':
+    'Gerencie ofertas, cadastros comerciais, contratos, cobranças e acesso contratual registrados pela operação.',
+  'platform-support': 'Acompanhe os chamados das empresas e registre o andamento do atendimento.',
+  'platform-recovery': 'Emita links temporários após a conferência de identidade.',
+  chamados: 'Envie solicitações e acompanhe o atendimento da sua empresa.',
   consolidado: 'Consulte indicadores agregados das empresas autorizadas em cada grupo.',
   'platform-reports': 'Consulte os relatórios globais das empresas atendidas.',
   relatorios: 'Emita uma versão preservada dos dados e consulte a prévia antes do download.',
@@ -240,23 +283,36 @@ export function Structure({
       : [];
   const platformCapabilities = globalAccess.data?.capabilities ?? [];
   const hasCompanies = session.memberships.length > 0;
-  const platformOnly = !hasCompanies && platformCapabilities.length > 0;
+  const hasSuspendedCompanies = (session.suspendedOrganizations?.length ?? 0) > 0;
+  const canManagePasswordRecovery = platformCapabilities.includes('MANAGE_PASSWORD_RECOVERY');
+  const canRecoverMfa = platformCapabilities.includes('RECOVER_ACCOUNT_MFA');
+  const platformOnly =
+    !hasCompanies &&
+    platformCapabilities.some((capability) => capability !== 'ASSIST_COMPANY_PASSWORD_RECOVERY');
   const isPlatformRoute =
     route.kind === 'plataforma' ||
     route.kind === 'platform-reports' ||
-    route.kind === 'platform-groups';
+    route.kind === 'platform-groups' ||
+    route.kind === 'platform-support' ||
+    route.kind === 'platform-recovery' ||
+    route.kind === 'platform-commercial';
   const isGroupRoute = route.kind === 'consolidado';
   const groupOnly = !hasCompanies && session.hasCompanyGroups && !platformOnly;
   const companyRoute = !isPlatformRoute && !isGroupRoute;
+  const allowSuspendedCompaniesPage = hasSuspendedCompanies && route.kind === 'empresas';
   const restrictedRoute =
     companyRoute && delegatedScopes !== undefined && !delegatedRoutes.has(route.kind);
   const emptyDelegation = companyRoute && delegatedScopes?.length === 0;
   const resolvingScope = !hasCompanies && globalAccess.loading;
   const scopeError = !hasCompanies && globalAccess.error;
   const redirect =
-    platformOnly && companyRoute
-      ? 'plataforma'
-      : groupOnly && companyRoute
+    platformOnly && companyRoute && !allowSuspendedCompaniesPage
+      ? hasPlatformAdministration(platformCapabilities)
+        ? 'plataforma'
+        : (canManagePasswordRecovery || canRecoverMfa) && !hasCommercialAccess(platformCapabilities)
+          ? 'plataforma/recuperacao'
+          : 'plataforma/comercial'
+      : groupOnly && companyRoute && !allowSuspendedCompaniesPage
         ? 'consolidado'
         : route.kind === 'home' && !resolvingScope && !scopeError
           ? delegatedScopes
@@ -268,7 +324,10 @@ export function Structure({
   const registrationSingular =
     route.kind === 'unidades' ? 'unidade' : route.kind === 'setores' ? 'setor' : 'empresa';
   const listPath =
-    platformOnly || groupOnly || emptyDelegation || resolvingScope || scopeError
+    ((platformOnly || groupOnly) && !allowSuspendedCompaniesPage) ||
+    emptyDelegation ||
+    resolvingScope ||
+    scopeError
       ? null
       : route.kind === 'empresas'
         ? '/organizations'
@@ -291,7 +350,12 @@ export function Structure({
       setFilters(nextFilters);
       setSearchDraft(nextFilters.search);
       setStatusDraft(nextFilters.isActive);
-      if (next.kind === route.kind && next.unitId === route.unitId) return;
+      if (
+        next.kind === route.kind &&
+        next.unitId === route.unitId &&
+        next.ticketId === route.ticketId
+      )
+        return;
       setRoute(next);
       setEditor(null);
       setConfirmation('');
@@ -299,7 +363,7 @@ export function Structure({
     };
     window.addEventListener('hashchange', change);
     return () => window.removeEventListener('hashchange', change);
-  }, [route.kind, route.unitId]);
+  }, [route.kind, route.unitId, route.ticketId]);
   useEffect(() => {
     mutationController.current = new AbortController();
     const current = mutationController.current;
@@ -501,6 +565,82 @@ export function Structure({
             >
               <CompanyGroupsAdmin onExpire={onExpire} />
             </Suspense>
+          ) : route.kind === 'platform-commercial' ? (
+            <Suspense
+              fallback={<StatusMessage tone="loading">Carregando área comercial…</StatusMessage>}
+            >
+              <CommercialWorkspace
+                canReadCatalog={hasCommercialCatalogAccess(platformCapabilities)}
+                canEditCatalog={platformCapabilities.includes('MANAGE_COMMERCIAL')}
+                canReadBilling={hasBillingAccess(platformCapabilities)}
+                canEditBilling={platformCapabilities.includes('MANAGE_BILLING')}
+                canReadContractAccess={hasContractAccessPermission(platformCapabilities)}
+                canEditContractAccess={platformCapabilities.includes('MANAGE_CONTRACT_ACCESS')}
+                canReadSupport={hasSupportAccess(platformCapabilities)}
+                accessLoading={globalAccess.loading}
+                accessError={globalAccess.error}
+                onExpire={onExpire}
+                onRecheck={() => setScopeAttempt((value) => value + 1)}
+              />
+            </Suspense>
+          ) : route.kind === 'platform-recovery' ? (
+            globalAccess.loading ? (
+              <StatusMessage tone="loading">Verificando concessão de recuperação…</StatusMessage>
+            ) : canManagePasswordRecovery || canRecoverMfa ? (
+              <Suspense
+                fallback={<StatusMessage tone="loading">Carregando recuperação…</StatusMessage>}
+              >
+                <div className="access-workspace">
+                  {canManagePasswordRecovery && <PasswordRecoveryIssue onExpire={onExpire} />}
+                  {canRecoverMfa &&
+                    (session.activeOrganizationId === null ? (
+                      <PasswordRecoveryIssue authenticator onExpire={onExpire} />
+                    ) : (
+                      <StatusMessage tone="warning">
+                        Para emitir uma recuperação de autenticador, entre com sua conta de operação
+                        global da plataforma.
+                      </StatusMessage>
+                    ))}
+                </div>
+              </Suspense>
+            ) : (
+              <StatusMessage tone="error">
+                {globalAccess.error ||
+                  'A recuperação na plataforma exige uma concessão específica.'}
+              </StatusMessage>
+            )
+          ) : route.kind === 'platform-support' || route.kind === 'chamados' ? (
+            route.kind === 'platform-support' && globalAccess.loading ? (
+              <StatusMessage tone="loading">Verificando acesso ao suporte…</StatusMessage>
+            ) : route.kind === 'platform-support' && hasSupportAccess(platformCapabilities) ? (
+              <Suspense
+                fallback={<StatusMessage tone="loading">Carregando chamados…</StatusMessage>}
+              >
+                <SupportWorkspace
+                  platform
+                  canManage={platformCapabilities.includes('MANAGE_SUPPORT')}
+                  organizationId={null}
+                  ticketId={route.ticketId}
+                  onExpire={onExpire}
+                />
+              </Suspense>
+            ) : route.kind === 'chamados' && canWrite && session.activeOrganizationId ? (
+              <Suspense
+                fallback={<StatusMessage tone="loading">Carregando chamados…</StatusMessage>}
+              >
+                <SupportWorkspace
+                  platform={false}
+                  canManage={false}
+                  organizationId={session.activeOrganizationId}
+                  ticketId={route.ticketId}
+                  onExpire={onExpire}
+                />
+              </Suspense>
+            ) : (
+              <StatusMessage>
+                Seu perfil está sem permissão para acessar chamados neste espaço.
+              </StatusMessage>
+            )
           ) : emptyDelegation ? (
             <StatusMessage>Seu vínculo está sem unidades ou setores autorizados.</StatusMessage>
           ) : restrictedRoute ? (
@@ -557,7 +697,14 @@ export function Structure({
             </Suspense>
           ) : route.kind === 'acessos' ? (
             <Suspense fallback={<p role="status">Verificando permissões de acesso…</p>}>
-              <AccessWorkspace session={session} onSession={onSession} onExpire={onExpire} />
+              <AccessWorkspace
+                session={session}
+                canIssueRecovery={
+                  canWrite && platformCapabilities.includes('ASSIST_COMPANY_PASSWORD_RECOVERY')
+                }
+                onSession={onSession}
+                onExpire={onExpire}
+              />
             </Suspense>
           ) : route.kind === 'acoes' ? (
             <Suspense
@@ -654,6 +801,44 @@ export function Structure({
                   {confirmation}
                 </p>
               )}
+              {route.kind === 'empresas' &&
+                session.suspendedOrganizations &&
+                session.suspendedOrganizations.length > 0 && (
+                  <section
+                    className="surface suspended-orgs-panel"
+                    aria-labelledby="suspended-orgs-heading"
+                  >
+                    <h2 id="suspended-orgs-heading">Empresas com acesso contratual suspenso</h2>
+                    <ul className="suspended-orgs-list">
+                      {session.suspendedOrganizations.map((org) => (
+                        <li key={org.organizationId}>
+                          <div className="suspended-orgs-header">
+                            <strong>{org.organizationName}</strong>
+                            <StatusBadge tone="error" label="Acesso suspenso" />
+                          </div>
+                          {org.reason && org.nextStep ? (
+                            <>
+                              <p>
+                                <strong>Motivo:</strong> {org.reason}
+                              </p>
+                              <p>
+                                <strong>Próximo passo:</strong> {org.nextStep}
+                              </p>
+                              <p className="muted">
+                                Dados, histórico e anexos desta empresa permanecem preservados.
+                              </p>
+                            </>
+                          ) : (
+                            <p className="muted">
+                              O acesso operacional desta empresa está temporariamente suspenso.
+                              Procure a administração da empresa para mais orientações.
+                            </p>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
               {!listPath && (
                 <div className="surface empty-state">
                   <h2>Primeiro, selecione uma empresa</h2>

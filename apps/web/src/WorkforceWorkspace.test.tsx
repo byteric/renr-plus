@@ -257,6 +257,192 @@ it('expõe os erros do Excel por linha e invalida a prévia ao escolher outro ar
   ).not.toBeInTheDocument();
 });
 
+it('abre uma atualização separada da importação inicial sem confirmar alterações na abertura', async () => {
+  const user = userEvent.setup();
+  render(<WorkforceWorkspace kind="colaboradores" session={session} onExpire={vi.fn()} />);
+  await user.click(await screen.findByRole('button', { name: 'Atualizar por planilha' }));
+  const dialog = screen.getByRole('dialog', { name: 'Atualizar colaboradores por planilha' });
+  expect(within(dialog).getByText(/Células vazias mantêm os valores atuais/)).toBeVisible();
+  expect(within(dialog).getByRole('link', { name: 'Baixar modelo Excel' })).toHaveAttribute(
+    'href',
+    '/modelo-colaboradores.xlsx',
+  );
+  expect(within(dialog).getByRole('button', { name: 'Gerar prévia' })).toBeDisabled();
+  expect(
+    within(dialog).queryByRole('button', { name: 'Confirmar atualização' }),
+  ).not.toBeInTheDocument();
+  expect(fetchMock.mock.calls.some(([path]) => String(path).includes('/confirm'))).toBe(false);
+});
+
+it('mostra as diferenças e consulta o resultado se a confirmação não retornar', async () => {
+  const originalFetch = fetchMock.getMockImplementation()!;
+  const version = '70000000-0000-4000-8000-000000000001';
+  const base = `/organizations/${org}/employees/bulk-update`;
+  const requests: string[] = [];
+  const file = new File(['planilha fictícia'], 'atualizacao.xlsx');
+  fetchMock.mockImplementation(async (input, options) => {
+    const path = String(input);
+    if (path.endsWith(`${base}/preview`)) {
+      requests.push('preview');
+      expect((options?.body as FormData).get('file')).toEqual(file);
+      return json({
+        version,
+        expiresAt: new Date(Date.now() + 5 * 60_000).toISOString(),
+        total: 2,
+        ready: 1,
+        unchanged: 1,
+        invalid: 0,
+        rows: [
+          {
+            row: 2,
+            status: 'READY',
+            before: { name: 'Nome anterior', unitName: 'Recife', sectorName: 'Atendimento' },
+            after: { name: 'Nome revisado', unitName: 'Recife', sectorName: 'Operações' },
+            preserved: ['unit'],
+            messages: [],
+          },
+          {
+            row: 3,
+            status: 'UNCHANGED',
+            before: { name: 'Pessoa preservada', unitName: 'Recife', sectorName: 'Atendimento' },
+            after: { name: 'Pessoa preservada', unitName: 'Recife', sectorName: 'Atendimento' },
+            preserved: [],
+            messages: [],
+          },
+        ],
+      });
+    }
+    if (path.endsWith(`${base}/confirm`)) {
+      requests.push('confirm');
+      const body = options?.body as FormData;
+      expect(body.get('version')).toBe(version);
+      expect(body.get('file')).toEqual(file);
+      throw new Error('Resposta indisponível após o envio');
+    }
+    if (path.endsWith(`${base}/${version}`)) {
+      requests.push('status');
+      return json({ status: 'CONFIRMED', result: { updated: 1, unchanged: 1 } });
+    }
+    return originalFetch(input, options);
+  });
+  const user = userEvent.setup();
+  render(<WorkforceWorkspace kind="colaboradores" session={session} onExpire={vi.fn()} />);
+  await user.click(await screen.findByRole('button', { name: 'Atualizar por planilha' }));
+  const dialog = screen.getByRole('dialog', { name: 'Atualizar colaboradores por planilha' });
+  await user.upload(within(dialog).getByLabelText('Planilha Excel'), file);
+  await user.click(within(dialog).getByRole('button', { name: 'Gerar prévia' }));
+  expect(await within(dialog).findByText('Nome anterior', { exact: false })).toBeVisible();
+  expect(within(dialog).getByText('Nome revisado', { exact: false })).toBeVisible();
+  expect(within(dialog).getByText('Células vazias preservaram unidade.')).toBeVisible();
+  expect(within(dialog).getByText('Sem mudança', { exact: true })).toBeVisible();
+  await user.click(within(dialog).getByRole('button', { name: 'Confirmar atualização' }));
+  expect(await within(dialog).findByRole('alert')).toHaveTextContent('Consulte o resultado');
+  expect(
+    within(dialog).queryByRole('button', { name: 'Confirmar atualização' }),
+  ).not.toBeInTheDocument();
+  await user.click(within(dialog).getByRole('button', { name: 'Fechar' }));
+  await user.click(screen.getByRole('button', { name: 'Atualizar por planilha' }));
+  await user.click(screen.getByRole('button', { name: 'Consultar resultado' }));
+  expect(await screen.findByText('1 cadastro atualizado. 1 cadastro sem mudanças.')).toBeVisible();
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(requests).toEqual(['preview', 'confirm', 'status']);
+});
+
+it('bloqueia a confirmação com pendências e descarta a prévia ao trocar o arquivo', async () => {
+  const originalFetch = fetchMock.getMockImplementation()!;
+  fetchMock.mockImplementation(async (input, options) =>
+    String(input).endsWith('/employees/bulk-update/preview')
+      ? json({
+          version: '70000000-0000-4000-8000-000000000002',
+          expiresAt: new Date(Date.now() + 5 * 60_000).toISOString(),
+          total: 1,
+          ready: 0,
+          unchanged: 0,
+          invalid: 1,
+          rows: [
+            {
+              row: 4,
+              status: 'INVALID',
+              before: null,
+              after: null,
+              preserved: [],
+              messages: ['Confira o setor no cadastro da empresa ativa.'],
+            },
+          ],
+        })
+      : originalFetch(input, options),
+  );
+  const user = userEvent.setup();
+  render(<WorkforceWorkspace kind="colaboradores" session={session} onExpire={vi.fn()} />);
+  await user.click(await screen.findByRole('button', { name: 'Atualizar por planilha' }));
+  const dialog = screen.getByRole('dialog', { name: 'Atualizar colaboradores por planilha' });
+  const input = within(dialog).getByLabelText('Planilha Excel');
+  await user.upload(input, new File(['com pendência'], 'inconsistente.xlsx'));
+  await user.click(within(dialog).getByRole('button', { name: 'Gerar prévia' }));
+  expect(
+    await within(dialog).findByText('Confira o setor no cadastro da empresa ativa.'),
+  ).toBeVisible();
+  expect(
+    within(dialog).queryByRole('button', { name: 'Confirmar atualização' }),
+  ).not.toBeInTheDocument();
+  await user.upload(input, new File(['corrigida'], 'corrigida.xlsx'));
+  expect(
+    within(dialog).queryByRole('table', { name: 'Resultado por linha' }),
+  ).not.toBeInTheDocument();
+  expect(fetchMock.mock.calls.some(([path]) => String(path).endsWith('/bulk-update/confirm'))).toBe(
+    false,
+  );
+});
+
+it('consulta o histórico nominal do colaborador apenas ao abrir o histórico', async () => {
+  const originalFetch = fetchMock.getMockImplementation()!;
+  fetchMock.mockImplementation(async (input, options) => {
+    const path = new URL(String(input), 'http://localhost').pathname;
+    return path.endsWith(`/employees/${personId}/bulk-update-history`)
+      ? json(
+          list(
+            [
+              {
+                version: 2,
+                batchId: '70000000-0000-4000-8000-000000000003',
+                confirmedAt: stamp,
+                before: {
+                  name: 'Nome original do histórico',
+                  unitName: 'Recife',
+                  sectorName: 'Atendimento',
+                },
+                after: {
+                  name: 'Nome corrigido no histórico',
+                  unitName: 'Recife',
+                  sectorName: 'Atendimento',
+                },
+              },
+            ],
+            10,
+          ),
+        )
+      : originalFetch(input, options);
+  });
+  const user = userEvent.setup();
+  show();
+  await user.click(
+    await screen.findByRole('button', { name: `Editar colaborador ${employee.name}` }),
+  );
+  const history = await screen.findByText('Histórico de atualizações por planilha');
+  expect(fetchMock.mock.calls.some(([path]) => String(path).includes('/bulk-update-history'))).toBe(
+    false,
+  );
+  await user.click(history);
+  expect(await screen.findByText('Nome original do histórico', { exact: false })).toBeVisible();
+  expect(screen.getByText('Nome corrigido no histórico', { exact: false })).toBeVisible();
+  await user.click(history);
+  await waitFor(() =>
+    expect(
+      screen.queryByText('Nome original do histórico', { exact: false }),
+    ).not.toBeInTheDocument(),
+  );
+});
+
 it('salva por teclado, preserva rascunho em falha e limpa setor ao trocar de unidade', async () => {
   show();
   const user = userEvent.setup();
@@ -300,6 +486,7 @@ it('não consulta dados nominais ao acessar rota direta como leitor', async () =
   ).toBeInTheDocument();
   expect(fetchMock.mock.calls.some(([path]) => String(path).includes('/employees'))).toBe(false);
   expect(screen.queryByRole('button', { name: 'Importar Excel' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Atualizar por planilha' })).not.toBeInTheDocument();
 });
 
 it('desativa com confirmação e explica que o usuário e os históricos não são apagados', async () => {
@@ -442,4 +629,43 @@ it('reabre um cadastro com versão atual depois de cancelar um conflito', async 
   expect(await screen.findByLabelText('Nome do colaborador')).toHaveValue('Alteração externa');
   await user.click(screen.getByRole('button', { name: 'Salvar colaborador' }));
   await waitFor(() => expect(savedBody?.version).toBe(2));
+});
+
+it('carrega setores ativos, limpa setor ao trocar unidade e diferencia lista vazia de erro em Colaboradores', async () => {
+  const original = fetchMock.getMockImplementation()!;
+  let failSecondUnit = false;
+  fetchMock.mockImplementation(async (input, options) => {
+    const path = String(input);
+    if (path.includes(`/units/${secondUnit}/sectors`) && failSecondUnit) {
+      return json({}, 503);
+    }
+    return original(input, options);
+  });
+
+  show();
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: 'Novo colaborador' }));
+
+  const unitSelect = await screen.findByLabelText('Unidade do cadastro');
+  await waitFor(() => expect(unitSelect).not.toBeDisabled());
+  await user.selectOptions(unitSelect, unitId);
+
+  const sectorSelect = screen.getByLabelText('Setor do cadastro');
+  await waitFor(() => expect(sectorSelect).not.toBeDisabled());
+  await user.selectOptions(sectorSelect, sectorId);
+  expect(sectorSelect).toHaveValue(sectorId);
+
+  // Trocar para unidade sem setores ativos: limpa seleção e informa lista vazia claramente
+  await user.selectOptions(unitSelect, secondUnit);
+  expect(screen.getByLabelText('Setor do cadastro')).toHaveValue('');
+  expect(await screen.findByText(/Nenhum setor ativo cadastrado nesta unidade/i)).toBeVisible();
+
+  // Simular falha 503 na unidade 2: diferencia falha de carregamento com botão Recarregar
+  failSecondUnit = true;
+  await user.selectOptions(unitSelect, unitId);
+  await user.selectOptions(unitSelect, secondUnit);
+  expect(await screen.findByRole('button', { name: /Recarregar setores/i })).toBeVisible();
+  expect(
+    screen.queryByText(/Nenhum setor ativo cadastrado nesta unidade/i),
+  ).not.toBeInTheDocument();
 });

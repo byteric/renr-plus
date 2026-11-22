@@ -337,3 +337,375 @@ it('perfil leitor consulta ciclo e agregados sem controles administrativos', asy
   expect(await screen.findByText(/Distribuição suprimida/)).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Emitir convites' })).not.toBeInTheDocument();
 });
+
+it('carrega unidades e setores ativos mesmo quando diagnostic-instrument retorna 404 e impede envio sem instrumento', async () => {
+  window.location.hash = '/diagnostico';
+  const inactiveUnitId = '10000000-0000-4000-8000-000000000099';
+  const inactiveSectorId = '10000000-0000-4000-8000-000000000098';
+  const fetcher = vi.fn<typeof fetch>().mockImplementation(async (url, options) => {
+    const path = String(url).split('?')[0] ?? '';
+    if (path.endsWith('/health'))
+      return new Response(
+        JSON.stringify({ status: 'ok', service: 'renr-api', timestamp: cycle.createdAt }),
+      );
+    if (path.endsWith('/auth/session'))
+      return new Response(
+        JSON.stringify({
+          user: { id, name: 'Admin', email: 'admin@example.test' },
+          memberships: [{ organizationId: id, organizationName: 'Aurora', role: 'ADMIN' }],
+          activeOrganizationId: id,
+          expiresAt: cycle.endsAt,
+        }),
+      );
+    if (path.endsWith('/diagnostic-instrument'))
+      return new Response(JSON.stringify({ statusCode: 404, message: 'Not found' }), {
+        status: 404,
+      });
+    if (path.endsWith('/units'))
+      return new Response(
+        JSON.stringify({
+          items: [
+            {
+              id,
+              organizationId: id,
+              name: 'Unidade Recife',
+              code: null,
+              isActive: true,
+              createdAt: cycle.createdAt,
+              updatedAt: cycle.createdAt,
+            },
+            {
+              id: inactiveUnitId,
+              organizationId: id,
+              name: 'Unidade Inativa',
+              code: null,
+              isActive: false,
+              createdAt: cycle.createdAt,
+              updatedAt: cycle.createdAt,
+            },
+          ],
+          total: 2,
+          page: 1,
+          pageSize: 50,
+        }),
+      );
+    if (path.endsWith('/sectors'))
+      return new Response(
+        JSON.stringify({
+          items: [
+            {
+              id,
+              organizationId: id,
+              unitId: id,
+              name: 'Setor Operacional',
+              isActive: true,
+              createdAt: cycle.createdAt,
+              updatedAt: cycle.createdAt,
+            },
+            {
+              id: inactiveSectorId,
+              organizationId: id,
+              unitId: id,
+              name: 'Setor Inativo',
+              isActive: false,
+              createdAt: cycle.createdAt,
+              updatedAt: cycle.createdAt,
+            },
+          ],
+          total: 2,
+          page: 1,
+          pageSize: 50,
+        }),
+      );
+    if (path.endsWith('/diagnostic-cycles') && options?.method === 'POST')
+      return new Response(JSON.stringify(cycle));
+    return new Response(JSON.stringify({ items: [], total: 0, page: 1, pageSize: 50 }));
+  });
+  vi.stubGlobal('fetch', fetcher);
+  render(<App />);
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: 'Novo ciclo' }));
+  expect(await screen.findByRole('option', { name: 'Unidade Recife' })).toBeInTheDocument();
+  expect(screen.queryByRole('option', { name: 'Unidade Inativa' })).not.toBeInTheDocument();
+  expect(screen.queryByText(/Este registro não está mais disponível/i)).not.toBeInTheDocument();
+  const missingNotice = screen.getByText(/não possui instrumento demonstrativo publicado/i);
+  expect(missingNotice).toBeVisible();
+  expect(missingNotice).toHaveTextContent(/Coletas/i);
+  await user.selectOptions(screen.getByLabelText('Unidade'), id);
+  expect(await screen.findByRole('option', { name: 'Setor Operacional' })).toBeInTheDocument();
+  expect(screen.queryByRole('option', { name: 'Setor Inativo' })).not.toBeInTheDocument();
+  await user.selectOptions(screen.getByLabelText('Setor'), id);
+  fireEvent.change(screen.getByLabelText('Nome do ciclo'), {
+    target: { value: 'Ciclo bloqueado' },
+  });
+  fireEvent.change(screen.getByLabelText('Início'), { target: { value: '2026-10-12T10:00' } });
+  fireEvent.change(screen.getByLabelText('Término'), { target: { value: '2099-10-12T10:00' } });
+  expect(screen.getByRole('button', { name: 'Criar ciclo' })).toBeDisabled();
+  fireEvent.submit(screen.getByRole('form', { name: 'Criar ciclo' }));
+  expect(
+    fetcher.mock.calls.filter(
+      ([url, options]) => String(url).endsWith('/diagnostic-cycles') && options?.method === 'POST',
+    ),
+  ).toHaveLength(0);
+});
+
+it('exibe orientação explícita quando não há unidades ativas ou setores ativos na unidade selecionada', async () => {
+  window.location.hash = '/diagnostico';
+  let hasUnits = false;
+  const fetcher = vi.fn<typeof fetch>().mockImplementation(async (url) => {
+    const path = String(url).split('?')[0] ?? '';
+    if (path.endsWith('/health'))
+      return new Response(
+        JSON.stringify({ status: 'ok', service: 'renr-api', timestamp: cycle.createdAt }),
+      );
+    if (path.endsWith('/auth/session'))
+      return new Response(
+        JSON.stringify({
+          user: { id, name: 'Admin', email: 'admin@example.test' },
+          memberships: [{ organizationId: id, organizationName: 'Aurora', role: 'ADMIN' }],
+          activeOrganizationId: id,
+          expiresAt: cycle.endsAt,
+        }),
+      );
+    if (path.endsWith('/diagnostic-instrument')) return new Response(JSON.stringify(instrument));
+    if (path.endsWith('/units'))
+      return new Response(
+        JSON.stringify({
+          items: hasUnits
+            ? [
+                {
+                  id,
+                  organizationId: id,
+                  name: 'Unidade sem setores',
+                  code: null,
+                  isActive: true,
+                  createdAt: cycle.createdAt,
+                  updatedAt: cycle.createdAt,
+                },
+              ]
+            : [
+                {
+                  id,
+                  organizationId: id,
+                  name: 'Unidade inativa',
+                  code: null,
+                  isActive: false,
+                  createdAt: cycle.createdAt,
+                  updatedAt: cycle.createdAt,
+                },
+              ],
+          total: 1,
+          page: 1,
+          pageSize: 50,
+        }),
+      );
+    return new Response(JSON.stringify({ items: [], total: 0, page: 1, pageSize: 50 }));
+  });
+  vi.stubGlobal('fetch', fetcher);
+  const view = render(<App />);
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: 'Novo ciclo' }));
+  expect(await screen.findByText(/Nenhuma unidade ativa/i)).toBeVisible();
+  expect(screen.getByText(/Estrutura/i)).toBeVisible();
+
+  hasUnits = true;
+  view.unmount();
+  render(<App />);
+  await user.click(await screen.findByRole('button', { name: 'Novo ciclo' }));
+  await user.selectOptions(await screen.findByLabelText('Unidade'), id);
+  expect(await screen.findByText(/Nenhum setor ativo/i)).toBeVisible();
+  expect(screen.getByText(/cadastre ou ative um setor/i)).toBeVisible();
+});
+
+it('descarta seleções anteriores e ignora respostas atrasadas ao trocar de empresa', async () => {
+  window.location.hash = '/diagnostico';
+  const orgA = '10000000-0000-4000-8000-000000000001';
+  const orgB = '10000000-0000-4000-8000-000000000002';
+  const unitA = '20000000-0000-4000-8000-000000000001';
+  const unitB = '20000000-0000-4000-8000-000000000002';
+  const sectorA = '30000000-0000-4000-8000-000000000001';
+  let resolveSlowUnitsA!: (response: Response) => void;
+  let unitsACallCount = 0;
+  const fetcher = vi.fn<typeof fetch>().mockImplementation(async (url) => {
+    const path = String(url).split('?')[0] ?? '';
+    if (path.endsWith('/health'))
+      return new Response(
+        JSON.stringify({ status: 'ok', service: 'renr-api', timestamp: cycle.createdAt }),
+      );
+    if (path.includes(`/organizations/${orgA}/diagnostic-instrument`))
+      return new Response(JSON.stringify({ ...instrument, organizationId: orgA, title: 'Inst A' }));
+    if (path.includes(`/organizations/${orgB}/diagnostic-instrument`))
+      return new Response(JSON.stringify({ ...instrument, organizationId: orgB, title: 'Inst B' }));
+    if (path.includes(`/organizations/${orgA}/units`)) {
+      unitsACallCount += 1;
+      if (unitsACallCount === 1) {
+        return new Response(
+          JSON.stringify({
+            items: [
+              {
+                id: unitA,
+                organizationId: orgA,
+                name: 'Unidade A',
+                code: null,
+                isActive: true,
+                createdAt: cycle.createdAt,
+                updatedAt: cycle.createdAt,
+              },
+            ],
+            total: 1,
+            page: 1,
+            pageSize: 50,
+          }),
+        );
+      }
+      return new Promise<Response>((resolve) => {
+        resolveSlowUnitsA = resolve;
+      });
+    }
+    if (path.includes(`/organizations/${orgB}/units`))
+      return new Response(
+        JSON.stringify({
+          items: [
+            {
+              id: unitB,
+              organizationId: orgB,
+              name: 'Unidade B',
+              code: null,
+              isActive: true,
+              createdAt: cycle.createdAt,
+              updatedAt: cycle.createdAt,
+            },
+          ],
+          total: 1,
+          page: 1,
+          pageSize: 50,
+        }),
+      );
+    if (path.includes(`/units/${unitA}/sectors`))
+      return new Response(
+        JSON.stringify({
+          items: [
+            {
+              id: sectorA,
+              organizationId: orgA,
+              unitId: unitA,
+              name: 'Setor A',
+              isActive: true,
+              createdAt: cycle.createdAt,
+              updatedAt: cycle.createdAt,
+            },
+          ],
+          total: 1,
+          page: 1,
+          pageSize: 50,
+        }),
+      );
+    return new Response(JSON.stringify({ items: [], total: 0, page: 1, pageSize: 50 }));
+  });
+  vi.stubGlobal('fetch', fetcher);
+  const { Diagnostics } = await import('./components/Diagnostics');
+  const sessionA = {
+    user: { id, name: 'Admin', email: 'admin@example.test' },
+    memberships: [
+      { organizationId: orgA, organizationName: 'Empresa A', role: 'ADMIN' as const },
+      { organizationId: orgB, organizationName: 'Empresa B', role: 'ADMIN' as const },
+    ],
+    activeOrganizationId: orgA,
+    expiresAt: cycle.endsAt,
+  };
+  const view = render(<Diagnostics session={sessionA} onExpire={() => undefined} />);
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: 'Novo ciclo' }));
+  await user.selectOptions(await screen.findByLabelText('Unidade'), unitA);
+  await user.selectOptions(await screen.findByLabelText('Setor'), sectorA);
+  expect(screen.getByLabelText('Unidade')).toHaveValue(unitA);
+  expect(screen.getByLabelText('Setor')).toHaveValue(sectorA);
+
+  // Trigger a slow page change in org A before switching to org B
+  // Or simply switch directly while a slow request from org A is pending:
+  view.rerender(
+    <Diagnostics
+      session={{ ...sessionA, activeOrganizationId: orgA }}
+      onExpire={() => undefined}
+    />,
+  );
+  // Switch to org B (also verify Diagnostics renders clean or CycleCreator resets directly)
+  view.rerender(
+    <Diagnostics
+      session={{ ...sessionA, activeOrganizationId: orgB }}
+      onExpire={() => undefined}
+    />,
+  );
+  await user.click(await screen.findByRole('button', { name: 'Novo ciclo' }));
+  expect(await screen.findByRole('option', { name: 'Unidade B' })).toBeInTheDocument();
+  expect(screen.getByLabelText('Unidade')).toHaveValue('');
+  expect(screen.getByLabelText('Setor')).toHaveValue('');
+  expect(screen.queryByRole('option', { name: 'Unidade A' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('option', { name: 'Setor A' })).not.toBeInTheDocument();
+  expect(screen.getByText(/Instrumento: Inst B/)).toBeInTheDocument();
+  if (resolveSlowUnitsA) {
+    resolveSlowUnitsA(
+      new Response(
+        JSON.stringify({
+          items: [
+            {
+              id: unitA,
+              organizationId: orgA,
+              name: 'Unidade A Tardia',
+              code: null,
+              isActive: true,
+              createdAt: cycle.createdAt,
+              updatedAt: cycle.createdAt,
+            },
+          ],
+          total: 1,
+          page: 1,
+          pageSize: 50,
+        }),
+      ),
+    );
+  }
+  await waitFor(() =>
+    expect(screen.queryByRole('option', { name: 'Unidade A Tardia' })).not.toBeInTheDocument(),
+  );
+});
+
+it('trata 404 na prévia de instrumento do detalhe sem mensagem genérica e bloqueia ADMIN com recorte restrito', async () => {
+  window.location.hash = `#/diagnostico?cycleId=${id}`;
+  vi.stubGlobal(
+    'fetch',
+    vi.fn<typeof fetch>().mockImplementation(async (url) => {
+      const path = String(url).split('?')[0] ?? '';
+      if (path.endsWith('/diagnostic-instrument'))
+        return new Response(JSON.stringify({ statusCode: 404, message: 'Not found' }), {
+          status: 404,
+        });
+      if (path.endsWith('/results'))
+        return new Response(
+          JSON.stringify({
+            cycleId: id,
+            availability: 'CYCLE_OPEN',
+            responseCount: null,
+            minimumResponses: 5,
+            questions: [],
+          }),
+        );
+      if (path.endsWith(`/diagnostic-cycles/${id}`)) return new Response(JSON.stringify(cycle));
+      return new Response(JSON.stringify({ items: [], total: 0, page: 1, pageSize: 50 }));
+    }),
+  );
+  const { Diagnostics } = await import('./components/Diagnostics');
+  const restrictedSession = {
+    user: { id, name: 'Admin Restrito', email: 'admin@example.test' },
+    memberships: [{ organizationId: id, organizationName: 'Empresa', role: 'ADMIN' as const }],
+    activeOrganizationId: id,
+    organizationScopes: { [id]: [{ unitId: id, sectorId: null }] },
+    expiresAt: cycle.endsAt,
+  };
+  render(<Diagnostics session={restrictedSession} onExpire={() => undefined} />);
+  await userEvent.click(await screen.findByRole('button', { name: 'Visualizar instrumento' }));
+  const alert = await screen.findByRole('alert');
+  expect(alert).not.toHaveTextContent(/Este registro não está mais disponível/i);
+  expect(alert).toHaveTextContent(/instrumento demonstrativo/i);
+  expect(screen.queryByRole('button', { name: 'Novo ciclo' })).not.toBeInTheDocument();
+});

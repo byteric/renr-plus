@@ -8,6 +8,7 @@ import {
   type Employee,
 } from '@renr/contracts';
 import { Button } from '../ui/button';
+import { ContextualHelp } from '../ui/contextual-help';
 import { StatusMessage } from '../ui/status-message';
 import { Pagination } from '../ui/pagination';
 import { ReferenceSelect } from '../workforce/ReferenceSelect';
@@ -263,9 +264,27 @@ function PeopleContent({
           )}
           {registration.error && <p>Situação fiscal indisponível.</p>}
         </div>
-        <Button variant="outline" onClick={() => setRevision((value) => value + 1)}>
-          Atualizar dados
-        </Button>
+        <div className="people-areas">
+          <Button variant="outline" onClick={() => setRevision((value) => value + 1)}>
+            Atualizar dados
+          </Button>
+          <ContextualHelp
+            screen="Gestão de Pessoas"
+            purpose="Acompanhe indicadores de RH e consulte registros de pessoas conforme suas permissões."
+            nextStep={
+              analytics
+                ? 'Abra Indicadores e filtre por unidade, setor ou competência. Consulte o grupo Férias para acompanhar o histórico disponível.'
+                : canList
+                  ? 'Abra Colaboradores e selecione uma pessoa para consultar os dados permitidos.'
+                  : 'Confirme suas permissões de RH com o administrador para abrir os indicadores ou a lista nominal.'
+            }
+            prerequisites={
+              analytics
+                ? 'Os indicadores exigem registros de RH e um recorte com dados suficientes. Históricos ausentes aparecem como dados insuficientes.'
+                : 'O acesso nominal e os dados de remuneração exigem permissões específicas da empresa.'
+            }
+          />
+        </div>
       </header>
       <nav className="people-areas" aria-label="Áreas de Pessoas">
         <Button

@@ -1,6 +1,12 @@
 .actions-workspace {
   min-width: 0;
 }
+.actions-workspace > .risk-toolbar {
+  flex-wrap: wrap;
+}
+.actions-workspace > .risk-toolbar > .record-actions {
+  flex-shrink: 1;
+}
 .action-detail-layout {
   display: grid;
   grid-template-columns: minmax(0, 2.4fr) minmax(15rem, 1fr);

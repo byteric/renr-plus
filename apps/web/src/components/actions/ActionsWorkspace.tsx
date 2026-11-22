@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { SessionResponse } from '@renr/contracts';
+import { sessionCapabilitiesSchema, type SessionResponse } from '@renr/contracts';
 import { ActionList } from './ActionList';
 import { ActionForm } from './ActionForm';
 import { ActionDetail } from './ActionDetail';
+import { useActionData } from './useActionData';
 import '../risks/risks.css';
 import './actions.css';
 
@@ -21,8 +22,24 @@ export function ActionsWorkspace({
     return () => window.removeEventListener('hashchange', update);
   }, []);
   const organizationId = session.activeOrganizationId;
+  const scopeRestricted = organizationId
+    ? session.organizationScopes?.[organizationId] !== undefined
+    : false;
   const canWrite =
+    !scopeRestricted &&
     session.memberships.find((entry) => entry.organizationId === organizationId)?.role === 'ADMIN';
+  const capabilities = useActionData(
+    organizationId && !scopeRestricted ? '/auth/session-capabilities' : null,
+    sessionCapabilitiesSchema,
+    organizationId ?? '',
+    onExpire,
+  );
+  const hasTechnicalDecisions =
+    !scopeRestricted &&
+    capabilities.data?.organizationId === organizationId &&
+    capabilities.data.capabilities.includes('TECHNICAL_DECISIONS') === true;
+  const canCreateAction = !scopeRestricted && (canWrite || hasTechnicalDecisions);
+  const permissionsLoading = !canWrite && !scopeRestricted && capabilities.loading;
   const [path = '', query = ''] = hash.replace(/^#\/?/, '').split('?');
   const id = path.split('/')[1];
   const takeReturnPosition = useCallback((listQuery: string) => {
@@ -37,8 +54,14 @@ export function ActionsWorkspace({
         <a href="#/empresas">Ir para Empresas →</a>
       </div>
     );
-  if (id === 'nova')
-    return canWrite ? (
+  if (id === 'nova') {
+    if (permissionsLoading)
+      return (
+        <p role="status" className="surface">
+          Verificando permissões…
+        </p>
+      );
+    return canCreateAction ? (
       <ActionForm
         key={`${organizationId}-${query}`}
         organizationId={organizationId}
@@ -53,9 +76,13 @@ export function ActionsWorkspace({
       />
     ) : (
       <p role="alert">
-        Seu acesso é somente leitura. <a href="#/acoes">Voltar às ações</a>
+        {scopeRestricted
+          ? 'Seu vínculo possui restrição de recorte por unidade ou setor e não permite criar ações preventivas.'
+          : 'Seu perfil atual não permite criar ações preventivas. Criar medidas exige perfil Administrador ou capacidade de Decisões técnicas sem restrição de recorte.'}{' '}
+        <a href="#/acoes">Voltar às ações</a>
       </p>
     );
+  }
   if (id && /^[0-9a-f-]{36}$/i.test(id))
     return (
       <ActionDetail
@@ -77,6 +104,9 @@ export function ActionsWorkspace({
       key={`${organizationId}-${query}`}
       organizationId={organizationId}
       query={query}
+      canCreateAction={canCreateAction}
+      scopeRestricted={scopeRestricted}
+      permissionsLoading={permissionsLoading}
       onExpire={onExpire}
       onOpenDetail={(actionId) => {
         returnPosition.current = { query, id: actionId, top: window.scrollY };

@@ -12,6 +12,7 @@ const user = {
   email: 'diretoria@example.test',
 };
 const group = { id: groupId, name: 'Grupo Horizonte' };
+const context = { referenceDate: '2026-11-24', timeZone: 'America/Sao_Paulo' };
 const metrics = (employees: number) => ({
   employees,
   openRisks: 2,
@@ -19,9 +20,30 @@ const metrics = (employees: number) => ({
   participation: { status: 'PROTECTED' },
   evolution: { status: 'UNAVAILABLE' },
 });
+const activity = (value: number) => ({
+  collections: { inProgress: value, completed: value, pending: value },
+  evaluations: { records: value, completed: value, pending: value },
+  overdueActions: value,
+  lastActivity:
+    value === 0 ? { status: 'UNAVAILABLE' } : { status: 'AVAILABLE', date: '2026-11-23' },
+});
 const companies = [
-  { id: firstId, name: 'Horizonte Recife', fiscalIdentifier: null, metrics: metrics(8) },
-  { id: secondId, name: 'Horizonte Olinda', fiscalIdentifier: null, metrics: metrics(4) },
+  {
+    id: firstId,
+    name: 'Horizonte Recife',
+    fiscalIdentifier: null,
+    classification: 'CLIENT',
+    metrics: metrics(8),
+    operational: activity(1),
+  },
+  {
+    id: secondId,
+    name: 'Horizonte Olinda',
+    fiscalIdentifier: null,
+    classification: 'DEMONSTRATION',
+    metrics: metrics(4),
+    operational: activity(0),
+  },
 ];
 
 afterEach(() => {
@@ -50,8 +72,22 @@ it('abre a visão do grupo sem vínculo de empresa, filtra o CNPJ e remove os da
     if (path === '/company-groups') return Response.json({ items: granted ? [group] : [] });
     if (path === `/company-groups/${groupId}` && granted) {
       if (url.searchParams.get('organizationId') === secondId)
-        return Response.json({ group, totals: metrics(4), companies: [companies[1]] });
-      return Response.json({ group, totals: metrics(12), companies });
+        return Response.json({
+          ...context,
+          group,
+          totals: metrics(4),
+          companies: [companies[1]],
+          operational: activity(0),
+          portfolio: { active: 1, inactive: 0, activeDemonstrations: 1, inactiveDemonstrations: 0 },
+        });
+      return Response.json({
+        ...context,
+        group,
+        totals: metrics(12),
+        companies,
+        operational: activity(1),
+        portfolio: { active: 2, inactive: 1, activeDemonstrations: 1, inactiveDemonstrations: 0 },
+      });
     }
     return new Response('{}', { status: 404 });
   });
@@ -60,14 +96,23 @@ it('abre a visão do grupo sem vínculo de empresa, filtra o CNPJ e remove os da
 
   expect(await screen.findByRole('heading', { name: 'Consolidado de empresas' })).toBeVisible();
   expect(await screen.findByRole('heading', { name: 'Horizonte Recife' })).toBeVisible();
+  expect(fetcher.mock.calls.some(([url]) => String(url).includes('view=operational'))).toBe(true);
   expect(screen.queryByLabelText('Empresa ativa')).not.toBeInTheDocument();
   expect(screen.getAllByText('Dados protegidos').length).toBeGreaterThan(0);
+  expect(screen.getByText('24/11/2026')).toBeVisible();
+  expect(screen.getByText('Empresas inativas')).toBeVisible();
+  expect(screen.getByText('23/11/2026')).toBeVisible();
+  expect(screen.getByText('1 registrada')).toBeVisible();
+  expect(screen.getByText('8 colaboradores ativos')).toBeVisible();
 
   await userEvent.selectOptions(screen.getByLabelText('Empresa no consolidado'), secondId);
   await waitFor(() =>
     expect(screen.queryByRole('heading', { name: 'Horizonte Recife' })).not.toBeInTheDocument(),
   );
   expect(await screen.findByRole('heading', { name: 'Horizonte Olinda' })).toBeVisible();
+  expect(screen.getByText('Empresa de demonstração')).toBeVisible();
+  expect(screen.getByText('0 registradas')).toBeVisible();
+  expect(screen.getByText('Sem registro auditado')).toBeVisible();
   expect(
     fetcher.mock.calls.some(([url]) => String(url).includes(`organizationId=${secondId}`)),
   ).toBe(true);

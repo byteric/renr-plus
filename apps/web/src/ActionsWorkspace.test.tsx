@@ -761,3 +761,153 @@ it('foca o campo recusado pelo servidor e preserva os dados preenchidos', async 
   expect(screen.getByLabelText('Prazo')).toHaveAttribute('aria-invalid', 'true');
   expect(screen.getByLabelText('Motivo da alteração')).toHaveValue('Revisão do prazo operacional');
 });
+
+function arrangeProfile(
+  hash: string,
+  options: {
+    role?: 'ADMIN' | 'READER';
+    capabilities?: string[];
+    scopeRestricted?: boolean;
+    currentRisk?: typeof risk;
+    eligibleRisks?: (typeof risk)[];
+  } = {},
+) {
+  window.location.hash = hash;
+  const role = options.role ?? 'READER';
+  const capabilities = options.capabilities ?? [];
+  const currentRisk = options.currentRisk ?? risk;
+  const eligibleRisks = options.eligibleRisks ?? [];
+  const fetcher = vi.fn<typeof fetch>().mockImplementation(async (url, init) => {
+    const path = new URL(String(url), 'http://localhost').pathname;
+    if (path.endsWith('/auth/session-capabilities'))
+      return json({
+        organizationId: org,
+        capabilities: options.scopeRestricted ? [] : capabilities,
+        canManageAccess: role === 'ADMIN' && !options.scopeRestricted,
+      });
+    if (path.endsWith('/action-assignees'))
+      return json(page([{ userId: org, name: 'Membro operacional', canExecute: true }]));
+    if (path.endsWith(`/risks/${id}`)) return json(currentRisk);
+    if (path.endsWith(`/risk-workspaces/${id}`))
+      return json({
+        ...currentRisk,
+        sourceLabel: 'Registro técnico',
+        technicalEvaluationState: 'ABSENT',
+        latestTechnicalEvaluation: null,
+        actionSummary: { total: 0, open: 0, overdue: 0 },
+        pendingReasons: ['NO_TECHNICAL_EVALUATION'],
+      });
+    if (path.endsWith('/risk-workspaces'))
+      return json(
+        page(
+          eligibleRisks.map((entry) => ({
+            ...entry,
+            sourceLabel: 'Registro técnico',
+            technicalEvaluationState: 'ABSENT',
+            latestTechnicalEvaluation: null,
+            actionSummary: { total: 0, open: 0, overdue: 0 },
+            pendingReasons: [],
+          })),
+        ),
+      );
+    if (path.endsWith('/evaluations') || path.endsWith('/technical-evaluations'))
+      return json(page([]));
+    if (path.endsWith('/action-workspaces')) return json(page([]));
+    if (path.endsWith(`/risks/${id}/action-workspaces`) && init?.method === 'POST')
+      return json(action, 201);
+    return json(page([]));
+  });
+  vi.stubGlobal('fetch', fetcher);
+  render(
+    <Structure
+      session={{
+        ...session,
+        memberships: [{ ...session.memberships[0]!, role }],
+        ...(options.scopeRestricted
+          ? { organizationScopes: { [org]: [{ unitId: org, sectorId: null }] } }
+          : {}),
+      }}
+      onSession={() => undefined}
+      onExpire={() => undefined}
+    />,
+  );
+  return fetcher;
+}
+
+it('permite que Camila (READER + TECHNICAL_DECISIONS) crie ação preventiva a partir de Ações escolhendo risco elegível', async () => {
+  const fetcher = arrangeProfile('#/acoes', {
+    role: 'READER',
+    capabilities: ['TECHNICAL_DECISIONS'],
+    eligibleRisks: [risk],
+  });
+  const select = await screen.findByLabelText('Risco registrado elegível');
+  await waitFor(() =>
+    expect(screen.getByRole('option', { name: /Organização das tarefas/ })).toBeInTheDocument(),
+  );
+  await userEvent.selectOptions(select, id);
+  const createLink = screen.getByRole('link', { name: 'Criar ação preventiva' });
+  expect(createLink).toHaveAttribute('href', `#/acoes/nova?riskId=${id}`);
+  expect(screen.getByRole('link', { name: /Escolher risco no inventário/i })).toHaveAttribute(
+    'href',
+    '#/inventario?status=REGISTERED&page=1',
+  );
+  await userEvent.click(createLink);
+  await screen.findByRole('heading', { name: 'Nova ação' });
+  for (const [label, value] of [
+    ['Título da medida', 'Reorganizar pausas SST'],
+    ['Descrição da medida', 'Definir pausas coletivas com a equipe'],
+    ['Responsável nominal', 'Coordenação de equipe'],
+    ['Prazo', '2026-11-20'],
+    ['Resultado esperado', 'Redução da sobrecarga operacional'],
+    ['Critério de aferição', 'Revisão mensal com equipe'],
+  ])
+    fireEvent.change(screen.getByLabelText(label!), { target: { value } });
+  await userEvent.click(screen.getByRole('button', { name: 'Criar ação' }));
+  await waitFor(() =>
+    expect(
+      fetcher.mock.calls.some(
+        ([url, init]) =>
+          String(url).includes(`/risks/${id}/action-workspaces`) && init?.method === 'POST',
+      ),
+    ).toBe(true),
+  );
+});
+
+it('informa em Ações quando não há riscos elegíveis ativos e explica bloqueio para READER sem TECHNICAL_DECISIONS ou com recorte restrito', async () => {
+  const { cleanup } = await import('@testing-library/react');
+  arrangeProfile('#/acoes', {
+    role: 'READER',
+    capabilities: ['TECHNICAL_DECISIONS'],
+    eligibleRisks: [{ ...risk, status: 'DRAFT' }],
+  });
+  expect(await screen.findByText(/Nenhum risco registrado.*elegível/i)).toBeVisible();
+
+  cleanup();
+  arrangeProfile('#/acoes', {
+    role: 'READER',
+    capabilities: [],
+  });
+  expect(await screen.findByText(/não permite criar ações preventivas/i)).toBeVisible();
+  expect(
+    screen.queryByRole('link', { name: /Criar a partir de um risco/i }),
+  ).not.toBeInTheDocument();
+});
+
+it('bloqueia #/acoes/nova para perfil sem permissão ou com recorte restrito e detalha origem impedida no ActionForm', async () => {
+  const { cleanup } = await import('@testing-library/react');
+  arrangeProfile(`#/acoes/nova?riskId=${id}`, {
+    role: 'READER',
+    capabilities: ['TECHNICAL_DECISIONS'],
+    scopeRestricted: true,
+  });
+  expect(await screen.findByRole('alert')).toHaveTextContent(/restrição de recorte/i);
+
+  cleanup();
+  arrangeProfile(`#/acoes/nova?riskId=${id}`, {
+    role: 'READER',
+    capabilities: ['TECHNICAL_DECISIONS'],
+    currentRisk: { ...risk, status: 'DRAFT' },
+  });
+  expect(await screen.findByRole('alert')).toHaveTextContent(/rascunho/i);
+  expect(screen.getByRole('button', { name: 'Criar ação' })).toBeDisabled();
+});

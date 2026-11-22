@@ -1,0 +1,95 @@
+.mfa-card {
+  min-width: 0;
+}
+
+.mfa-card form > p {
+  margin: 0;
+}
+
+.mfa-card .access-actions,
+.mfa-card .mfa-support {
+  margin-block-start: var(--space-4);
+}
+
+.mfa-card .mfa-support:last-child {
+  margin-block-end: 0;
+}
+
+.mfa-card .mfa-method {
+  justify-self: start;
+}
+
+.mfa-setup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+  padding-block: var(--space-2);
+}
+
+.mfa-qr {
+  background: white;
+  max-width: 100%;
+  height: auto;
+}
+
+.mfa-manual {
+  display: grid;
+  gap: var(--space-2);
+  flex: 1 1 13rem;
+  min-width: 0;
+}
+
+.mfa-key,
+.mfa-code-list code {
+  font-family: ui-monospace, monospace;
+}
+
+.mfa-manual .mfa-key {
+  field-sizing: content;
+  min-height: 46px;
+  resize: none;
+  overflow-wrap: anywhere;
+}
+
+.mfa-card .muted + button {
+  margin-block-start: var(--space-3);
+}
+
+.mfa-code-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+  gap: var(--space-2) var(--space-4);
+  margin-block: var(--space-4) 0;
+  padding-inline-start: 0;
+  list-style: none;
+}
+
+.mfa-code-list li {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  overflow-wrap: anywhere;
+}
+
+@media print {
+  .app-shell:has(.mfa-recovery-codes) {
+    display: block;
+    color: black;
+    background: white;
+  }
+
+  .app-shell:has(.mfa-recovery-codes) > :not(main),
+  .mfa-recovery-codes .access-actions {
+    display: none;
+  }
+
+  .mfa-recovery-codes {
+    margin: 0;
+    padding: 0;
+    color: black;
+    background: white;
+    border: 0;
+    box-shadow: none;
+  }
+}

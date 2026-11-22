@@ -1,13 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
-import { companyGroupListSchema, companyGroupOverviewSchema } from '@renr/contracts';
+import {
+  companyGroupListSchema,
+  companyGroupOperationalOverviewSchema,
+  type CompanyGroupOperationalMetrics,
+} from '@renr/contracts';
 import { Button } from '../ui/button';
 import { StatusMessage } from '../ui/status-message';
 import { useAccessRefresh, usePrivateQuery } from './usePrivateQuery';
 import './company-groups.css';
 
-type Metrics = ReturnType<typeof companyGroupOverviewSchema.parse>['totals'];
+type Overview = ReturnType<typeof companyGroupOperationalOverviewSchema.parse>;
+type Metrics = Overview['totals'];
 const count = new Intl.NumberFormat('pt-BR');
 const percent = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 });
+const localDate = new Intl.DateTimeFormat('pt-BR', { timeZone: 'UTC' });
 const delta = new Intl.NumberFormat('pt-BR', {
   maximumFractionDigits: 2,
   signDisplay: 'exceptZero',
@@ -18,8 +24,23 @@ function unavailable(status: 'PROTECTED' | 'UNAVAILABLE') {
   return status === 'PROTECTED' ? 'Dados protegidos' : 'Sem base disponível';
 }
 
-function GroupMetrics({ metrics }: { metrics: Metrics }) {
+function quantity(value: number, singular: string, plural: string) {
+  return `${count.format(value)} ${value === 1 ? singular : plural}`;
+}
+
+function civilDate(date: string) {
+  return <time dateTime={date}>{localDate.format(new Date(`${date}T00:00:00.000Z`))}</time>;
+}
+
+function GroupMetrics({
+  metrics,
+  operational,
+}: {
+  metrics: Metrics;
+  operational: CompanyGroupOperationalMetrics;
+}) {
   const { participation, evolution, actions } = metrics;
+  const { collections, evaluations, overdueActions, lastActivity } = operational;
   return (
     <dl className="company-group-metrics">
       <div>
@@ -31,12 +52,39 @@ function GroupMetrics({ metrics }: { metrics: Metrics }) {
         <dd>{count.format(metrics.openRisks)}</dd>
       </div>
       <div>
-        <dt>Plano de ação</dt>
-        <dd>{count.format(actions.pending + actions.inProgress)} em aberto</dd>
+        <dt>Coletas</dt>
+        <dd>{count.format(collections.inProgress)} em andamento</dd>
         <dd className="muted company-group-detail">
-          {count.format(actions.pending)} pendentes · {count.format(actions.inProgress)} em
-          andamento · {count.format(actions.done)} concluídas · {count.format(actions.cancelled)}{' '}
-          canceladas
+          {quantity(collections.pending, 'pendente', 'pendentes')} ·{' '}
+          {quantity(collections.completed, 'concluída', 'concluídas')}
+        </dd>
+      </div>
+      <div>
+        <dt>Avaliações</dt>
+        <dd>{quantity(evaluations.records, 'registrada', 'registradas')}</dd>
+        <dd className="muted company-group-detail">
+          {quantity(evaluations.completed, 'risco avaliado', 'riscos avaliados')} ·{' '}
+          {quantity(evaluations.pending, 'pendente', 'pendentes')}
+        </dd>
+      </div>
+      <div>
+        <dt>Plano de ação</dt>
+        <dd>{count.format(overdueActions)} em atraso</dd>
+        <dd className="muted company-group-detail">
+          {count.format(actions.pending + actions.inProgress)} em aberto
+        </dd>
+        <dd className="muted company-group-detail">
+          {quantity(actions.pending, 'pendente', 'pendentes')} · {count.format(actions.inProgress)}{' '}
+          em andamento · {quantity(actions.done, 'concluída', 'concluídas')} ·{' '}
+          {quantity(actions.cancelled, 'cancelada', 'canceladas')}
+        </dd>
+      </div>
+      <div>
+        <dt>Última atividade auditada</dt>
+        <dd>
+          {lastActivity.status === 'AVAILABLE'
+            ? civilDate(lastActivity.date)
+            : 'Sem registro auditado'}
         </dd>
       </div>
       <div>
@@ -48,8 +96,8 @@ function GroupMetrics({ metrics }: { metrics: Metrics }) {
         </dd>
         {participation.status === 'AVAILABLE' && (
           <dd className="muted company-group-detail">
-            {count.format(participation.responses)} respostas de{' '}
-            {count.format(participation.eligible)} elegíveis
+            {quantity(participation.responses, 'resposta', 'respostas')} de{' '}
+            {quantity(participation.eligible, 'elegível', 'elegíveis')}
           </dd>
         )}
       </div>
@@ -66,6 +114,27 @@ function GroupMetrics({ metrics }: { metrics: Metrics }) {
             {percent.format(evolution.currentPercent)}%
           </dd>
         )}
+      </div>
+    </dl>
+  );
+}
+
+function PortfolioSummary({ portfolio }: { portfolio: Overview['portfolio'] }) {
+  return (
+    <dl className="company-group-portfolio">
+      <div>
+        <dt>Empresas ativas</dt>
+        <dd>{count.format(portfolio.active)}</dd>
+        <dd className="muted company-group-detail">
+          {count.format(portfolio.activeDemonstrations)} de demonstração
+        </dd>
+      </div>
+      <div>
+        <dt>Empresas inativas</dt>
+        <dd>{count.format(portfolio.inactive)}</dd>
+        <dd className="muted company-group-detail">
+          {count.format(portfolio.inactiveDemonstrations)} de demonstração
+        </dd>
       </div>
     </dl>
   );
@@ -147,8 +216,8 @@ function CompanyGroupOverview({
   const base = `/company-groups/${encodeURIComponent(groupId)}`;
   const retry = () => setAttempt((value) => value + 1);
   const overview = usePrivateQuery(
-    base,
-    companyGroupOverviewSchema,
+    `${base}?view=operational`,
+    companyGroupOperationalOverviewSchema,
     generation + attempt,
     onExpire,
     ignoreDenial,
@@ -160,8 +229,10 @@ function CompanyGroupOverview({
     ? overview.data?.companies.find(({ id }) => id === selected)?.id
     : undefined;
   const detail = usePrivateQuery(
-    companyId ? `${base}?${new URLSearchParams({ organizationId: companyId })}` : null,
-    companyGroupOverviewSchema,
+    companyId
+      ? `${base}?${new URLSearchParams({ view: 'operational', organizationId: companyId })}`
+      : null,
+    companyGroupOperationalOverviewSchema,
     generation + attempt,
     onExpire,
     ignoreDenial,
@@ -209,16 +280,18 @@ function CompanyGroupOverview({
         <StatusMessage tone="error">O recorte solicitado não está disponível.</StatusMessage>
       ) : (
         <>
+          <p className="muted company-group-reference">
+            Referência de {civilDate(data.referenceDate)} no horário de São Paulo. Indicadores das
+            empresas ativas.
+          </p>
           {!companyId && (
             <section
               className="surface company-group-summary"
               aria-labelledby="company-group-summary"
             >
               <h2 id="company-group-summary">{data.group.name}</h2>
-              <p className="muted">
-                {count.format(data.companies.length)} empresas no recorte autorizado
-              </p>
-              <GroupMetrics metrics={data.totals} />
+              <PortfolioSummary portfolio={data.portfolio} />
+              <GroupMetrics metrics={data.totals} operational={data.operational} />
             </section>
           )}
           {data.companies.length === 0 && (
@@ -232,10 +305,13 @@ function CompanyGroupOverview({
                   key={company.id}
                 >
                   <h2 id={`company-group-${company.id}`}>{company.name}</h2>
+                  {company.classification === 'DEMONSTRATION' && (
+                    <p className="muted">Empresa de demonstração</p>
+                  )}
                   {company.fiscalIdentifier && (
                     <p className="muted">CNPJ {company.fiscalIdentifier}</p>
                   )}
-                  <GroupMetrics metrics={company.metrics} />
+                  <GroupMetrics metrics={company.metrics} operational={company.operational} />
                 </section>
               ))
             : data.companies.length > 0 && (
@@ -249,6 +325,14 @@ function CompanyGroupOverview({
                           {company.fiscalIdentifier && (
                             <p className="muted">CNPJ {company.fiscalIdentifier}</p>
                           )}
+                          <p className="muted">
+                            {quantity(
+                              company.metrics.employees,
+                              'colaborador ativo',
+                              'colaboradores ativos',
+                            )}
+                            {company.classification === 'DEMONSTRATION' && ' · Demonstração'}
+                          </p>
                         </div>
                         <Button
                           variant="outline"

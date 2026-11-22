@@ -2,10 +2,12 @@ import { useEffect, useState, type FormEvent } from 'react';
 import {
   actionWorkspaceListSchema,
   actionWorkspaceQuerySchema,
+  riskWorkspaceListSchema,
   unitListSchema,
   sectorListSchema,
 } from '@renr/contracts';
 import { Button } from '../ui/button';
+import { ContextualHelp } from '../ui/contextual-help';
 import { FilterDisclosure } from '../ui/filter-disclosure';
 import { Pagination } from '../ui/pagination';
 import { StatusMessage } from '../ui/status-message';
@@ -16,12 +18,18 @@ import { ActionPending, ActionPriority } from './ActionContext';
 export function ActionList({
   organizationId,
   query,
+  canCreateAction = false,
+  scopeRestricted = false,
+  permissionsLoading = false,
   onExpire,
   onOpenDetail,
   takeReturnPosition,
 }: {
   organizationId: string;
   query: string;
+  canCreateAction?: boolean;
+  scopeRestricted?: boolean;
+  permissionsLoading?: boolean;
   onExpire: () => void;
   onOpenDetail?: (id: string) => void;
   takeReturnPosition?: (query: string) => { id: string; top: number } | null;
@@ -34,6 +42,7 @@ export function ActionList({
   ).length;
   const [attempt, setAttempt] = useState(0);
   const [unitId, setUnitId] = useState(params.get('unitId') ?? '');
+  const [selectedRiskId, setSelectedRiskId] = useState('');
   const data = useActionData(
     parsed.success && !duplicates
       ? `/organizations/${organizationId}/action-workspaces?${query || 'page=1'}`
@@ -43,6 +52,21 @@ export function ActionList({
     onExpire,
     attempt,
   );
+  const eligibleRiskFeed = useActionData(
+    canCreateAction
+      ? `/organizations/${organizationId}/risk-workspaces?status=REGISTERED&page=1&pageSize=50`
+      : null,
+    riskWorkspaceListSchema,
+    organizationId,
+    onExpire,
+    attempt,
+  );
+  const eligibleRisks = (eligibleRiskFeed.data?.items ?? []).filter(
+    (risk) => risk.status === 'REGISTERED' && risk.unit.isActive && risk.sector.isActive,
+  );
+  const validSelectedRiskId = eligibleRisks.some((risk) => risk.id === selectedRiskId)
+    ? selectedRiskId
+    : '';
   const units = useActionData(
     `/organizations/${organizationId}/units?page=1&pageSize=100`,
     unitListSchema,
@@ -90,11 +114,84 @@ export function ActionList({
           <Button variant="outline" disabled={data.loading} onClick={() => setAttempt(attempt + 1)}>
             Atualizar ações
           </Button>
-          <a className="action-link" href="#/inventario">
-            Criar a partir de um risco →
-          </a>
+          {canCreateAction && (
+            <a className="action-link" href="#/inventario?status=REGISTERED&page=1">
+              Escolher risco no inventário →
+            </a>
+          )}
+          <ContextualHelp
+            screen="Ações"
+            purpose="Acompanhe medidas preventivas, responsáveis, prazos e histórico."
+            nextStep={
+              canCreateAction
+                ? 'Escolha um risco registrado na tela para abrir o formulário de ação preventiva ou abra uma ação existente para acompanhar seu andamento.'
+                : 'Abra uma ação do seu recorte para conferir o prazo e o andamento. Se houver ações atribuídas a você, consulte Minhas ações.'
+            }
+            prerequisites={
+              canCreateAction
+                ? 'O risco de origem deve estar registrado, com unidade e setor ativos.'
+                : 'O acompanhamento respeita seu recorte de empresa, unidade e setor. A execução depende de permissão e atribuição.'
+            }
+          />
         </div>
       </div>
+      {canCreateAction ? (
+        <section className="surface risk-stack" aria-labelledby="action-create-from-risk-heading">
+          <h2 id="action-create-from-risk-heading">Criar ação preventiva a partir de um risco</h2>
+          <p className="field-hint">
+            Selecione um risco registrado em unidade e setor ativos para abrir o formulário de nova
+            ação preventiva.
+          </p>
+          {eligibleRiskFeed.loading && (
+            <p role="status" className="field-hint">
+              Carregando riscos registrados elegíveis…
+            </p>
+          )}
+          {eligibleRiskFeed.error && (
+            <p role="alert" className="feedback error">
+              {eligibleRiskFeed.error}
+            </p>
+          )}
+          {!eligibleRiskFeed.loading && !eligibleRiskFeed.error && eligibleRisks.length === 0 && (
+            <p className="field-hint">
+              Nenhum risco registrado e ativo elegível encontrado nesta empresa. Registre um risco
+              em unidade e setor ativos no inventário antes de criar uma medida.
+            </p>
+          )}
+          {eligibleRisks.length > 0 && (
+            <div className="record-actions">
+              <div>
+                <label htmlFor="action-eligible-risk">Risco registrado elegível</label>
+                <select
+                  id="action-eligible-risk"
+                  value={validSelectedRiskId}
+                  onChange={(event) => setSelectedRiskId(event.target.value)}
+                >
+                  <option value="">Selecione um risco registrado</option>
+                  {eligibleRisks.map((risk) => (
+                    <option key={risk.id} value={risk.id}>
+                      {risk.factor} · {risk.unit.name} / {risk.sector.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {validSelectedRiskId && (
+                <a className="primary-link" href={`#/acoes/nova?riskId=${validSelectedRiskId}`}>
+                  Criar ação preventiva
+                </a>
+              )}
+            </div>
+          )}
+        </section>
+      ) : (
+        !permissionsLoading && (
+          <p className="field-hint">
+            {scopeRestricted
+              ? 'Seu vínculo possui restrição de recorte por unidade ou setor e não permite criar ações preventivas.'
+              : 'Seu perfil atual não permite criar ações preventivas. Criar medidas exige perfil Administrador ou capacidade de Decisões técnicas sem restrição de recorte.'}
+          </p>
+        )
+      )}
       <form className="surface risk-filters" onSubmit={filter} aria-label="Filtrar ações">
         <div className="risk-search">
           <label htmlFor="action-q">Buscar título ou responsável</label>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { accessMembershipListSchema, sectorListSchema, unitListSchema } from '@renr/contracts';
 import { useActionData } from '../actions/useActionData';
 import { Pagination } from '../ui/pagination';
@@ -39,6 +39,8 @@ export function ReferenceSelect({
   onExpire,
   includeInactive = false,
   required = false,
+  clearIncompatible = false,
+  error,
 }: {
   kind: 'unit' | 'sector' | 'member';
   organizationId: string;
@@ -50,6 +52,8 @@ export function ReferenceSelect({
   onExpire: () => void;
   includeInactive?: boolean;
   required?: boolean;
+  clearIncompatible?: boolean;
+  error?: string;
 }) {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
@@ -63,7 +67,8 @@ export function ReferenceSelect({
         : unitId
           ? `/units/${unitId}/sectors`
           : null;
-  const query = new URLSearchParams({ page: String(page), pageSize: '20' });
+  const pageSize = kind === 'member' ? '20' : '100';
+  const query = new URLSearchParams({ page: String(page), pageSize });
   if (kind !== 'member') {
     if (!includeInactive) query.set('isActive', 'true');
     if (applied) query.set('search', applied);
@@ -75,20 +80,53 @@ export function ReferenceSelect({
     onExpire,
     attempt,
   );
-  const inputId = `${kind}-${label.replace(/\s/g, '-').toLowerCase()}`;
+  const loadedItems = data.data?.items;
+  const sameContext =
+    !loadedItems || loadedItems.every((item) => item.organizationId === organizationId);
+  const fullyLoaded =
+    !!data.data &&
+    sameContext &&
+    !data.loading &&
+    !data.error &&
+    !applied &&
+    page === 1 &&
+    data.data.page === 1 &&
+    data.data.total <= data.data.pageSize;
+  const incompatibleActive =
+    clearIncompatible &&
+    !includeInactive &&
+    !!value &&
+    fullyLoaded &&
+    !loadedItems?.some((item) => item.id === value && item.isActive);
+
+  useEffect(() => {
+    if (incompatibleActive) {
+      onChange('');
+    }
+  }, [incompatibleActive, onChange]);
+
+  const inputId = useId();
+  const errorId = `${inputId}-error`;
+  const hintId = `${inputId}-hint`;
+  const emptyList = !!base && !data.loading && !data.error && data.data?.items.length === 0;
+  const describedBy = [error ? errorId : null, !base || emptyList ? hintId : null]
+    .filter(Boolean)
+    .join(' ');
   return (
     <div className="reference-select">
       <label htmlFor={inputId}>{label}</label>
       <select
         id={inputId}
         name={kind === 'member' ? 'linkedUserId' : `${kind}Id`}
-        value={value}
+        value={incompatibleActive ? '' : value}
         required={required}
         disabled={!base || data.loading || !!data.error}
+        aria-invalid={!!error}
+        aria-describedby={describedBy || undefined}
         onChange={(event) => onChange(event.target.value)}
       >
         <option value="">{required ? 'Selecione uma opção' : 'Sem seleção'}</option>
-        {value && !data.data?.items.some((item) => item.id === value) && (
+        {value && !data.data?.items.some((item) => item.id === value) && !incompatibleActive && (
           <option value={value}>{initialLabel || 'Vínculo atual (fora desta página)'}</option>
         )}
         {data.data?.items.map((item) => (
@@ -102,10 +140,30 @@ export function ReferenceSelect({
           </option>
         ))}
       </select>
-      {!base && <span className="input-hint">Selecione uma unidade antes do setor.</span>}
+      {error && (
+        <span id={errorId} className="field-error">
+          {error}
+        </span>
+      )}
+      {!base && (
+        <span id={hintId} className="input-hint">
+          Selecione uma unidade antes do setor.
+        </span>
+      )}
       {data.loading && (
         <span role="status" className="input-hint">
           Carregando {nouns[kind]}…
+        </span>
+      )}
+      {emptyList && (
+        <span id={hintId} role="status" className="input-hint">
+          {applied
+            ? `Nenhum resultado ativo em ${nouns[kind]} para a busca informada.`
+            : kind === 'sector'
+              ? 'Nenhum setor ativo cadastrado nesta unidade. Cadastre ou reative um setor na estrutura antes de salvar.'
+              : kind === 'unit'
+                ? 'Nenhuma unidade ativa cadastrada nesta empresa. Cadastre ou reative uma unidade antes de salvar.'
+                : 'Nenhum usuário disponível nesta empresa.'}
         </span>
       )}
       {data.error && (

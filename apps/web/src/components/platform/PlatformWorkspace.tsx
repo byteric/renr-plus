@@ -7,12 +7,13 @@ import {
   platformQuerySchema,
 } from '@renr/contracts';
 import { Button } from '../ui/button';
+import { ContextualHelp } from '../ui/contextual-help';
 import { StatusMessage } from '../ui/status-message';
 import { Pagination } from '../ui/pagination';
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '../ui/sheet';
 import { usePresentationMotion } from '../../hooks/usePresentationMotion';
 import { useAccessRefresh, usePrivateQuery } from './usePrivateQuery';
-import { ClientEditor } from './PlatformEditors';
+import { ClientCreator, ClientEditor } from './PlatformEditors';
 import { PlatformGrants } from './PlatformGrants';
 import './platform.css';
 
@@ -25,6 +26,10 @@ type Filter = {
   page: number;
   invalid?: boolean;
 };
+function readAction(): 'new-client' | null {
+  const query = new URLSearchParams(window.location.hash.split('?')[1]);
+  return query.get('action') === 'new-client' ? 'new-client' : null;
+}
 function readFilters(): Filter {
   const query = new URLSearchParams(window.location.hash.split('?')[1]);
   const raw = Object.fromEntries(
@@ -122,14 +127,17 @@ function PlatformContent({
   onDenied: () => void;
 }) {
   const read = grants.includes('READ_OVERVIEW');
-  const [area, setArea] = useState(read ? 'clients' : 'grants');
+  const manageClients = grants.includes('MANAGE_CLIENTS');
+  const [area, setArea] = useState(read || manageClients ? 'clients' : 'grants');
   const [filters, setFilters] = useState(readFilters);
   const [draft, setDraft] = useState(filters);
   const [error, setError] = useState('');
   const [revision, setRevision] = useState(0);
   const [selected, setSelected] = useState<Client | null>(null);
+  const [creating, setCreating] = useState(() => manageClients && readAction() === 'new-client');
   const [notice, setNotice] = useState('');
   const editorTrigger = useRef<HTMLButtonElement>(null);
+  const creatorTrigger = useRef<HTMLButtonElement>(null);
   const catalogHeading = useRef<HTMLHeadingElement>(null);
   const platformHeading = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
@@ -138,10 +146,13 @@ function PlatformContent({
       setFilters(value);
       setDraft(value);
       setSelected(null);
+      const wantsCreate = manageClients && readAction() === 'new-client';
+      setCreating(wantsCreate);
+      if (wantsCreate) setArea('clients');
     };
     window.addEventListener('hashchange', change);
     return () => window.removeEventListener('hashchange', change);
-  }, []);
+  }, [manageClients]);
   const overview = usePrivateQuery(
     read && area === 'clients' && !filters.invalid ? '/platform/overview' : null,
     platformOverviewSchema,
@@ -196,9 +207,39 @@ function PlatformContent({
             nominal das empresas.
           </p>
         </div>
-        <Button variant="outline" onClick={() => setRevision((value) => value + 1)}>
-          Atualizar plataforma
-        </Button>
+        <div className="platform-areas">
+          {manageClients && (
+            <Button
+              ref={creatorTrigger}
+              onClick={() => {
+                setArea('clients');
+                setSelected(null);
+                setCreating(true);
+              }}
+            >
+              Cadastrar empresa
+            </Button>
+          )}
+          <Button variant="outline" onClick={() => setRevision((value) => value + 1)}>
+            Atualizar plataforma
+          </Button>
+          {area === 'clients' && (
+            <ContextualHelp
+              screen="Catálogo de clientes"
+              purpose="Consulte as empresas cadastradas e a situação fiscal de cada registro."
+              nextStep={
+                manageClients
+                  ? 'Selecione Cadastrar empresa para incluir um registro ou localize uma empresa para corrigir seus dados.'
+                  : 'Use os filtros do catálogo para localizar uma empresa e conferir seu cadastro.'
+              }
+              prerequisites={
+                manageClients
+                  ? 'Clientes precisam de CNPJ válido e único. Informe o motivo ao cadastrar ou corrigir um registro.'
+                  : 'A consulta exige concessão de leitura da plataforma. Inclusões e correções exigem permissão de administração de clientes.'
+              }
+            />
+          )}
+        </div>
       </header>
       <nav className="platform-areas" aria-label="Áreas da plataforma">
         <Button
@@ -225,7 +266,10 @@ function PlatformContent({
           </StatusMessage>
         )
       ) : !read ? (
-        <StatusMessage>O resumo e o catálogo exigem leitura da plataforma.</StatusMessage>
+        <>
+          {notice && <StatusMessage tone="success">{notice}</StatusMessage>}
+          <StatusMessage>O resumo e o catálogo exigem leitura da plataforma.</StatusMessage>
+        </>
       ) : (
         <>
           <form onSubmit={apply} className="platform-filters" aria-label="Filtros de clientes">
@@ -398,6 +442,54 @@ function PlatformContent({
           )}
         </>
       )}
+      <Sheet
+        open={creating && manageClients}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCreating(false);
+            if (readAction() === 'new-client') navigate(filters);
+          }
+        }}
+      >
+        <SheetContent
+          className="platform-sheet"
+          closeLabel="Fechar cadastro de empresa"
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            const trigger = creatorTrigger.current;
+            (trigger?.isConnected
+              ? trigger
+              : (catalogHeading.current ?? platformHeading.current)
+            )?.focus();
+          }}
+        >
+          <SheetTitle>Cadastrar empresa no catálogo</SheetTitle>
+          <SheetDescription>
+            Inclua uma nova organização no catálogo da plataforma com validação fiscal de CNPJ e
+            trilha de auditoria. Este cadastro não cria vínculo nominal na empresa.
+          </SheetDescription>
+          {creating && manageClients && (
+            <ClientCreator
+              onCreated={(created) => {
+                setCreating(false);
+                setNotice(
+                  `Empresa ${created.name} cadastrada no catálogo (${created.fiscalIdentifier || 'sem CNPJ'}).`,
+                );
+                navigate({
+                  search: created.name,
+                  isActive: '',
+                  classification: created.clientClassification,
+                  fiscalState: created.fiscalState === 'VALID' ? 'VALID' : '',
+                  page: 1,
+                });
+                setRevision((value) => value + 1);
+              }}
+              onExpire={onExpire}
+              onDenied={onDenied}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
       <Sheet
         open={!!selected}
         onOpenChange={(open) => {

@@ -1,10 +1,56 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
-import { loginSchema, sessionResponseSchema, type SessionResponse } from '@renr/contracts';
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from 'react';
+import {
+  loginResultSchema,
+  loginSchema,
+  passwordRecoveryTokenSchema,
+  sessionResponseSchema,
+  type LoginResult,
+  type MfaChallenge,
+  type SessionResponse,
+} from '@renr/contracts';
 import { Button } from './components/ui/button';
-import { getHealth, request, RequestError, send } from './lib/api';
+import {
+  getHealth,
+  mfaReauthEvent,
+  mfaReauthMessage,
+  request,
+  RequestError,
+  send,
+} from './lib/api';
 import { Structure } from './components/Structure';
 import { Participation } from './components/Participation';
 import { BrandIntro } from './components/BrandIntro';
+import type { MfaConfirmation } from './components/access/MfaEnrollment';
+const MfaLoginVerification = lazy(() =>
+  import('./components/access/MfaFlow').then((module) => ({
+    default: module.MfaLoginVerification,
+  })),
+);
+const MfaRecovery = lazy(() =>
+  import('./components/access/MfaFlow').then((module) => ({ default: module.MfaRecovery })),
+);
+const MfaRecoveryCodes = lazy(() =>
+  import('./components/access/MfaFlow').then((module) => ({ default: module.MfaRecoveryCodes })),
+);
+const MfaLoginEnrollment = lazy(() =>
+  import('./components/access/MfaEnrollment').then((module) => ({
+    default: module.MfaLoginEnrollment,
+  })),
+);
+const AccountSecurity = lazy(() =>
+  import('./components/access/MfaEnrollment').then((module) => ({
+    default: module.AccountSecurity,
+  })),
+);
 const AccessActivation = lazy(() =>
   import('./components/access/AccessActivation').then((module) => ({
     default: module.AccessActivation,
@@ -13,6 +59,16 @@ const AccessActivation = lazy(() =>
 const AssessmentParticipation = lazy(() =>
   import('./components/assessments/AssessmentParticipation').then((module) => ({
     default: module.AssessmentParticipation,
+  })),
+);
+const PasswordRecoveryRequest = lazy(() =>
+  import('./components/access/PasswordRecovery').then((module) => ({
+    default: module.PasswordRecoveryRequest,
+  })),
+);
+const PasswordRecoveryReset = lazy(() =>
+  import('./components/access/PasswordRecovery').then((module) => ({
+    default: module.PasswordRecoveryReset,
   })),
 );
 
@@ -74,7 +130,7 @@ function Login({
   notice,
   compact = false,
 }: {
-  onLogin: (session: SessionResponse) => void;
+  onLogin: (session: LoginResult) => void;
   notice: string;
   compact?: boolean;
 }) {
@@ -94,7 +150,7 @@ function Login({
     setError('');
     try {
       onLogin(
-        await request('/auth/sessions', sessionResponseSchema, {
+        await request('/auth/sessions', loginResultSchema, {
           method: 'POST',
           body: JSON.stringify(parsed.data),
         }),
@@ -159,6 +215,9 @@ function Login({
           </Button>
         </form>
         <p className="login-footnote">
+          <a href="#/recuperar-acesso">Esqueci minha senha</a>
+        </p>
+        <p className="login-footnote">
           Se precisar de acesso, fale com o administrador da sua organização.
         </p>
       </section>
@@ -166,9 +225,36 @@ function Login({
     </div>
   );
 }
-function publicPage() {
-  const path = window.location.hash.replace(/^#\/?/, '').split('/')[0];
-  return path === 'participar' || path === 'responder' || path === 'ativar' ? path : '';
+type PublicPage =
+  | ''
+  | 'participar'
+  | 'responder'
+  | 'ativar'
+  | 'recuperar-acesso'
+  | 'redefinir-senha'
+  | 'recuperar-autenticador';
+const securityHash = '#/seguranca-da-conta';
+function readPublicLocation(): { page: PublicPage; recoveryToken: string } {
+  const [path, token, ...rest] = window.location.hash.replace(/^#\/?/, '').split('/');
+  if (path === 'redefinir-senha' || path === 'recuperar-autenticador') {
+    const parsed = passwordRecoveryTokenSchema.safeParse({ token });
+    return { page: path, recoveryToken: !rest.length && parsed.success ? parsed.data.token : '' };
+  }
+  const page =
+    path === 'participar' ||
+    path === 'responder' ||
+    path === 'ativar' ||
+    path === 'recuperar-acesso'
+      ? path
+      : '';
+  return { page, recoveryToken: '' };
+}
+function hideRecoveryLocation(page: PublicPage) {
+  if (
+    (page === 'redefinir-senha' || page === 'recuperar-autenticador') &&
+    (window.location.hash !== `#/${page}` || window.location.search)
+  )
+    window.history.replaceState(window.history.state, '', `${window.location.pathname}#/${page}`);
 }
 function organizationScopeKey(session: SessionResponse) {
   if (!session.activeOrganizationId) return '';
@@ -181,15 +267,35 @@ function organizationScopeKey(session: SessionResponse) {
         .join(',');
 }
 export function App() {
-  const [publicRoute, setPublicRoute] = useState(publicPage);
-  useEffect(() => {
-    const change = () => setPublicRoute(publicPage());
-    window.addEventListener('hashchange', change);
-    return () => window.removeEventListener('hashchange', change);
+  const [{ page: publicRoute, recoveryToken }, setPublicLocation] = useState(readPublicLocation);
+  const [securityPage, setSecurityPage] = useState(() => window.location.hash === securityHash);
+  const standalonePublic = !!publicRoute && publicRoute !== 'ativar';
+  const discardRecoveryToken = useCallback(() => {
+    setPublicLocation((previous) =>
+      previous.recoveryToken ? { ...previous, recoveryToken: '' } : previous,
+    );
   }, []);
+  useLayoutEffect(() => {
+    hideRecoveryLocation(readPublicLocation().page);
+    const change = () => {
+      const next = readPublicLocation();
+      hideRecoveryLocation(next.page);
+      setPublicLocation(next);
+      setSecurityPage(window.location.hash === securityHash);
+    };
+    window.addEventListener('hashchange', change);
+    window.addEventListener('pagehide', discardRecoveryToken);
+    return () => {
+      window.removeEventListener('hashchange', change);
+      window.removeEventListener('pagehide', discardRecoveryToken);
+    };
+  }, [discardRecoveryToken]);
   const contentRef = useRef<HTMLElement>(null);
   const [theme, setTheme] = useState<Theme>(initialTheme);
   const [session, setSession] = useState<SessionResponse | null>(null);
+  const [mfaChallenge, setMfaChallenge] = useState<MfaChallenge | null>(null);
+  const [mfaConfirmation, setMfaConfirmation] = useState<MfaConfirmation | null>(null);
+  const mfaInProgress = !!(mfaChallenge || mfaConfirmation);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState('');
   const [attempt, setAttempt] = useState(0);
@@ -204,9 +310,9 @@ export function App() {
     }
   }, [theme]);
   useEffect(() => {
+    if (standalonePublic || mfaInProgress) return;
     const controller = new AbortController();
     let active = true;
-    if (publicRoute === 'participar' || publicRoute === 'responder') return;
     void request('/auth/session', sessionResponseSchema, { signal: controller.signal })
       .then((value) => {
         if (active) setSession(value);
@@ -224,14 +330,28 @@ export function App() {
       active = false;
       controller.abort();
     };
-  }, [attempt, publicRoute]);
+  }, [attempt, publicRoute, standalonePublic, mfaInProgress]);
   const expire = useCallback(() => {
     setSession(null);
-    setNotice('Sua sessão terminou. Entre novamente para continuar.');
+    setNotice((previous) =>
+      previous === mfaReauthMessage
+        ? previous
+        : 'Sua sessão terminou. Entre novamente para continuar.',
+    );
     window.location.hash = '/';
   }, []);
   useEffect(() => {
-    if (!session || publicRoute) return;
+    function requireReauth() {
+      setSession(null);
+      setLoading(false);
+      setNotice(mfaReauthMessage);
+      window.location.hash = '/';
+    }
+    window.addEventListener(mfaReauthEvent, requireReauth);
+    return () => window.removeEventListener(mfaReauthEvent, requireReauth);
+  }, []);
+  useEffect(() => {
+    if (!session || publicRoute || mfaInProgress) return;
     const controller = new AbortController();
     let pending = false;
     async function refresh() {
@@ -247,7 +367,12 @@ export function App() {
           organizationScopeKey(current) !== organizationScopeKey(session)
         ) {
           const route = window.location.hash.split(/[/?]/)[1];
-          if (route !== 'plataforma' && route !== 'consolidado') window.location.replace('#/');
+          if (
+            route !== 'plataforma' &&
+            route !== 'consolidado' &&
+            window.location.hash !== securityHash
+          )
+            window.location.replace('#/');
         }
         setSession((previous) =>
           previous === session && JSON.stringify(current) !== JSON.stringify(previous)
@@ -274,13 +399,51 @@ export function App() {
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', whenVisible);
     };
-  }, [session, publicRoute, expire]);
+  }, [session, publicRoute, expire, mfaInProgress]);
   useEffect(() => {
-    if (!session || publicRoute === 'participar' || publicRoute === 'responder') return;
+    if (!session || standalonePublic || mfaInProgress) return;
     const remaining = new Date(session.expiresAt).getTime() - Date.now();
     const timer = window.setTimeout(expire, Math.max(0, Math.min(remaining, 2_147_483_647)));
     return () => window.clearTimeout(timer);
-  }, [session, expire, publicRoute]);
+  }, [session, expire, standalonePublic, mfaInProgress]);
+  function receiveLogin(value: LoginResult) {
+    setNotice('');
+    setLoading(false);
+    if ('kind' in value) {
+      setSession(null);
+      setMfaChallenge(value);
+      discardRecoveryToken();
+    } else {
+      setSession(value);
+      setMfaChallenge(null);
+    }
+  }
+  const exitMfa = useCallback((reason?: string) => {
+    setMfaChallenge(null);
+    setNotice(reason ?? 'Entrada cancelada. Entre novamente para continuar.');
+    if (readPublicLocation().page === 'recuperar-autenticador') {
+      setPublicLocation({ page: '', recoveryToken: '' });
+      window.history.replaceState(window.history.state, '', `${window.location.pathname}#/`);
+    }
+    contentRef.current?.focus();
+  }, []);
+  function finishMfaEnrollment() {
+    if (!mfaConfirmation) return;
+    setMfaConfirmation(null);
+    receiveLogin(mfaConfirmation.session);
+    if (publicRoute === 'recuperar-autenticador') {
+      setPublicLocation({ page: '', recoveryToken: '' });
+      window.history.replaceState(window.history.state, '', `${window.location.pathname}#/`);
+    }
+  }
+  function recoveryCompleted() {
+    setSession(null);
+    setLoading(false);
+    setNotice('Senha redefinida. Entre com a nova senha.');
+    setPublicLocation({ page: '', recoveryToken: '' });
+    window.history.replaceState(window.history.state, '', `${window.location.pathname}#/`);
+    contentRef.current?.focus();
+  }
   async function logout() {
     if (pending) return;
     setPending(true);
@@ -341,29 +504,58 @@ export function App() {
           >
             {theme === 'light' ? 'Modo escuro' : 'Modo claro'}
           </Button>
-          {session && publicRoute !== 'participar' && publicRoute !== 'responder' && (
-            <Button variant="outline" disabled={pending} onClick={() => void logout()}>
-              {pending ? 'Saindo…' : 'Sair'}
-            </Button>
+          {session && !standalonePublic && !mfaInProgress && (
+            <>
+              <a
+                className="account-security-link"
+                href={securityHash}
+                aria-current={securityPage ? 'page' : undefined}
+              >
+                Segurança da conta
+              </a>
+              <Button variant="outline" disabled={pending} onClick={() => void logout()}>
+                {pending ? 'Saindo…' : 'Sair'}
+              </Button>
+            </>
           )}
         </div>
       </header>
       <main id="conteudo" ref={contentRef} tabIndex={-1}>
-        {publicRoute === 'ativar' ? (
+        {mfaConfirmation ? (
+          <Suspense fallback={<p role="status">Carregando códigos de recuperação…</p>}>
+            <MfaRecoveryCodes codes={mfaConfirmation.recoveryCodes} onDone={finishMfaEnrollment} />
+          </Suspense>
+        ) : mfaChallenge ? (
+          <Suspense fallback={<p role="status">Carregando verificação…</p>}>
+            {mfaChallenge.mode === 'verify' ? (
+              <MfaLoginVerification onVerified={receiveLogin} onCancel={exitMfa} />
+            ) : (
+              <MfaLoginEnrollment onConfirmed={setMfaConfirmation} onCancel={exitMfa} />
+            )}
+          </Suspense>
+        ) : publicRoute === 'recuperar-autenticador' ? (
+          <Suspense fallback={<p role="status">Carregando recuperação…</p>}>
+            <MfaRecovery key={recoveryToken} token={recoveryToken} onChallenge={receiveLogin} />
+          </Suspense>
+        ) : publicRoute === 'recuperar-acesso' ? (
+          <Suspense fallback={<p role="status">Carregando recuperação…</p>}>
+            <PasswordRecoveryRequest />
+          </Suspense>
+        ) : publicRoute === 'redefinir-senha' ? (
+          <Suspense fallback={<p role="status">Carregando recuperação…</p>}>
+            <PasswordRecoveryReset
+              key={recoveryToken}
+              token={recoveryToken}
+              onUnavailable={discardRecoveryToken}
+              onChanged={recoveryCompleted}
+            />
+          </Suspense>
+        ) : publicRoute === 'ativar' ? (
           <Suspense fallback={<p role="status">Carregando ativação…</p>}>
             <AccessActivation
               session={session}
               loading={loading}
-              login={
-                <Login
-                  compact
-                  notice={notice}
-                  onLogin={(value) => {
-                    setSession(value);
-                    setNotice('');
-                  }}
-                />
-              }
+              login={<Login compact notice={notice} onLogin={receiveLogin} />}
               onExpire={expire}
               onAccepted={async () => {
                 setSession(await request('/auth/session', sessionResponseSchema));
@@ -387,22 +579,22 @@ export function App() {
                 {notice}
               </p>
             )}
-            <Structure
-              key={`${session.user.id}-${session.activeOrganizationId}-${organizationScopeKey(session)}`}
-              session={session}
-              onSession={setSession}
-              onExpire={expire}
-            />
+            {securityPage ? (
+              <Suspense fallback={<p role="status">Carregando segurança da conta…</p>}>
+                <AccountSecurity onConfirmed={setMfaConfirmation} onExpire={expire} />
+              </Suspense>
+            ) : (
+              <Structure
+                key={`${session.user.id}-${session.activeOrganizationId}-${organizationScopeKey(session)}`}
+                session={session}
+                onSession={setSession}
+                onExpire={expire}
+              />
+            )}
           </>
         ) : (
           <>
-            <Login
-              notice={notice}
-              onLogin={(value) => {
-                setNotice('');
-                setSession(value);
-              }}
-            />
+            <Login notice={notice} onLogin={receiveLogin} />
             {notice && (
               <Button
                 variant="outline"

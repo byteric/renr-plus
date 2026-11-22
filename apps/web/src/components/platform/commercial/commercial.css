@@ -1,0 +1,300 @@
+.commercial-section,
+.commercial-record,
+.commercial-revision {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.commercial-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: start;
+  gap: var(--space-3);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: var(--space-4);
+}
+
+.commercial-records,
+.commercial-history {
+  display: grid;
+  gap: var(--space-3);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.commercial-record h4 {
+  margin: 0;
+}
+
+.commercial-record .platform-heading h3 {
+  margin-top: var(--space-1);
+}
+
+.commercial-record summary {
+  cursor: pointer;
+  min-height: var(--control-min-height);
+  align-content: center;
+  text-underline-offset: 0.2em;
+  font-weight: 650;
+}
+
+.commercial-record details[open] .commercial-history {
+  margin-top: var(--space-2);
+}
+
+.commercial-history > li {
+  display: grid;
+  gap: var(--space-2);
+  border-top: 1px solid var(--border);
+  padding-block: var(--space-3);
+}
+
+.commercial-facts,
+.commercial-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.commercial-facts {
+  margin: 0;
+}
+
+.commercial-facts :is(dt, dd) {
+  margin: 0;
+}
+
+.commercial-facts dt {
+  color: var(--muted-foreground);
+}
+
+.commercial-facts dd {
+  font-weight: 650;
+}
+
+.commercial-editor {
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-4);
+}
+
+.commercial-price {
+  color: var(--foreground);
+  font-size: var(--font-section);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.commercial-text {
+  white-space: pre-wrap;
+}
+
+.commercial-document {
+  max-width: 28rem;
+}
+
+.commercial-document input[type='file'] {
+  max-width: 100%;
+}
+
+.commercial-billing-reference {
+  font-size: var(--font-label);
+}
+
+.commercial-field {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-1);
+  align-content: start;
+}
+
+.commercial-billing-filter-actions {
+  grid-column: 1 / -1;
+}
+
+.commercial-billing-num {
+  font-variant-numeric: tabular-nums;
+}
+
+.commercial-billing-subline {
+  display: block;
+  margin-top: var(--space-1);
+  color: var(--muted-foreground);
+  font-size: var(--font-label);
+  font-weight: 450;
+}
+
+.commercial-billing-fieldset {
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  display: grid;
+  gap: var(--space-2);
+}
+
+.commercial-billing-fieldset legend {
+  padding-inline: var(--space-2);
+  font-weight: 650;
+  color: var(--foreground);
+}
+
+.commercial-workspace :is(input, select, textarea):user-invalid {
+  border-color: var(--destructive);
+}
+
+.commercial-billing-table-wrap {
+  container-type: inline-size;
+  overflow: auto;
+  max-inline-size: 100%;
+  padding: 0;
+}
+
+.commercial-billing-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  text-align: left;
+}
+
+.commercial-table-caption {
+  text-align: start;
+  padding: var(--space-3);
+  font-weight: 650;
+  color: var(--foreground);
+}
+
+.commercial-alert-item {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--card);
+}
+
+.commercial-alert-body {
+  display: grid;
+  gap: var(--space-1);
+  flex: 1 1 18rem;
+  min-width: 0;
+}
+
+.commercial-alert-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.commercial-billing-table thead {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 1;
+  background: var(--muted);
+}
+
+.commercial-billing-table th,
+.commercial-billing-table td {
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.commercial-billing-table thead th {
+  font-size: var(--font-label);
+  font-weight: 650;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+
+.commercial-billing-table tbody th {
+  font-size: 1rem;
+  font-weight: 650;
+  color: var(--foreground);
+}
+
+.commercial-billing-table tbody tr:last-child :is(th, td) {
+  border-bottom: 0;
+}
+
+@container (width < 680px) {
+  .commercial-billing-table,
+  .commercial-billing-table caption,
+  .commercial-billing-table tbody,
+  .commercial-billing-table tr,
+  .commercial-billing-table th,
+  .commercial-billing-table td {
+    display: block;
+  }
+
+  .commercial-billing-table thead {
+    display: none;
+  }
+
+  .commercial-billing-table tbody {
+    display: grid;
+    gap: var(--space-3);
+    padding: var(--space-3);
+  }
+
+  .commercial-billing-table tbody tr {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-control);
+    background: var(--background);
+    padding: var(--space-3);
+    display: grid;
+    gap: var(--space-2);
+  }
+
+  .commercial-billing-table tbody th,
+  .commercial-billing-table tbody td {
+    padding: 0;
+    border: 0;
+  }
+
+  .commercial-billing-table tbody td {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--space-2);
+  }
+
+  .commercial-billing-table tbody td[data-label]::before {
+    content: attr(data-label) ': ';
+    color: var(--muted-foreground);
+    font-size: var(--font-label);
+    font-weight: 650;
+  }
+}
+
+.commercial-access-separation {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.commercial-access-separation > .commercial-billing-fieldset {
+  align-content: start;
+}
+
+.commercial-access-separation h3 {
+  margin: 0 0 var(--space-2);
+  font-size: 1rem;
+}
+
+.commercial-billing-table td[data-label='Contrato'] {
+  white-space: nowrap;
+}
+
+.commercial-access-confirm {
+  align-items: start;
+}

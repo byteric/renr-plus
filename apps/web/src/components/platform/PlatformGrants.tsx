@@ -15,6 +15,17 @@ const labels = {
   READ_OVERVIEW: 'Ler resumo e catálogo',
   MANAGE_CLIENTS: 'Corrigir cadastros de clientes',
   MANAGE_GRANTS: 'Gerenciar concessões globais',
+  READ_COMMERCIAL: 'Consultar planos e contratos',
+  MANAGE_COMMERCIAL: 'Gerenciar planos e contratos',
+  READ_BILLING: 'Consultar cobranças e pagamentos',
+  MANAGE_BILLING: 'Gerenciar cobranças e pagamentos',
+  READ_CONTRACT_ACCESS: 'Consultar acesso contratual',
+  MANAGE_CONTRACT_ACCESS: 'Gerenciar ativação e suspensão contratual',
+  READ_SUPPORT: 'Consultar chamados de suporte',
+  MANAGE_SUPPORT: 'Atender chamados de suporte',
+  ASSIST_COMPANY_PASSWORD_RECOVERY: 'Emitir recuperação na empresa administrada',
+  MANAGE_PASSWORD_RECOVERY: 'Emitir recuperação na plataforma',
+  RECOVER_ACCOUNT_MFA: 'Recuperar autenticador de contas na plataforma',
 };
 export function PlatformGrants({
   onExpire,
@@ -33,8 +44,9 @@ export function PlatformGrants({
     <section className="platform-grants">
       <h3>Concessões globais</h3>
       <p>
-        Concessões são explícitas e revogáveis. Elas não autorizam acesso a dados nominais ou
-        financeiros das empresas.
+        Concessões são explícitas e revogáveis. Planos/contratos, cobranças/pagamentos e acesso
+        contratual usam permissões próprias. Dados individuais de RH e informações de SST seguem os
+        vínculos de cada empresa.
       </p>
       <Button
         onClick={() => {

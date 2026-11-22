@@ -1,6 +1,9 @@
 import { apiErrorSchema, healthResponseSchema } from '@renr/contracts';
 
 export const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '/api/v1').replace(/\/+$/, '');
+export const mfaReauthEvent = 'renr:mfa-reauth-required';
+export const mfaReauthMessage = 'Entre novamente para verificar o segundo fator da sua conta.';
+
 export class RequestError extends Error {
   constructor(
     public readonly status: number,
@@ -28,6 +31,14 @@ export class RequestError extends Error {
       REPORT_GENERATION_BUSY: 'Há outras exportações em andamento. Aguarde e tente novamente.',
       REPORT_GENERATION_DEADLINE: 'O PDF atingiu o tempo limite de geração. Tente novamente.',
       INVALID_ANSWERS: 'Confira as respostas obrigatórias e as opções selecionadas.',
+      CONTRACT_ACCESS_SUSPENDED: 'O acesso contratual desta empresa está suspenso no momento.',
+      AUTH_MFA_REAUTH_REQUIRED: mfaReauthMessage,
+      AUTH_MFA_CODE_INVALID:
+        'Código inválido ou já utilizado. Confira o autenticador ou use outro código de recuperação.',
+      AUTH_MFA_CHALLENGE_UNAVAILABLE:
+        'A verificação expirou ou foi encerrada. Entre novamente para continuar.',
+      COLLABORATION_WRITES_DISABLED:
+        'A gravação de contribuições técnicas entre SST e Psicologia Organizacional está desabilitada na homologação aguardando validação de negócio.',
     };
     super(
       codes[code] ?? messages[status] ?? 'Não foi possível concluir a operação. Tente novamente.',
@@ -76,11 +87,10 @@ export async function send(
   if (!response.ok) {
     const body: unknown = await response.json().catch(() => null);
     const parsed = apiErrorSchema.safeParse(body);
-    throw new RequestError(
-      response.status,
-      parsed.success ? parsed.data.details : [],
-      parsed.success ? parsed.data.code : '',
-    );
+    const code = parsed.success ? parsed.data.code : '';
+    if (code === 'AUTH_MFA_REAUTH_REQUIRED' && typeof window !== 'undefined')
+      window.dispatchEvent(new Event(mfaReauthEvent));
+    throw new RequestError(response.status, parsed.success ? parsed.data.details : [], code);
   }
   return response;
 }

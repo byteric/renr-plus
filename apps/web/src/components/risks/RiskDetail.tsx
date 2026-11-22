@@ -15,12 +15,14 @@ import { RiskForm } from './RiskForm';
 import { PreliminaryEvaluationForm } from './PreliminaryEvaluationForm';
 import { riskDate, statusLabels, useRiskData } from './useRiskData';
 import { TechnicalEvaluationPanel } from './TechnicalEvaluationPanel';
+import { RiskCollaborationPanel } from './RiskCollaborationPanel';
 import { DomainHistory } from '../history/DomainHistory';
 
 const sections = [
   { id: 'resumo', label: 'Resumo' },
   { id: 'exposicao', label: 'Exposição' },
   { id: 'origem', label: 'Origem' },
+  { id: 'colaboracao', label: 'Colaboração' },
   { id: 'fichas', label: 'Fichas' },
   { id: 'historico', label: 'Histórico' },
 ];
@@ -29,6 +31,9 @@ export function RiskDetail({
   id,
   canWrite,
   canEvaluate,
+  canCreateAction,
+  scopeRestricted = false,
+  capabilitiesLoading = false,
   query,
   onExpire,
   onChanged,
@@ -37,6 +42,9 @@ export function RiskDetail({
   id: string;
   canWrite: boolean;
   canEvaluate: boolean;
+  canCreateAction?: boolean;
+  scopeRestricted?: boolean;
+  capabilitiesLoading?: boolean;
   query: string;
   onExpire: () => void;
   onChanged: () => void;
@@ -89,10 +97,16 @@ export function RiskDetail({
   const unavailableForWrite = detail.loading || !!detail.error || denied;
   const params = new URLSearchParams(query);
   const rawReturn = params.get('returnTo') ?? '';
+  const fromDashboard = /^#\/painel(?:\?[^#]*)?$/.test(rawReturn);
   const fromComparison = comparisonReturn(rawReturn);
   const returnTo =
-    fromComparison ?? (/^#\/inventario(?:\?|$)/.test(rawReturn) ? rawReturn : '#/inventario');
-  const backLabel = fromComparison ? 'Voltar ao comparativo' : 'Voltar ao inventário';
+    fromComparison ??
+    (fromDashboard || /^#\/inventario(?:\?|$)/.test(rawReturn) ? rawReturn : '#/inventario');
+  const backLabel = fromComparison
+    ? 'Voltar ao comparativo'
+    : fromDashboard
+      ? 'Voltar ao painel'
+      : 'Voltar ao inventário';
   function contextualScroll(target: HTMLElement, behavior: ScrollBehavior) {
     const panel = root.current?.closest<HTMLElement>('.risk-context-panel');
     if (panel && window.matchMedia?.('(min-width: 1100px)').matches) {
@@ -272,7 +286,7 @@ export function RiskDetail({
           <a className="action-link" href={`#/acoes?riskId=${id}&page=1`}>
             Ver ações deste risco
           </a>
-          {canWrite &&
+          {(canCreateAction ?? (!scopeRestricted && (canWrite || canEvaluate))) &&
             !unavailableForWrite &&
             item.status === 'REGISTERED' &&
             item.unit.isActive &&
@@ -293,6 +307,26 @@ export function RiskDetail({
           )}
         </div>
       </header>
+      {!unavailableForWrite &&
+        !capabilitiesLoading &&
+        !(
+          (canCreateAction ?? (!scopeRestricted && (canWrite || canEvaluate))) &&
+          item.status === 'REGISTERED' &&
+          item.unit.isActive &&
+          item.sector.isActive
+        ) && (
+          <p className="field-hint">
+            {item.status === 'DRAFT'
+              ? 'Risco em rascunho: registre o risco antes de criar uma ação preventiva.'
+              : item.status === 'ARCHIVED'
+                ? 'Risco arquivado: novas ações preventivas estão indisponíveis.'
+                : !item.unit.isActive || !item.sector.isActive
+                  ? 'Unidade ou setor inativo: reative a estrutura para criar novas ações preventivas.'
+                  : scopeRestricted
+                    ? 'Seu vínculo possui restrição de recorte por unidade ou setor e não permite criar ações preventivas.'
+                    : 'Seu perfil atual não possui permissão para criar ações preventivas (exige Administrador ou capacidade de Decisões técnicas sem restrição de recorte).'}
+          </p>
+        )}
       {item.status === 'ARCHIVED' && (
         <p className="feedback">
           Registro arquivado · somente leitura. Fichas e contexto permanecem no histórico.
@@ -445,6 +479,18 @@ export function RiskDetail({
           O contexto é coletivo. Nenhuma resposta individual é vinculada ao registro.
         </p>
       </section>
+      <RiskCollaborationPanel
+        key={`${organizationId}:${item.id}`}
+        organizationId={organizationId}
+        risk={item}
+        disabled={unavailableForWrite}
+        refreshKey={attempt}
+        onExpire={onExpire}
+        onUnavailable={(status) => {
+          controller.current.abort();
+          setUnavailable({ status, attempt });
+        }}
+      />
       <section id="risk-fichas" className="risk-content-section risk-stack" tabIndex={-1}>
         <div className="risk-section-heading">
           <div>

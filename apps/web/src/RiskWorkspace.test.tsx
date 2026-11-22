@@ -700,3 +700,35 @@ it('oferece atalhos explícitos de rascunho, sem ficha e arquivo com página rei
     '#/inventario?page=1&status=ARCHIVED',
   );
 });
+
+it('permite que Camila (READER + TECHNICAL_DECISIONS) veja Criar ação preventiva em risco REGISTERED ativo e explica bloqueios de estado e permissão', async () => {
+  const { cleanup } = await import('@testing-library/react');
+  const activeRisk: RiskDetail = { ...risk, status: 'REGISTERED' };
+  arrange(`/inventario/${id}`, {
+    role: 'READER',
+    technical: true,
+    currentRisk: activeRisk,
+  });
+  const link = await screen.findByRole('link', { name: 'Criar ação preventiva' });
+  expect(link).toHaveAttribute('href', `#/acoes/nova?riskId=${id}`);
+
+  cleanup();
+  arrange(`/inventario/${id}`, {
+    role: 'READER',
+    technical: true,
+    currentRisk: { ...risk, status: 'DRAFT' },
+  });
+  expect(await screen.findByText(/rascunho.*registre o risco/i)).toBeVisible();
+  expect(screen.queryByRole('link', { name: 'Criar ação preventiva' })).not.toBeInTheDocument();
+
+  cleanup();
+  arrange(`/inventario/${id}`, {
+    role: 'READER',
+    technical: false,
+    currentRisk: activeRisk,
+  });
+  expect(
+    await screen.findByText(/não possui permissão para criar ações preventivas/i),
+  ).toBeVisible();
+  expect(screen.queryByRole('link', { name: 'Criar ação preventiva' })).not.toBeInTheDocument();
+});

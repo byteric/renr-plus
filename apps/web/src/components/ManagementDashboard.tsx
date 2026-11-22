@@ -1,15 +1,23 @@
-import { useEffect, useRef, useState } from 'react';
-import { managementIndicatorsSchema, type ManagementIndicators } from '@renr/contracts';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  managementIndicatorsSchema,
+  nr01PendencyOriginSchema,
+  nr01PendencyRuleSchema,
+  nr01PendencyStatusSchema,
+  type ManagementIndicators,
+} from '@renr/contracts';
 import { useActionData, civilDate } from './actions/useActionData';
 import { Button } from './ui/button';
 import { MetricCard } from './charts/MetricCard';
 import { usePresentationMotion } from '../hooks/usePresentationMotion';
 import { DashboardJourney } from './DashboardJourney';
 import { DashboardHistory, RiskDistribution } from './DashboardCharts';
+import { Nr01PendenciesPanel, type Nr01RouteFilters } from './Nr01PendenciesPanel';
 import '../dashboard.css';
 
 const areas = {
   geral: 'Visão geral',
+  pendencias: 'Pendências NR-01',
   riscos: 'Riscos',
   acoes: 'Ações',
   estrutura: 'Estrutura',
@@ -26,18 +34,32 @@ function readDashboard() {
   }
   const days = Number(query.get('dias'));
   const page = Number(query.get('pagina'));
+  const statusParsed = nr01PendencyStatusSchema.safeParse(query.get('nrStatus'));
+  const ruleParsed = nr01PendencyRuleSchema.safeParse(query.get('nrRule'));
+  const originParsed = nr01PendencyOriginSchema.safeParse(query.get('nrOrigin'));
+  const nrFilters: Nr01RouteFilters = {
+    status: statusParsed.success ? statusParsed.data : '',
+    rule: ruleParsed.success ? ruleParsed.data : '',
+    origin: originParsed.success ? originParsed.data : '',
+  };
   return {
     area,
     filters,
+    nrFilters,
     days: days === 7 || days === 90 ? days : 30,
     page: Number.isSafeInteger(page) && page > 0 && page <= 10000 ? page : 1,
   };
 }
 
 type DashboardRoute = ReturnType<typeof readDashboard>;
-function dashboardHref({ area, filters, days, page }: DashboardRoute) {
+function dashboardHref({ area, filters, nrFilters, days, page }: DashboardRoute) {
   const query = new URLSearchParams(filters);
   if (area !== 'geral') query.set('area', area);
+  if (area === 'pendencias') {
+    if (nrFilters.status) query.set('nrStatus', nrFilters.status);
+    if (nrFilters.rule) query.set('nrRule', nrFilters.rule);
+    if (nrFilters.origin) query.set('nrOrigin', nrFilters.origin);
+  }
   if (days !== 30) query.set('dias', String(days));
   if (page !== 1) query.set('pagina', String(page));
   return '#/painel' + (query.size ? '?' + query : '');
@@ -90,7 +112,7 @@ function DashboardContent({
 }) {
   const [route, setRoute] = useState(readDashboard);
   const [attempt, setAttempt] = useState(0);
-  const { area, filters, days, page } = route;
+  const { area, filters, nrFilters, days, page } = route;
   const root = '/organizations/' + organizationId + '/management-indicators';
   const query = new URLSearchParams(filters);
   query.set('page', String(area === 'geral' || area === 'acoes' ? page : 1));
@@ -106,12 +128,19 @@ function DashboardContent({
     ManagementIndicators,
     'organization' | 'options'
   > | null>(null);
-  if (data && data.options !== lastContext?.options)
+  const [deniedAtAttempt, setDeniedAtAttempt] = useState<number | null>(null);
+  const accessDenied = deniedAtAttempt === attempt;
+  if (data && !accessDenied && data.options !== lastContext?.options)
     setLastContext({ organization: data.organization, options: data.options });
-  if (result.error && lastContext) setLastContext(null);
-  const context = data ?? (result.loading ? lastContext : null);
+  if ((result.error || accessDenied) && lastContext) setLastContext(null);
+  const context = accessDenied ? null : (data ?? (result.loading ? lastContext : null));
+  const visibleData = accessDenied ? null : data;
+  const handlePendenciesUnavailable = useCallback(() => {
+    setDeniedAtAttempt(attempt);
+    setLastContext(null);
+  }, [attempt]);
   const scope = useRef<HTMLDivElement>(null);
-  usePresentationMotion(scope, data ? area + data.generatedAt : null);
+  usePresentationMotion(scope, visibleData ? area + visibleData.generatedAt : null);
 
   useEffect(() => {
     const update = () => setRoute(readDashboard());
@@ -252,33 +281,58 @@ function DashboardContent({
       {area === 'geral' && context && (
         <DashboardJourney key={attempt} organizationId={organizationId} onExpire={onExpire} />
       )}
-      {data && (
+      {area === 'pendencias' && !result.error && (
+        <div ref={scope} className="dashboard-area-content">
+          <Nr01PendenciesPanel
+            organizationId={organizationId}
+            scopeFilters={applied}
+            nrFilters={nrFilters}
+            page={page}
+            attempt={attempt}
+            returnTo={dashboardHref(route)}
+            onExpire={onExpire}
+            onUnavailable={handlePendenciesUnavailable}
+            onChangeFilters={(next) => {
+              window.location.hash = dashboardHref({
+                ...route,
+                area: 'pendencias',
+                nrFilters: next,
+                page: 1,
+              });
+            }}
+            onPageHref={(nextPage) =>
+              dashboardHref({ ...route, area: 'pendencias', page: nextPage })
+            }
+          />
+        </div>
+      )}
+      {visibleData && area !== 'pendencias' && (
         <div ref={scope} className="dashboard-area-content">
           {area === 'geral' && (
             <section aria-label="Síntese do recorte">
               <ul className="dashboard-metrics" aria-label="Indicadores principais">
                 <MetricCard
                   label="Riscos no inventário"
-                  value={data.risks.total}
+                  value={visibleData.risks.total}
                   detail="Consultar registros não arquivados"
                   href={riskLink}
                   accent
                 />
                 <MetricCard
                   label="Sem classificação"
-                  value={data.risks.unclassified}
+                  value={visibleData.risks.unclassified}
                   detail="Consultar riscos sem nível vigente"
                   href={listHref('inventario', applied, { classification: 'UNCLASSIFIED' })}
                 />
                 <MetricCard
                   label="Ações abertas"
-                  value={data.actions.open}
+                  value={visibleData.actions.open}
                   detail="Planejadas ou em execução"
                   href={listHref('acoes', applied, { openOnly: true })}
                 />
                 <MetricCard
                   label="Ações atrasadas"
-                  value={data.actions.overdue}
+                  value={visibleData.actions.overdue}
                   detail="Consultar ações abertas fora do prazo"
                   href={overdueLink}
                 />
@@ -287,7 +341,7 @@ function DashboardContent({
           )}
           {area === 'riscos' && (
             <>
-              <RiskDistribution data={data.risks} filters={applied} listHref={listHref} />
+              <RiskDistribution data={visibleData.risks} filters={applied} listHref={listHref} />
               <p className="chart-note">
                 <a className="underline" href={`#/coletas?${closedCollections}`}>
                   Consultar resultados por coleta
@@ -305,7 +359,7 @@ function DashboardContent({
                 <div className="dashboard-reflow-heading">
                   <h2 id="action-summary-heading">Ações preventivas</h2>
                   <p className="chart-note">
-                    Situação em {civilDate(data.referenceDate)} · {data.timeZone}
+                    Situação em {civilDate(visibleData.referenceDate)} · {visibleData.timeZone}
                   </p>
                   <a className="action-link" href={listHref('acoes', applied)}>
                     Consultar ações
@@ -314,37 +368,37 @@ function DashboardContent({
                 <dl className="dashboard-counts">
                   <div>
                     <dt>Planejadas</dt>
-                    <dd>{data.actions.planned}</dd>
+                    <dd>{visibleData.actions.planned}</dd>
                   </div>
                   <div>
                     <dt>Em execução</dt>
-                    <dd>{data.actions.inProgress}</dd>
+                    <dd>{visibleData.actions.inProgress}</dd>
                   </div>
                   <div>
                     <dt>Execução informada</dt>
-                    <dd>{data.actions.implemented}</dd>
+                    <dd>{visibleData.actions.implemented}</dd>
                   </div>
                   <div>
                     <dt>Canceladas</dt>
-                    <dd>{data.actions.cancelled}</dd>
+                    <dd>{visibleData.actions.cancelled}</dd>
                   </div>
                   <div>
                     <dt>
                       <a href={overdueLink}>Atrasadas</a>
                     </dt>
-                    <dd>{data.actions.overdue}</dd>
+                    <dd>{visibleData.actions.overdue}</dd>
                   </div>
                   <div>
                     <dt>Pendências técnicas</dt>
-                    <dd>{data.actions.technicalPending}</dd>
+                    <dd>{visibleData.actions.technicalPending}</dd>
                   </div>
                   <div>
                     <dt>Eficácia confirmada</dt>
-                    <dd>{data.actions.effective}</dd>
+                    <dd>{visibleData.actions.effective}</dd>
                   </div>
                   <div>
                     <dt>Encerramentos válidos</dt>
-                    <dd>{data.actions.closed}</dd>
+                    <dd>{visibleData.actions.closed}</dd>
                   </div>
                 </dl>
                 <p className="chart-note">
@@ -354,7 +408,9 @@ function DashboardContent({
               </section>
             </>
           )}
-          {(area === 'geral' || area === 'acoes') && <Priorities data={data} route={route} />}
+          {(area === 'geral' || area === 'acoes') && (
+            <Priorities data={visibleData} route={route} />
+          )}
           {(area === 'riscos' || area === 'acoes') && (
             <DashboardHistory
               key={area}
@@ -362,7 +418,7 @@ function DashboardContent({
               organizationId={organizationId}
               onExpire={onExpire}
               filters={applied}
-              referenceDate={data.referenceDate}
+              referenceDate={visibleData.referenceDate}
               days={days}
               area={area}
               onDays={(value) => {
@@ -376,16 +432,16 @@ function DashboardContent({
               <dl className="dashboard-counts">
                 <div>
                   <dt>Unidades</dt>
-                  <dd>{data.structure.units.total}</dd>
+                  <dd>{visibleData.structure.units.total}</dd>
                 </div>
                 <div>
                   <dt>Setores</dt>
-                  <dd>{data.structure.sectors.total}</dd>
+                  <dd>{visibleData.structure.sectors.total}</dd>
                 </div>
-                {canReadEmployees && data.structure.employees && (
+                {canReadEmployees && visibleData.structure.employees && (
                   <div>
                     <dt>Colaboradores</dt>
-                    <dd>{data.structure.employees.total}</dd>
+                    <dd>{visibleData.structure.employees.total}</dd>
                   </div>
                 )}
               </dl>
@@ -408,7 +464,7 @@ function DashboardContent({
               <details className="chart-values">
                 <summary>Consultar setores por unidade</summary>
                 <ul>
-                  {data.options.units
+                  {visibleData.options.units
                     .filter((unit) => !unitId || unit.id === unitId)
                     .map((unit) => (
                       <li key={unit.id}>
@@ -428,9 +484,20 @@ function DashboardContent({
 function Priorities({ data, route }: { data: ManagementIndicators; route: DashboardRoute }) {
   const { items, page, pageSize, total } = data.priorities;
   const pages = Math.max(1, Math.ceil(total / pageSize));
+  const pendenciesLink = dashboardHref({
+    ...route,
+    area: 'pendencias',
+    nrFilters: { status: '', rule: '', origin: '' },
+    page: 1,
+  });
   return (
     <section className="surface dashboard-priorities" aria-labelledby="dashboard-priorities">
-      <h2 id="dashboard-priorities">Prioridades de acompanhamento</h2>
+      <div className="dashboard-priorities-header">
+        <h2 id="dashboard-priorities">Prioridades de acompanhamento</h2>
+        <a className="action-link" href={pendenciesLink}>
+          Ver pendências NR-01
+        </a>
+      </div>
       <p className="chart-note">
         Ações atrasadas e ações com pendências técnicas no recorte atual.
       </p>

@@ -11,6 +11,7 @@ import {
 import { request, RequestError } from '../../lib/api';
 import { useWorkforceData } from './useWorkforceData';
 import { Button } from '../ui/button';
+import { ContextualHelp } from '../ui/contextual-help';
 import { FilterDisclosure } from '../ui/filter-disclosure';
 import { StatusMessage } from '../ui/status-message';
 import { StatusBadge } from '../ui/status-badge';
@@ -18,6 +19,7 @@ import { Pagination } from '../ui/pagination';
 import { ReferenceSelect } from './ReferenceSelect';
 import { WorkforceEditor, type WorkforceItem, type WorkforceKind } from './WorkforceEditor';
 import { EmployeeImport } from './EmployeeImport';
+import { EmployeeBulkUpdate } from './EmployeeBulkUpdate';
 import { resource } from './workforce-paths';
 import './workforce.css';
 
@@ -308,6 +310,14 @@ function WorkforceManager({
             </h2>
             <div className="form-actions">
               {employee && (
+                <ContextualHelp
+                  screen="Colaboradores"
+                  purpose="Cadastre pessoas e mantenha sua lotação atualizada dentro da empresa."
+                  nextStep="Selecione Novo colaborador para cadastrar uma pessoa ou abra um registro existente para atualizar sua lotação."
+                  prerequisites="Confira antes se a empresa tem unidade e setor cadastrados. Ao trocar a unidade, escolha um setor dessa unidade."
+                />
+              )}
+              {employee && (
                 <EmployeeImport
                   employeesPath={base}
                   onExpire={onExpire}
@@ -321,6 +331,24 @@ function WorkforceManager({
                           ? ` ${skipped} matrículas já cadastradas foram preservadas.`
                           : '';
                     setNotice(imported + preserved);
+                    setAttempt((value) => value + 1);
+                  }}
+                />
+              )}
+              {employee && (
+                <EmployeeBulkUpdate
+                  key={base}
+                  employeesPath={base}
+                  onExpire={onExpire}
+                  onDenied={() => setDenied(true)}
+                  onConfirmed={({ updated, unchanged }) => {
+                    const applied =
+                      updated === 1 ? '1 cadastro atualizado' : `${updated} cadastros atualizados`;
+                    const preserved =
+                      unchanged === 1
+                        ? '1 cadastro sem mudanças'
+                        : `${unchanged} cadastros sem mudanças`;
+                    setNotice(`${applied}. ${preserved}.`);
                     setAttempt((value) => value + 1);
                   }}
                 />

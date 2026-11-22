@@ -11,6 +11,7 @@ import { request, RequestError } from '../../lib/api';
 import { Button } from '../ui/button';
 import { StatusMessage } from '../ui/status-message';
 import { ReferenceSelect } from './ReferenceSelect';
+import { EmployeeBulkUpdateHistory } from './EmployeeBulkUpdateHistory';
 import { resource } from './workforce-paths';
 
 export type WorkforceKind = 'colaboradores' | 'grupos';
@@ -45,7 +46,7 @@ export function WorkforceEditor({
     item && 'internalIdentifier' in item ? (item.internalIdentifier ?? '') : '',
   );
   const [unitId, setUnit] = useState(item?.unitId ?? initialUnitId);
-  const [sectorId, setSector] = useState(item?.sectorId ?? initialSectorId);
+  const [sectorId, setSector] = useState(item?.sectorId ?? (initialUnitId ? initialSectorId : ''));
   const [linkedUserId, setLinkedUser] = useState(
     item && 'linkedUserId' in item ? (item.linkedUserId ?? '') : '',
   );
@@ -126,6 +127,8 @@ export function WorkforceEditor({
   }
   const nameId = employee ? 'employee-name' : 'group-name';
   const nameError = errors.find((field) => field.field === 'name');
+  const unitError = errors.find((field) => field.field === 'unitId');
+  const sectorError = errors.find((field) => field.field === 'sectorId');
   return (
     <section className="surface workforce-editor" aria-labelledby="workforce-editor-title">
       <p className="panel-label">{item ? 'EDITAR CADASTRO' : 'NOVO CADASTRO'}</p>
@@ -179,13 +182,21 @@ export function WorkforceEditor({
                 kind="unit"
                 organizationId={organizationId}
                 value={unitId}
-                initialLabel={item?.unitName}
+                initialLabel={item && unitId === item.unitId ? item.unitName : undefined}
                 label="Unidade do cadastro"
                 onExpire={onExpire}
                 required
+                clearIncompatible={!item}
+                error={unitError?.message}
                 onChange={(value) => {
                   setUnit(value);
                   setSector('');
+                  if (unitError || sectorError)
+                    setErrors((current) =>
+                      current.filter(
+                        (entry) => entry.field !== 'unitId' && entry.field !== 'sectorId',
+                      ),
+                    );
                 }}
               />
               <ReferenceSelect
@@ -194,11 +205,17 @@ export function WorkforceEditor({
                 organizationId={organizationId}
                 unitId={unitId}
                 value={sectorId}
-                initialLabel={item?.sectorName}
+                initialLabel={item && sectorId === item.sectorId ? item.sectorName : undefined}
                 label="Setor do cadastro"
                 onExpire={onExpire}
                 required
-                onChange={setSector}
+                clearIncompatible={!item}
+                error={sectorError?.message}
+                onChange={(value) => {
+                  setSector(value);
+                  if (sectorError)
+                    setErrors((current) => current.filter((entry) => entry.field !== 'sectorId'));
+                }}
               />
             </div>
           ) : (
@@ -243,7 +260,7 @@ export function WorkforceEditor({
           <StatusMessage tone="error">
             <p>{error}</p>
             {errors
-              .filter((field) => field.field !== 'name')
+              .filter((field) => !['name', 'unitId', 'sectorId'].includes(field.field))
               .map((field) => (
                 <p key={field.field}>
                   {field.field}: {field.message}
@@ -260,6 +277,13 @@ export function WorkforceEditor({
           </Button>
         </div>
       </form>
+      {employee && item && (
+        <EmployeeBulkUpdateHistory
+          organizationId={organizationId}
+          employeeId={item.id}
+          onExpire={onExpire}
+        />
+      )}
     </section>
   );
 }
