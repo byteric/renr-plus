@@ -161,10 +161,14 @@ Antes de ampliar o público, revisar o proxy e um limitador distribuído sem des
 ## Falha e retorno à versão anterior
 
 Se login, isolamento, persistência ou checks falharem, não liberar o link.
-Se o serviço já existir, suspender a entrega e voltar ao último commit publicado
-que tenha sido verificado. Não apagar tabelas ou reverter migrações por tentativa.
-Nesta rodada, o schema de negócio não muda: apenas a conexão de migração foi adaptada.
-No primeiro deploy não há versão pública anterior; manter o serviço sem acesso e corrigir antes da entrega.
+Preserve as tabelas e as migrações. Para decidir o retorno, confirme o SHA compatível
+com os dados e as proteções em uso no [procedimento de entrega](ENTREGA_MVP.md#publicação-controlada).
+
+Antes de disponibilizar o cadastro de autenticadores, verifique o deploy com a política
+global em `false` e sem chave configurada. Depois, configure a chave privada e
+valide o fluxo voluntário. Uma vez ativo um fator, ou a política global, o retorno
+precisa preservar a verificação MFA e a mesma chave. Se não houver versão de retorno
+compatível, corrija a versão publicada e mantenha as contas afetadas protegidas.
 
 ## Limites do orçamento
 
