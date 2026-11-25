@@ -320,8 +320,15 @@ test('ID 44 separa consolidado, operações da empresa e recortes revogados em s
   await expect(page.getByRole('heading', { name: 'Consolidado de empresas' })).toBeVisible();
   await expect(page.getByRole('heading', { name })).toBeVisible();
   const summary = page.getByRole('region', { name, exact: true });
-  await expect(summary.getByText('2 empresas no recorte autorizado')).toBeVisible();
+  await expect(summary.getByText('Empresas ativas')).toBeVisible();
   await expect(summary.locator('dd').first()).toHaveText('2');
+  await expect(summary.getByText('Coletas', { exact: true })).toBeVisible();
+  await expect(summary.getByText('Avaliações', { exact: true })).toBeVisible();
+  await expect(summary.getByText('Última atividade auditada')).toBeVisible();
+  await expect(summary.getByText(/0 em atraso/)).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
+    .toBe(true);
   await expect(page.getByRole('heading', { name: first.name })).toBeVisible();
   await expect(page.getByRole('heading', { name: second.name })).toBeVisible();
   await expect(page.getByText(third.name, { exact: true })).toHaveCount(0);
@@ -341,6 +348,8 @@ test('ID 44 separa consolidado, operações da empresa e recortes revogados em s
   await expect(page.getByLabel('Empresa no consolidado')).toHaveValue(second.id);
   await expect(page.getByRole('heading', { name: first.name })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: second.name })).toBeVisible();
+  await expect(page.getByText('Empresa de demonstração', { exact: true })).toBeVisible();
+  await expect(page.getByText('Sem registro auditado', { exact: true })).toBeVisible();
   const groups = companyGroupListSchema.parse(
     await (await page.request.get('/api/v1/company-groups')).json(),
   );
@@ -348,7 +357,9 @@ test('ID 44 separa consolidado, operações da empresa e recortes revogados em s
   expect(groupId).toBeDefined();
   expect(
     (
-      await page.request.get(`/api/v1/company-groups/${groupId}?organizationId=${third.id}`)
+      await page.request.get(
+        `/api/v1/company-groups/${groupId}?view=operational&organizationId=${third.id}`,
+      )
     ).status(),
   ).toBe(404);
   expect(

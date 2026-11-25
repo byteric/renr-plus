@@ -145,9 +145,8 @@ for (const theme of ['light', 'dark'] as const) {
     for (const width of [320, 375, 390, 768, 1280, 1440]) {
       await page.setViewportSize({ width, height: 900 });
       await expect(title).toBeVisible();
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
-        true,
-      );
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+      expect(overflow, `largura de ${width}px`).toBeLessThanOrEqual(0);
     }
     await title.focus();
     await page.keyboard.press('Enter');
