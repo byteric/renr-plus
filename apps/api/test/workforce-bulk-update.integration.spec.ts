@@ -14,11 +14,16 @@ import { fixtureWorkbook } from './workforce-workbook.fixture';
 
 const describeDatabase = process.env.RUN_DB_TESTS === '1' ? describe : describe.skip;
 describeDatabase('Employee bulk updates on local PostgreSQL', () => {
-  const environment = parseEnvironment({ ...process.env, NODE_ENV: 'test' });
+  let environment: ReturnType<typeof parseEnvironment>;
   let app: INestApplication;
   let db: PrismaService;
 
   beforeAll(async () => {
+    environment = parseEnvironment({
+      ...process.env,
+      NODE_ENV: 'test',
+      STORAGE_ENABLED: 'false',
+    });
     localDatabaseUrl(environment.DATABASE_URL);
     const module = await Test.createTestingModule({
       controllers: [WorkforceController],
