@@ -1,9 +1,13 @@
 import { mkdirSync } from 'node:fs';
-import { randomUUID } from 'node:crypto';
+import { randomInt, randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import type { PrismaClient } from '../../apps/api/src/generated/prisma/client';
+import {
+  clientRegistrationSchema,
+  platformClientListSchema,
+} from '../../packages/contracts/src/index';
 import { localDatabaseUrl } from '../../scripts/local-database-url.mjs';
 
 test.use({ trace: 'off', video: 'off', screenshot: 'off' });
@@ -29,6 +33,19 @@ function competenceShift(isoDate: string, deltaMonths: number): string {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
+function randomCnpj() {
+  const base = `${randomInt(10_000_000, 100_000_000)}0001`;
+  const checkDigit = (digits: string) => {
+    const sum = [...digits]
+      .reverse()
+      .reduce((total, digit, index) => total + Number(digit) * (2 + (index % 8)), 0);
+    const remainder = sum % 11;
+    return remainder < 2 ? '0' : String(11 - remainder);
+  };
+  const first = checkDigit(base);
+  return `${base}${first}${checkDigit(base + first)}`;
+}
+
 function loadDatabaseUrl(): string {
   if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
   const dotenv = requireApi('dotenv') as { config: (opts: { path: string }) => void };
@@ -51,8 +68,12 @@ async function prepareId51Scenario(isDesktop: boolean) {
   const today = saoPauloReferenceDate();
   const civilDate = (value: string) => new Date(`${value}T00:00:00.000Z`);
 
-  const devStudioCnpj = isDesktop ? '60701190000104' : '07526557000100';
-  const catalogCnpj = isDesktop ? '27.865.757/0001-02' : '33.000.167/0001-01';
+  const devStudioCnpj = randomCnpj();
+  const catalogCnpjDigits = randomCnpj();
+  const catalogCnpj = catalogCnpjDigits.replace(
+    /^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,
+    '$1.$2.$3/$4-$5',
+  );
 
   const fullOp = {
     id: randomUUID(),
@@ -102,6 +123,7 @@ async function prepareId51Scenario(isDesktop: boolean) {
           { userId: fullOp.id, capability: 'MANAGE_BILLING' },
           { userId: fullOp.id, capability: 'READ_CONTRACT_ACCESS' },
           { userId: fullOp.id, capability: 'MANAGE_CONTRACT_ACCESS' },
+          { userId: fullOp.id, capability: 'READ_SUPPORT' },
           { userId: globalRead.id, capability: 'READ_OVERVIEW' },
           { userId: supportOnly.id, capability: 'READ_COMMERCIAL' },
         ],
@@ -241,7 +263,7 @@ async function prepareId51Scenario(isDesktop: boolean) {
       today,
       password,
       catalogCnpj,
-      catalogCnpjDigits: catalogCnpj.replace(/\D/g, ''),
+      catalogCnpjDigits,
       fullOp,
       globalRead,
       supportOnly,
@@ -272,6 +294,20 @@ async function signIn(page: Page, email: string, password: string, expectOrgSele
   } else {
     await expect(page.getByRole('button', { name: 'Sair', exact: true })).toBeVisible();
   }
+}
+
+async function submitCatalogCompany(form: Locator) {
+  const [response] = await Promise.all([
+    form
+      .page()
+      .waitForResponse(
+        (response) =>
+          response.request().method() === 'POST' &&
+          new URL(response.url()).pathname === '/api/v1/platform/clients',
+      ),
+    form.getByRole('button', { name: 'Salvar empresa no catálogo' }).click(),
+  ]);
+  return response;
 }
 
 test.afterEach(async ({ page }) => {
@@ -336,8 +372,20 @@ test('ID51: valida cadastro CNPJ + grupos, setores/férias RH na ReNR Dev Studio
   await createForm.getByLabel('Nome da empresa').fill(companyName);
   await createForm.getByLabel('CNPJ').fill(scenario.catalogCnpj);
   await createForm.getByLabel('Motivo do cadastro').fill('Cadastro fictício de validação ID 51.');
-  await createForm.getByRole('button', { name: 'Salvar empresa no catálogo' }).click();
-  await expect(page.getByText(new RegExp(`Empresa ${companyName} cadastrada`))).toBeVisible();
+  const createdResponse = await submitCatalogCompany(createForm);
+  expect(createdResponse.status(), 'POST do novo cadastro no catálogo').toBe(201);
+  const created = clientRegistrationSchema.parse(await createdResponse.json());
+  expect(created).toMatchObject({
+    name: companyName,
+    normalizedFiscalIdentifier: scenario.catalogCnpjDigits,
+    clientClassification: 'CLIENT',
+    fiscalState: 'VALID',
+  });
+  await expect(
+    page.getByText(`Empresa ${companyName} cadastrada no catálogo (${scenario.catalogCnpj}).`, {
+      exact: true,
+    }),
+  ).toBeVisible();
 
   // Rejeitar CNPJ duplicado preservando rascunho
   await page.getByRole('button', { name: 'Cadastrar empresa' }).click();
@@ -345,7 +393,8 @@ test('ID51: valida cadastro CNPJ + grupos, setores/férias RH na ReNR Dev Studio
   await dupForm.getByLabel('Nome da empresa').fill(`Duplicada ${scenario.tag}`);
   await dupForm.getByLabel('CNPJ').fill(scenario.catalogCnpjDigits);
   await dupForm.getByLabel('Motivo do cadastro').fill('Teste de bloqueio de CNPJ duplicado.');
-  await dupForm.getByRole('button', { name: 'Salvar empresa no catálogo' }).click();
+  const duplicateResponse = await submitCatalogCompany(dupForm);
+  expect(duplicateResponse.status(), 'POST com CNPJ já cadastrado').toBe(409);
   await expect(dupForm.getByRole('alert')).toContainText(/CNPJ já cadastrado/i);
   await expect(dupForm.getByLabel('Nome da empresa')).toHaveValue(`Duplicada ${scenario.tag}`);
   await page.getByRole('button', { name: 'Fechar cadastro de empresa' }).click();
@@ -370,8 +419,9 @@ test('ID51: valida cadastro CNPJ + grupos, setores/férias RH na ReNR Dev Studio
       `/api/v1/platform/clients?search=${scenario.catalogCnpjDigits}&classification=CLIENT&fiscalState=VALID`,
     );
   expect(clientsRes.status()).toBe(200);
-  const clientsData = (await clientsRes.json()) as { items: { organizationId: string }[] };
-  const targetOrgId = clientsData.items[0]!.organizationId;
+  const clientsData = platformClientListSchema.parse(await clientsRes.json());
+  const targetOrgId = created.organizationId;
+  expect(clientsData.items.map((client) => client.organizationId)).toEqual([targetOrgId]);
 
   const planRes = await page.context().request.post('/api/v1/platform/commercial/plans', {
     headers: { Origin: origin },
@@ -464,7 +514,10 @@ test('ID51: valida cadastro CNPJ + grupos, setores/férias RH na ReNR Dev Studio
       hasText: 'Acesso contratual suspenso',
     }),
   ).toHaveCount(1);
-  await expect(page.getByText(/Aguardando ID 50/)).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Abrir fila de chamados' })).toHaveAttribute(
+    'href',
+    '#/plataforma/chamados',
+  );
 
   if (isDesktop) {
     await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -508,6 +561,7 @@ test('ID51: valida cadastro CNPJ + grupos, setores/férias RH na ReNR Dev Studio
   await expect(page.getByRole('heading', { name: 'Painel comercial' })).toBeVisible();
   await expect(page.getByText(/Restrito aos perfis financeiros concedidos/i)).toBeVisible();
   await expect(page.getByText(/cobranças vencidas em aberto/i)).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Abrir fila de chamados' })).toHaveCount(0);
 
   // === 6. Conferir consulta global somente leitura com READ_OVERVIEW ===
   await signIn(page, scenario.globalRead.email, scenario.password, false);

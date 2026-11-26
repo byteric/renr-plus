@@ -1,10 +1,11 @@
 import { randomBytes } from 'node:crypto';
 import { defineConfig, devices } from '@playwright/test';
 
-export const authTestEnvironment = {
+export const apiTestEnvironment = {
   PASSWORD_RECOVERY_ASSISTED_ENABLED: 'true',
   MFA_ENCRYPTION_KEY: randomBytes(32).toString('base64url'),
   MFA_REQUIRE_GLOBAL_ADMINS: 'false',
+  RISK_COLLABORATION_WRITES_ENABLED: 'true',
 };
 
 export default defineConfig({
@@ -26,7 +27,7 @@ export default defineConfig({
   webServer: [
     {
       command: 'pnpm --filter @renr/api start',
-      env: authTestEnvironment,
+      env: apiTestEnvironment,
       url: 'http://127.0.0.1:3000/api/v1/health',
       reuseExistingServer: !process.env.CI,
       timeout: 60000,
