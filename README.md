@@ -1,46 +1,85 @@
 # ReNR+
 
-Plataforma de apoio à gestão preventiva da NR-01 e de fatores de risco psicossociais
-relacionados ao trabalho, no Programa de Residência Tecnológica do Porto Digital / ReTech+.
+Plataforma web de apoio à gestão preventiva da **NR-01** e de fatores de risco psicossociais relacionados ao trabalho, desenvolvida no Programa de Residência Tecnológica do **Porto Digital** em parceria com a **ReTech+**.
 
-## O que o ReNR+ faz
+O ReNR+ resolve a fragmentação entre coleta, avaliação de riscos e plano de ação ao conectar toda a jornada preventiva em um único histórico rastreável — com controle de acesso por empresa, escopo organizacional e capacidades explícitas.
 
-O ReNR+ reúne o diagnóstico coletivo, o inventário de riscos e o acompanhamento das
-medidas preventivas. O histórico liga cada decisão à coleta, ao método ou à evidência
-que a fundamentou. O acesso a cada área depende da empresa e das permissões do perfil.
+> **Ambiente de demonstração:** [Acessar a homologação do ReNR+](https://renr-plus-homologation.onrender.com)
+>
+> A homologação utiliza apenas dados fictícios e exige login autorizado por perfil. Por rodar no plano gratuito do Render, o primeiro acesso após um período de inatividade pode levar alguns segundos enquanto o serviço inicia.
 
-| Área                    | O que é possível fazer                                                                                                         |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Diagnóstico             | Configurar instrumentos, abrir coletas por convite e consultar resultados coletivos com regras de proteção.                    |
-| Riscos e ações          | Registrar riscos e avaliações, acompanhar responsáveis e prazos, anexar evidências, revisar eficácia e registrar reavaliações. |
-| Painel e auditoria      | Navegar por indicadores, filtrar prioridades e consultar o histórico de registros e alterações.                                |
-| Gestão de Pessoas       | Consultar indicadores e estimativas demonstrativas conforme as permissões de RH.                                               |
-| Plataforma e relatórios | Acompanhar a cobertura por empresa com acesso administrativo e gerar PDFs com os recortes autorizados.                         |
+**Limites de escopo:** o ReNR+ apoia o gerenciamento de condições de trabalho. Não realiza diagnóstico clínico, não funciona como prontuário, não expõe respostas individuais de participantes e não certifica automaticamente conformidade legal. Indicadores e estimativas trabalhistas de Gestão de Pessoas são demonstrativos.
 
-[Acessar a homologação ReNR+](https://renr-plus-homologation.onrender.com).
-O ambiente usa dados fictícios. O acesso às áreas de gestão é autorizado por perfil.
-O primeiro acesso após inatividade pode demorar enquanto o serviço inicia.
+---
 
-O produto apoia o trabalho de prevenção. Diagnósticos clínicos e certificação de
-conformidade ficam fora do escopo. As estimativas trabalhistas são demonstrativas e
-o uso de dados reais de RH depende das validações descritas no guia de operação.
+## O que o MVP entrega
 
-## Documentação
+### Jornada preventiva ponta a ponta
 
-- [Entrega do MVP, critérios P0 e roteiro de demonstração](docs/ENTREGA_MVP.md)
-- [Acessos do piloto por persona, validade e revogação](docs/ACESSOS_PILOTO_ID37.md)
-- [Decisões de SST e RH para o aceite](docs/VALIDACAO_SST_RH.md)
-- [Requisitos do produto](docs/PRD.md)
-- [Gestão de Pessoas, administração da plataforma e relatórios](docs/GESTAO_PESSOAS_PLATAFORMA.md)
-- [Contratos de auditoria](docs/API_AUDITORIA.md) e [indicadores](docs/API_INDICADORES.md)
-- [Guia de ações e evidências](docs/USO_V04_V05.md)
-- [Operação da homologação](docs/DEPLOY_HOMOLOGACAO.md)
-- [Recuperação de acesso](docs/RECUPERACAO_DE_ACESSO_ID52.md) e [verificação em duas etapas](docs/SEGURANCA_DA_CONTA_ID53.md)
+```text
+Cadastros → Instrumentos e coletas → Inventário e avaliações → Ações e evidências → Eficácia, reavaliação e indicadores
+```
 
-## Começar
+| Área                             | O que está disponível hoje                                                                                                                                                                                                                                                  |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Estrutura e cadastros**        | Gestão de empresas, unidades, setores, grupos de avaliação por setor e colaboradores, incluindo atualização em lote com histórico e preservação de registros desativados.                                                                                                   |
+| **Instrumentos e coletas**       | Catálogo versionado de instrumentos, abertura e encerramento de ciclos com política de consolidação, entrega controlada de convites, resposta pública sem conta (`/#/responder` e fluxo legado `/#/participar`) e consolidação coletiva com supressão para grupos pequenos. |
+| **Inventário e avaliações**      | Inventário de riscos ligado à coleta ou origem, métodos e avaliações técnicas versionadas, consulta de colaboração técnica entre SST e Psicologia e histórico contínuo de decisões.                                                                                         |
+| **Ações, evidências e eficácia** | Plano de ação com atribuição a executores autorizados, prazos, anexos privados recuperáveis, pareceres de verificação de eficácia, encerramento técnico e reavaliações sem perda do histórico.                                                                              |
+| **Painel, relatórios e suporte** | Painel gerencial com pendências NR-01, trilha de auditoria, relatórios em PDF no recorte autorizado, chamados internos de atendimento e ajuda contextual (**?**) nas telas operacionais.                                                                                    |
+| **Gestão de Pessoas (RH)**       | Indicadores agregados (perfil, vínculo, férias e estimativas demonstrativas) filtrados por unidade, setor e competência, protegidos por regras de supressão e concessões específicas de RH.                                                                                 |
+| **Plataforma e operação**        | Cadastro fiscal de organizações (CNPJ), grupos de empresas e consolidado multiempresa, catálogo de planos/serviços e contratos versionados, cobranças e pagamentos manuais, controle manual de acesso contratual, painel comercial com alertas e fila global de chamados.   |
 
-Pré-requisitos: **Node.js 24.9 ou superior da série 24**, **pnpm 11** e, para banco/arquivos, **Docker Desktop** com
-engine Linux e Compose V2. Na pasta `renr-plus`:
+### Perfis e visões
+
+O acesso é separado por contexto e verificado no servidor em cada requisição:
+
+- **Visão por empresa:** distingue administrador empresarial (`ADMIN`, integral ou delegado por unidade/setor) e leitor (`READER`). O papel `ADMIN` não concede automaticamente permissões técnicas ou de RH — capacidades como `TECHNICAL_DECISIONS`, `EXECUTE_ASSIGNED_ACTIONS`, `PSYCHOLOGY_COLLABORATION` e permissões granulares de Gestão de Pessoas (`HR_*`) são concedidas explicitamente.
+- **Consulta de grupos de empresas (`#/consolidado`):** visão consolidada somente leitura entre empresas vinculadas a um grupo, liberada mediante concessão específica.
+- **Visão de plataforma (`#/plataforma` e áreas associadas):** escopo global reservado à operação da ReTech+, segmentado por concessões independentes (visão geral, cadastro de clientes/grupos, concessões globais, comercial/contratos, cobranças financeiras, acesso contratual, suporte e recuperação assistida).
+- **Segurança da conta (`#/seguranca-da-conta`):** área individual para gerenciar a verificação em duas etapas quando habilitada no ambiente.
+
+### Recursos condicionados a configuração ou ativação
+
+Os recursos abaixo já estão implementados na `main`, mas permanecem desligados por padrão até configuração de ambiente ou aprovação operacional:
+
+- **Armazenamento privado de evidências e anexos (`STORAGE_ENABLED=true`):** requer endpoint, bucket e credenciais S3 configurados no servidor (`S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`). Desligado por padrão em `apps/api/.env.example` e habilitado na homologação com bucket privado no Supabase.
+- **Verificação em duas etapas — 2FA/TOTP ([guia](docs/SEGURANCA_DA_CONTA_ID53.md)):** o cadastro voluntário de autenticador e a recuperação assistida de MFA só ficam disponíveis com `MFA_ENCRYPTION_KEY` (chave privada estável de 32 bytes em Base64URL) configurada no servidor. A exigência obrigatória para administradores globais (`MANAGE_GRANTS`) começa desativada (`MFA_REQUIRE_GLOBAL_ADMINS=false`) e exige `MFA_ENCRYPTION_KEY` definida.
+- **Recuperação assistida de senha ([guia](docs/RECUPERACAO_DE_ACESSO_ID52.md)):** controlada por `PASSWORD_RECOVERY_ASSISTED_ENABLED=false` por padrão, exigindo aprovação do procedimento de validação de identidade e designação explícita de responsáveis (`ASSIST_COMPANY_PASSWORD_RECOVERY` ou `MANAGE_PASSWORD_RECOVERY`).
+- **Gravação na colaboração técnica SST/Psicologia ([guia](docs/COLABORACAO_SST_PSICOLOGIA_ID56.md)):** a escrita de contribuições permanece desabilitada por padrão (`RISK_COLLABORATION_WRITES_ENABLED=false`) até validação formal das decisões de negócio.
+- **Uso de dados reais de RH em produção:** controlado por `HR_REAL_DATA_ENABLED=false` (com `HR_DEMO_ORGANIZATION_IDS` opcional para recortes demonstrativos) e sujeito às validações descritas em [docs/GESTAO_PESSOAS_PLATAFORMA.md](docs/GESTAO_PESSOAS_PLATAFORMA.md) e [docs/VALIDACAO_SST_RH.md](docs/VALIDACAO_SST_RH.md).
+
+### Fora do MVP e evoluções futuras
+
+Permanecem fora do escopo atual do MVP e planejados apenas como eventuais evoluções futuras:
+
+- diagnóstico clínico, prontuário ocupacional, exposição de respostas individuais e certificação automática de conformidade;
+- cobrança automatizada, gateways de pagamento, bloqueio automático por inadimplência e disparo automático de e-mails transacionais;
+- integrações externas (SSO corporativo, ERP/folha de pagamento), aplicativo nativo e recursos de IA decisória (eventuais integrações futuras de apoio deverão permanecer desacopladas do fluxo manual).
+
+---
+
+## Como rodar localmente
+
+### Pré-requisitos
+
+- **Node.js `24.9.0` ou superior da série 24** (`>=24.9.0 <25`)
+- **pnpm `11.x`** (`packageManager`: `pnpm@11.25.0`)
+- **Docker Desktop** com engine Linux e Compose V2 (para PostgreSQL 17 e MinIO locais)
+
+### Arquivos de ambiente
+
+O repositório fornece três arquivos de exemplo:
+
+- [.env.example](.env.example): credenciais locais do PostgreSQL e do MinIO (`POSTGRES_USER`, `POSTGRES_DB`, `POSTGRES_PASSWORD`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`).
+- [apps/api/.env.example](apps/api/.env.example): porta e host da API (`HOST`, `PORT`), origem permitida (`CORS_ORIGIN`), banco (`DATABASE_URL`), armazenamento S3 (`STORAGE_ENABLED`, `S3_*`), flags de ativação (`PASSWORD_RECOVERY_ASSISTED_ENABLED`, `MFA_REQUIRE_GLOBAL_ADMINS`, `MFA_ENCRYPTION_KEY`) e senha do seed local (`DEMO_PASSWORD`).
+- [apps/web/.env.example](apps/web/.env.example): base da API (`VITE_API_BASE_URL=/api/v1`) e destino do proxy Vite (`API_PROXY_TARGET=http://127.0.0.1:3000`).
+
+O comando `pnpm setup:local` gera `.env`, `apps/api/.env` e `apps/web/.env` a partir desses exemplos com senhas aleatórias, sem sobrescrever arquivos já existentes nem exibir credenciais no terminal.
+
+### Passo a passo
+
+Na raiz do repositório, execute nesta ordem:
 
 ```powershell
 pnpm install --frozen-lockfile
@@ -54,72 +93,20 @@ pnpm db:seed
 pnpm dev
 ```
 
-- Interface: <http://127.0.0.1:5173>
-- Liveness da API: <http://127.0.0.1:3000/api/v1/health>
-- Prontidão do banco: <http://127.0.0.1:3000/api/v1/ready>
-- OpenAPI local: <http://127.0.0.1:3000/api/docs>
+| Serviço                     | Endereço local                        | Observação                                   |
+| --------------------------- | ------------------------------------- | -------------------------------------------- |
+| Interface web (Vite)        | `http://127.0.0.1:5173`               | Faz proxy de `/api` para `API_PROXY_TARGET`. |
+| API — liveness              | `http://127.0.0.1:3000/api/v1/health` | Responde mesmo sem banco ativo.              |
+| API — prontidão             | `http://127.0.0.1:3000/api/v1/ready`  | Retorna `503` sem PostgreSQL acessível.      |
+| API — OpenAPI local         | `http://127.0.0.1:3000/api/docs`      | Disponível apenas fora de produção.          |
+| PostgreSQL 17 (Docker)      | `127.0.0.1:5432`                      | Volume persistente restrito ao host local.   |
+| MinIO S3 / Console (Docker) | `127.0.0.1:9000` / `127.0.0.1:9001`   | Emula o bucket privado `renr-evidence`.      |
 
-Para anexos locais, configure `STORAGE_ENABLED=true` em `apps/api/.env` antes de
-iniciar a API. Confira endpoint/bucket e credenciais S3 preparados pelo setup;
-não altere as configurações da homologação. [Passo a passo](docs/USO_V04_V05.md).
+- **Anexos e evidências locais:** altere `STORAGE_ENABLED=true` em `apps/api/.env` antes de iniciar a API (as credenciais S3 e o bucket `renr-evidence` já são preparados por `pnpm setup:local` e `pnpm infra:verify`).
+- **Contas de demonstração local:** `pnpm db:seed` cria de forma idempotente `admin1@renr.example`, `admin2@renr.example` (empresas distintas) e `reader@renr.example`, usando a senha aleatória gravada em `DEMO_PASSWORD` dentro de `apps/api/.env`. O seed exige banco local e ambiente de desenvolvimento. Nunca versione arquivos `.env`.
+- **Banco e migrações:** use `pnpm db:deploy` para aplicar migrações versionadas sem apagar dados, `pnpm db:migrate --name nome_da_alteracao` para novas migrações em desenvolvimento, `pnpm db:studio` para inspeção local e `pnpm infra:status` / `pnpm infra:down` para controlar os containers.
 
-Frontend e liveness funcionam sem banco, mas login e cadastros precisam de PostgreSQL.
-Sem o banco, `ready` devolve 503; isso não equivale a falha na instalação do código.
-`pnpm setup:local` cria configurações locais
-com senhas aleatórias, sem sobrescrever arquivos existentes ou exibir credenciais.
-
-### Acesso de demonstração
-
-Contas fictícias: `admin1@renr.example`, `admin2@renr.example` e `reader@renr.example`.
-As duas contas de administrador pertencem a empresas diferentes; o leitor pertence
-à primeira. A senha aleatória está no campo `DEMO_PASSWORD` de `apps/api/.env`, criado
-localmente. Não envie esse arquivo ao Git, Trello ou apresentação.
-
-`db:seed` exige banco local e ambiente de desenvolvimento. É idempotente: não substitui
-senhas, cadastros ou vínculos existentes. Não há cadastro público de contas nesta versão.
-
-## Banco e armazenamento
-
-```powershell
-pnpm infra:up
-pnpm infra:verify
-pnpm db:deploy
-pnpm infra:status
-pnpm db:studio
-```
-
-PostgreSQL e MinIO usam volumes persistentes e portas restritas ao computador local.
-Veja [infra/README.md](infra/README.md). MinIO é compilado de fonte oficial fixada.
-Na homologação, PostgreSQL permanece no Neon e o backend usa armazenamento privado
-no Supabase. Credenciais de infraestrutura ficam somente nas variáveis privadas do Render.
-O schema contém a base organizacional, instrumento, pergunta/opção, grupo, ciclo,
-convite, envio, resposta, risco, ficha preliminar, ação, revisão e metadados de evidência.
-As migrações são aditivas e preservam registros existentes.
-O consumo do convite e a persistência do envio ocorrem na mesma transação. A identidade administrativa
-não é ligada à resposta do participante. Isso não representa garantia absoluta de anonimato.
-
-`db:deploy` aplica migrações já versionadas, sem resetar o banco. Ao modificar o schema,
-use `pnpm db:migrate --name nome_da_alteracao` para criar uma nova migração em desenvolvimento.
-Os comandos `infra:*` localizam Docker instalado por usuário ou para toda a máquina no Windows,
-inclusive quando o terminal ainda não recebeu a atualização de PATH.
-`infra:verify` prepara o bucket privado configurado em `S3_BUCKET` e verifica upload,
-leitura e exclusão de um arquivo sintético, sem tocar em objetos existentes.
-
-## Estrutura
-
-```text
-apps/
-  web/                 React + Vite + Tailwind; componentes locais padrão shadcn/ui
-  api/                 NestJS + Prisma; módulos do monólito
-packages/
-  contracts/           Tipos e validações HTTP compartilhados, sem acesso ao banco
-infra/                 PostgreSQL + MinIO em Docker Compose
-tests/e2e/             Testes reais de integração web/API em desktop e mobile
-scripts/               Preparação segura do ambiente
-docs/                  Documentação do produto e equipe
-```
-
-## Qualidade
+### Verificações de qualidade
 
 ```powershell
 pnpm check
@@ -131,153 +118,84 @@ pnpm exec playwright install chromium
 pnpm test:e2e
 ```
 
-Para executar `pnpm check`, instale `pypdf==6.14.2` no ambiente Python que inspeciona
-os PDFs nos testes da API. Se o executável tiver outro nome ou caminho, defina
-`PDF_TEST_PYTHON` antes de executar os testes.
+`pnpm check` gera o cliente Prisma e executa lint, verificação de tipos, testes unitários/HTTP e builds. Os testes da API que inspecionam PDFs exigem Python com `pypdf==6.14.2` (opcionalmente apontado por `PDF_TEST_PYTHON`). `pnpm test:integration` e `pnpm test:migrations` usam PostgreSQL local; `pnpm test:e2e` executa os fluxos desktop e mobile sobre os builds compilados (pare servidores em execução nas portas `3000` e `5173` antes de rodar).
 
-`check` gera Prisma e executa lint, tipos, testes e builds. E2E usa os builds e sobe
-web/API automaticamente. O workflow GitHub Actions executa essas verificações nas PRs e nos pushes
-da `main`, com PostgreSQL e MinIO privados de teste. A versão composta deve passar novamente nos checks antes
-da publicação. `test:integration` exige banco local migrado; E2E exige build e seed.
-Os testes removem ou arquivam apenas seus próprios dados fictícios identificados, sem limpar tabelas
-ou reinicializar volumes. Fichas imutáveis e suas origens sintéticas permanecem na base local.
+---
 
-`test:migrations` cria um banco local temporário exclusivo, verifica migrações e
-seed duas vezes, comprova preservação de dados anteriores até a v0.3 e remove somente suas bases temporárias. Requer permissão local de criação de
-banco e preserva a base de desenvolvimento.
+## Arquitetura
 
-Para novas dependências, atualizar o lockfile usando pnpm. Não editar o lockfile à mão.
-Não publicar `.env`, dados pessoais, respostas reais de colaboradores ou credenciais.
-Veja [resultados e limites da preparação local](docs/VERIFICACAO_V04_V05.md).
+O ReNR+ adota um **monólito modular** em monorepo pnpm:
 
-## Diagnóstico demonstrativo
-
-Administrador acessa **Diagnóstico**, cria ciclo com setor e período, abre e emite convites.
-O participante informa o código em `/#/participar`, sem conta administrativa. Link e código são
-compartilhados separadamente; códigos não entram na URL ou no armazenamento do navegador.
-
-Após encerramento, resultados usam exclusivamente respostas persistidas. Abaixo de cinco envios,
-contagens e distribuições ficam ocultas. Uma opção com contagem positiva inferior a cinco suprime
-toda a distribuição daquela pergunta. O limiar é demonstrativo e precisa de validação antes de coleta real.
-Não existe leitura individual, exportação de respostas ou pontuação de riscos.
-
-- [Critérios específicos](docs/CRITERIOS_DIAGNOSTICO_V02.md)
-- [Contrato HTTP](docs/API_DIAGNOSTICO_V02.md)
-- [Navegação e identidade visual](docs/UX_DIAGNOSTICO_V02.md)
-- [Roteiro de apresentação](docs/APRESENTACAO_V02.md)
-
-## Homologação online
-
-O Render serve o frontend e a API na mesma origem. O PostgreSQL fica no Neon e as
-evidências usam armazenamento privado no Supabase. O serviço acompanha a `main` e
-a publicação é manual, com o SHA aprovado no GitHub.
-
-Antes de publicar, confirme os checks obrigatórios e aplique somente as migrações
-versionadas pendentes pela conexão direta do Neon com TLS verificado. Depois,
-confirme o SHA ativo e faça as verificações públicas e autenticadas do
-[procedimento de entrega](docs/ENTREGA_MVP.md#publicação-controlada). Em caso de falha,
-preserve o banco e siga as condições de [retorno seguro](docs/DEPLOY_HOMOLOGACAO.md#falha-e-retorno-à-versão-anterior).
-
-## Referências de implementação
-
-Os IDs 01 e 02 consolidam a base visual e a política de compatibilidade, sem
-introduzir as funcionalidades seguintes nem mudar o contrato dos módulos atuais.
-Consulte a [fundação visual](docs/FUNDACAO_VISUAL.md), o
-[mapa de contratos e migrações](docs/CONTRATOS_E_COMPATIBILIDADE.md) e a
-[verificação incremental](docs/VERIFICACAO_ID01_ID02.md).
-`pnpm test:ui` verifica apresentação com dados sintéticos; `pnpm test:compatibility`
-ensaia consumidores congelados e retorno de aplicação em PostgreSQL local isolado.
-O segundo comando exige o build atual pronto, Git com o histórico da base v0.3 e
-`DATABASE_URL` local explicitamente fornecida. Não executa contra a nuvem.
-
-## Gestão de acessos — IDs 03 e 04
-
-Gestão de membros, convites individuais de ativação, capacidades explícitas,
-desativação por empresa e histórico com justificativa. ADMIN não recebe poder técnico automaticamente.
-A atribuição de ações a executores é limitada pelas permissões da empresa.
-
-Consulte [operação e limites](docs/ACESSOS_E_ATIVACAO.md),
-[contrato da API](apps/api/src/modules/access/README.md) e
-[verificação local](docs/VERIFICACAO_ID03_ID04.md).
-A disponibilidade desses módulos na homologação depende do commit ativo no Render.
-
-O comando `pnpm test:e2e` usa o build atual e executa desktop/mobile em lotes separados,
-com uma API nova por lote e um worker. Execute build, migração e seed locais antes;
-pare os servidores de desenvolvimento nas portas 3000/5173. Nenhum limite de login é reduzido.
-Filtros e seleção de projeto continuam disponíveis, por exemplo:
-
-```powershell
-pnpm test:e2e tests/e2e/access.spec.ts --project=desktop
+```text
+apps/
+  web/         Interface React + TypeScript + Vite + Tailwind CSS + shadcn/ui
+  api/         API REST NestJS + TypeScript + Prisma ORM (22 módulos de domínio)
+packages/
+  contracts/   Esquemas Zod e tipos HTTP compartilhados entre web e API
+infra/         PostgreSQL 17 e MinIO via Docker Compose para desenvolvimento local
+scripts/       Setup local, seed, verificações de migrações, E2E e startup de produção
+tests/e2e/     Jornadas automatizadas em navegador (desktop e mobile)
+docs/          Especificações, contratos, critérios e guias operacionais
 ```
 
-O perfil compilado evita o grande número de módulos/requests do servidor Vite de desenvolvimento.
-O perfil antigo permanece disponível com `--config=playwright.config.ts` para diagnóstico específico.
+| Camada             | Tecnologia / Serviço                      | Papel no projeto                                                                                                                                                                                                                                                                                                            |
+| ------------------ | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Frontend**       | React, Vite, Tailwind CSS (`apps/web`)    | Interface responsiva com tema claro/escuro e rotas por contexto; em produção é compilada em `apps/web/dist` e servida pela própria API na mesma origem (`SERVE_WEB=true`).                                                                                                                                                  |
+| **API**            | NestJS, TypeScript, Prisma (`apps/api`)   | Regras de negócio, sessões por cookie protegido (`HttpOnly`, `Secure` em produção), controle de acesso por empresa/capacidade, geração de PDFs e API REST em `/api/v1`.                                                                                                                                                     |
+| **Banco de dados** | PostgreSQL 17 no **Neon**                 | Persistência relacional de todo o domínio (38 migrações aditivas em `apps/api/prisma/migrations`). Em produção separa `DATABASE_URL` (conexão com pool para a API) e `DATABASE_URL_UNPOOLED` (conexão direta com `sslmode=verify-full` para `prisma migrate deploy`), com `RUN_MIGRATIONS=false` para aplicação controlada. |
+| **Armazenamento**  | Bucket privado S3 no **Supabase**         | Armazena anexos privados (evidências de ações, documentos contratuais e anexos técnicos) acessados exclusivamente pelo backend via cliente S3 (`STORAGE_ENABLED=true`, `S3_BUCKET=renr-evidence`). Localmente é substituído pelo MinIO em `infra/compose.yaml`.                                                             |
+| **Hospedagem**     | **Render** (`render.yaml` + `Dockerfile`) | Web Service Docker único (`renr-plus-homologation`, plano Free, porta `10000`, health check em `/api/v1/health`), acompanhando a `main` com `autoDeployTrigger: off`, previews desativados e publicação manual do commit aprovado.                                                                                          |
 
-## Cadastros organizacionais — IDs 05 e 06
+---
 
-Cadastro mínimo de colaboradores, vínculo opcional com usuário e gestão dos grupos de avaliação
-existentes, restritos ao administrador da empresa ativa. Busca, filtros e paginação permanecem
-na URL; formulários preservam o rascunho em falhas recuperáveis. Desativação mantém o histórico,
-sem revogar automaticamente acessos nem identificar participantes dos diagnósticos.
+## Documentação
 
-Consulte [operações e critérios de aceite](docs/API_CADASTRO_GRUPOS_ID05.md) e
-[verificação local](docs/VERIFICACAO_ID05_ID06.md). A atribuição de responsáveis a ações
-permanece no ID 13. Consulte o commit ativo no Render para confirmar a disponibilidade online.
+### Produto e operação
 
-## Instrumentos e versões — IDs 07 e 08
+- [Entrega do MVP, critérios e roteiro de demonstração](docs/ENTREGA_MVP.md)
+- [Requisitos do produto (PRD)](docs/PRD.md)
+- [Decisões de SST e RH para validação](docs/VALIDACAO_SST_RH.md)
+- [Guia de ações preventivas e evidências](docs/USO_V04_V05.md)
+- [Gestão de Pessoas, plataforma e relatórios](docs/GESTAO_PESSOAS_PLATAFORMA.md)
+- [Índice completo da documentação](docs/README.md)
 
-Catálogo por empresa em `#/instrumentos`, com rascunhos, perguntas de escolha única,
-múltipla ou ordinal, opções ordenadas e prévia imediata do conteúdo ainda não salvo.
-Reordenação funciona por botões acessíveis; falhas recuperáveis e conflitos preservam
-o rascunho em memória. A prévia não envia nem armazena respostas.
+### Segurança da conta e acessos
 
-Publicação demonstrativa exige ADMIN; uso real exige capacidade técnica explícita
-e referência de aprovação. Publicações preservam o conteúdo; alterações seguem em
-nova versão com IDs próprios de perguntas/opções. Os ciclos antigos mantêm a versão original.
-O editor não atribui pontuação nem comprova validação metodológica.
+- [Verificação em duas etapas (2FA/TOTP)](docs/SEGURANCA_DA_CONTA_ID53.md)
+- [Recuperação assistida de acesso](docs/RECUPERACAO_DE_ACESSO_ID52.md)
+- [Gestão de acessos, convites e capacidades](docs/ACESSOS_E_ATIVACAO.md)
+- [Acessos do piloto por persona, validade e revogação](docs/ACESSOS_PILOTO_ID37.md)
 
-Consulte o [contrato e os limites](docs/API_INSTRUMENTOS_ID07.md) e a
-[verificação local](docs/VERIFICACAO_ID07_ID08.md). Os IDs 09 e 10 acrescentam o fluxo
-de coletas descrito a seguir. A publicação é confirmada pelo commit ativo no Render.
+### Módulos e contratos
 
-## Coletas e consolidação protegida — IDs 09 e 10
+- [Instrumentos versionados](docs/API_INSTRUMENTOS_ID07.md) e [coletas com consolidação protegida](docs/API_COLETAS_ID09.md)
+- [Painel de pendências NR-01](docs/PAINEL_PENDENCIAS_NR01_ID55.md) e [colaboração técnica SST/Psicologia](docs/COLABORACAO_SST_PSICOLOGIA_ID56.md)
+- [Atualização em lote de colaboradores](docs/ATUALIZACAO_COLABORADORES_ID54.md)
+- [Operação comercial (planos e contratos)](docs/API_COMERCIAL_ID45_ID46.md), [cobranças manuais](docs/API_COBRANCAS_ID47.md), [acesso contratual](docs/API_ACESSO_CONTRATUAL_ID48.md) e [painel comercial](docs/PAINEL_COMERCIAL_ID51.md)
+- [Chamados internos e ajuda contextual](docs/CHAMADOS_E_AJUDA_ID50.md)
+- [Contratos de auditoria](docs/API_AUDITORIA.md) e [indicadores](docs/API_INDICADORES.md)
 
-Em `#/coletas`, organize ciclos com um grupo, uma versão publicada de instrumento,
-uma política publicada e um período. O rascunho permite edição; abrir fixa o contexto.
-Encerrar exige confirmação e impede novos envios. O fluxo legado de diagnóstico
-continua separado e mantém seus contratos anteriores.
+### Infraestrutura e homologação
 
-ADMIN prepara ciclos e registra observação, entrevista, oficina ou análise documental
-com contexto coletivo, data, síntese e autoria da sessão. As fontes não contêm campos
-para identificar participantes e podem ser acrescentadas após o encerramento.
-Política real exige limiar explícito, referência de aprovação e capacidade técnica;
-ADMIN, por si só, não concede essa capacidade.
+- [Operação e deploy da homologação (Render, Neon e Supabase)](docs/DEPLOY_HOMOLOGACAO.md)
+- [Infraestrutura local com PostgreSQL e MinIO](infra/README.md)
+- [Contratos e compatibilidade de migrações](docs/CONTRATOS_E_COMPATIBILIDADE.md)
 
-Distribua o endereço `/#/responder` e o código do convite separadamente. O formulário
-público dispensa conta, permite revisão e correção e conserva respostas apenas na memória
-da aba. Após falha de confirmação, o reenvio exato não duplica a resposta. Não coloque
-códigos em URLs, documentos públicos ou capturas.
+---
 
-Resultados e consolidação gerencial distinguem coleta em andamento, ausência de dados,
-resultado disponível e supressão. A mesma política protege ciclos, grupos, unidades e
-totais superiores contra inferência por diferença; contagens representam envios, não
-pessoas únicas. O limiar de demonstração não garante anonimato nem valida uso real.
-Relatórios formais permanecem nos incrementos seguintes. O incremento local dos IDs 11 e 12
-acrescenta avaliação técnica versionada, separada da consolidação e das fichas preliminares.
+## Equipe, governança e licença
 
-Consulte [contratos, segurança e limites](docs/API_COLETAS_ID09.md) e
-[evidências de verificação](docs/VERIFICACAO_ID09_ID10.md).
+Projeto desenvolvido no Programa de Residência Tecnológica do **Porto Digital** com acompanhamento da **ReTech+**. Veja a lista detalhada de perfis em [docs/README.md#equipe](docs/README.md#equipe):
 
-## Equipe e contribuição
+- **Coordenação e integração:** Ricardo Severiano de Souza Filho
+- **Produto e requisitos:** Júlia Oliveira Veríssimo
+- **UX/UI e Figma:** Diogo Silas Woolley do Carmo
+- **Frontend:** Thomaz Barros Costa
+- **Backend e API:** Bruno Sotomayor Martin
+- **Banco de dados e indicadores:** Pedro Iranildo dos Santos Monteiro
+- **Qualidade e DevOps:** Luiz Henrique Rocha Silva
+- **Documentação e validação:** Eliziane Mota de Souza
 
-Consulte [equipe, perfis e branches](docs/README.md#equipe) e [PRD](docs/PRD.md).
-Ricardo coordena a integração; Thomaz/Diogo cuidam de frontend/UX, Bruno de backend,
-Pedro de dados, Luiz de qualidade/ambiente, Júlia de requisitos e Eliziane de documentação.
-Cada integrante trabalha na sua branch. Contribuições passam por pull request e revisão;
-a `main` recebe somente o conjunto aprovado, após CI e a aprovação independente exigida
-pelo repositório. Ricardo coordena a composição e a publicação manual da homologação.
+Cada integrante desenvolve em sua branch. Alterações seguem por pull request com CI e revisão independente válidas; a `main` recebe apenas o conjunto aprovado, com publicação manual controlada na homologação.
 
-## Licença
-
-A licença permanece a definir em decisão conjunta da ReTech+ e dos integrantes estudantes.
-Nenhuma licença de código aberto foi aplicada enquanto essa decisão está pendente.
+**Licença:** permanece a definir em decisão conjunta da ReTech+ e dos integrantes estudantes. Nenhuma licença de código aberto foi aplicada enquanto essa decisão está pendente.
