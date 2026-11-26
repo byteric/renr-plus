@@ -19,6 +19,7 @@ import {
 } from '@renr/contracts';
 import { request, RequestError } from '../lib/api';
 import { Button } from './ui/button';
+import { ContextualHelp } from './ui/contextual-help';
 import { DemoNotice } from './Participation';
 const statusLabels = { DRAFT: 'Rascunho', OPEN: 'Aberto', CLOSED: 'Encerrado' };
 const date = (value: string) => new Date(value).toLocaleString('pt-BR');
@@ -38,11 +39,19 @@ function CycleCreator({
   onExpire: () => void;
 }) {
   const [instrument, setInstrument] = useState<DiagnosticInstrument | null>(null);
+  const [instrumentState, setInstrumentState] = useState<'loading' | 'ready' | 'missing' | 'error'>(
+    'loading',
+  );
+  const [instrumentError, setInstrumentError] = useState('');
   const [units, setUnits] = useState<Unit[]>([]);
+  const [unitsLoading, setUnitsLoading] = useState(true);
+  const [unitsError, setUnitsError] = useState('');
   const [unitId, setUnitId] = useState('');
   const [unitPage, setUnitPage] = useState(1);
   const [unitTotal, setUnitTotal] = useState(0);
   const [sectors, setSectors] = useState<Sector[]>([]);
+  const [sectorsLoading, setSectorsLoading] = useState(false);
+  const [sectorsError, setSectorsError] = useState('');
   const [sectorPage, setSectorPage] = useState(1);
   const [sectorTotal, setSectorTotal] = useState(0);
   const [sectorId, setSectorId] = useState('');
@@ -50,59 +59,115 @@ function CycleCreator({
   const [startsAt, setStartsAt] = useState('');
   const [endsAt, setEndsAt] = useState('');
   const [pending, setPending] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const busy = useRef(false);
   const controller = useRef(new AbortController());
+  const requestSeq = useRef(0);
+  const [trackedOrgId, setTrackedOrgId] = useState(organizationId);
+  if (trackedOrgId !== organizationId) {
+    setTrackedOrgId(organizationId);
+    setInstrument(null);
+    setInstrumentState('loading');
+    setInstrumentError('');
+    setUnits([]);
+    setUnitsLoading(true);
+    setUnitsError('');
+    setUnitId('');
+    setUnitPage(1);
+    setUnitTotal(0);
+    setSectors([]);
+    setSectorsLoading(false);
+    setSectorsError('');
+    setSectorPage(1);
+    setSectorTotal(0);
+    setSectorId('');
+    setName('');
+    setStartsAt('');
+    setEndsAt('');
+    setPending(false);
+    setError('');
+  }
   function changeUnitPage(page: number) {
     setUnitPage(page);
     setUnits([]);
+    setUnitsLoading(true);
+    setUnitsError('');
     setUnitId('');
     setSectorId('');
     setSectors([]);
+    setSectorsLoading(false);
+    setSectorsError('');
     setSectorPage(1);
     setSectorTotal(0);
-    setLoading(true);
   }
   function changeSectorPage(page: number) {
     setSectorPage(page);
     setSectorId('');
     setSectors([]);
+    setSectorsError('');
+    setSectorsLoading(true);
   }
   useEffect(() => {
+    busy.current = false;
     controller.current = new AbortController();
     const current = controller.current;
     return () => current.abort();
-  }, []);
+  }, [organizationId]);
+  useEffect(() => {
+    const current = new AbortController();
+    const seq = ++requestSeq.current;
+    let active = true;
+    void request(
+      `/organizations/${organizationId}/diagnostic-instrument`,
+      diagnosticInstrumentSchema,
+      { signal: current.signal },
+    )
+      .then((value) => {
+        if (!active || requestSeq.current !== seq) return;
+        setInstrument(value);
+        setInstrumentState('ready');
+        setInstrumentError('');
+      })
+      .catch((failure: unknown) => {
+        if (!active || requestSeq.current !== seq) return;
+        if (failure instanceof RequestError && failure.status === 401) {
+          onExpire();
+          return;
+        }
+        setInstrument(null);
+        if (failure instanceof RequestError && failure.status === 404) {
+          setInstrumentState('missing');
+          setInstrumentError('');
+        } else {
+          setInstrumentState('error');
+          setInstrumentError(failureMessage(failure));
+        }
+      });
+    return () => {
+      active = false;
+      current.abort();
+    };
+  }, [organizationId, onExpire]);
   useEffect(() => {
     const current = new AbortController();
     let active = true;
-    void Promise.all([
-      request(
-        `/organizations/${organizationId}/diagnostic-instrument`,
-        diagnosticInstrumentSchema,
-        { signal: current.signal },
-      ),
-      request(
-        `/organizations/${organizationId}/units?page=${unitPage}&pageSize=50`,
-        unitListSchema,
-        { signal: current.signal },
-      ),
-    ])
-      .then(([value, list]) => {
-        if (active) {
-          setInstrument(value);
-          setUnits(list.items);
-          setUnitTotal(list.total);
-          setLoading(false);
-        }
+    void request(
+      `/organizations/${organizationId}/units?page=${unitPage}&pageSize=50`,
+      unitListSchema,
+      { signal: current.signal },
+    )
+      .then((list) => {
+        if (!active) return;
+        setUnits(list.items);
+        setUnitTotal(list.total);
+        setUnitsError('');
+        setUnitsLoading(false);
       })
       .catch((failure: unknown) => {
-        if (active) {
-          setLoading(false);
-          if (failure instanceof RequestError && failure.status === 401) onExpire();
-          else setError(failureMessage(failure));
-        }
+        if (!active) return;
+        setUnitsLoading(false);
+        if (failure instanceof RequestError && failure.status === 401) onExpire();
+        else setUnitsError(failureMessage(failure));
       });
     return () => {
       active = false;
@@ -117,31 +182,35 @@ function CycleCreator({
       signal: current.signal,
     })
       .then((list) => {
-        if (active) {
-          setSectors(list.items);
-          setSectorTotal(list.total);
-        }
+        if (!active) return;
+        setSectors(list.items);
+        setSectorTotal(list.total);
+        setSectorsError('');
+        setSectorsLoading(false);
       })
       .catch((failure: unknown) => {
-        if (active) {
-          if (failure instanceof RequestError && failure.status === 401) onExpire();
-          else setError(failureMessage(failure));
-        }
+        if (!active) return;
+        setSectorsLoading(false);
+        if (failure instanceof RequestError && failure.status === 401) onExpire();
+        else setSectorsError(failureMessage(failure));
       });
     return () => {
       active = false;
       current.abort();
     };
   }, [unitId, sectorPage, onExpire]);
+  const activeUnits = units.filter((u) => u.isActive);
+  const activeSectors = sectors.filter((s) => s.isActive);
+  const loading = unitsLoading || instrumentState === 'loading';
   async function save(event: FormEvent) {
     event.preventDefault();
-    if (busy.current) return;
+    if (busy.current || !instrument) return;
     const start = new Date(startsAt),
       end = new Date(endsAt);
     const parsed = createDiagnosticCycleSchema.safeParse({
       name,
       sectorId,
-      instrumentVersionId: instrument?.id,
+      instrumentVersionId: instrument.id,
       startsAt: Number.isNaN(start.getTime()) ? '' : start.toISOString(),
       endsAt: Number.isNaN(end.getTime()) ? '' : end.toISOString(),
     });
@@ -149,6 +218,7 @@ function CycleCreator({
       setError('Informe nome, setor, início e término posterior ao início.');
       return;
     }
+    const signal = controller.current.signal;
     busy.current = true;
     setPending(true);
     setError('');
@@ -156,16 +226,16 @@ function CycleCreator({
       const value = await request(
         `/organizations/${organizationId}/diagnostic-cycles`,
         diagnosticCycleSchema,
-        { method: 'POST', body: JSON.stringify(parsed.data), signal: controller.current.signal },
+        { method: 'POST', body: JSON.stringify(parsed.data), signal },
       );
-      if (!controller.current.signal.aborted) onCreated(value);
+      if (!signal.aborted) onCreated(value);
     } catch (failure) {
-      if (!controller.current.signal.aborted) {
+      if (!signal.aborted) {
         if (failure instanceof RequestError && failure.status === 401) onExpire();
         else setError(failureMessage(failure));
       }
     } finally {
-      if (!controller.current.signal.aborted) {
+      if (!signal.aborted) {
         busy.current = false;
         setPending(false);
       }
@@ -175,6 +245,23 @@ function CycleCreator({
     <section className="surface editor">
       <h2>Novo ciclo</h2>
       {loading && <p role="status">Carregando instrumento e unidades…</p>}
+      {instrumentState === 'missing' && (
+        <p role="status" className="feedback">
+          Esta empresa ainda não possui instrumento demonstrativo publicado para criação de ciclos.
+          Use a área <a href="#/coletas">Coletas</a> para ciclos com instrumentos versionados ou
+          solicite a publicação do instrumento demonstrativo.
+        </p>
+      )}
+      {instrumentError && (
+        <p role="alert" className="feedback error">
+          {instrumentError}
+        </p>
+      )}
+      {unitsError && (
+        <p role="alert" className="feedback error">
+          {unitsError}
+        </p>
+      )}
       <form noValidate onSubmit={(event) => void save(event)} aria-label="Criar ciclo">
         <label htmlFor="cycle-name">Nome do ciclo</label>
         <input
@@ -189,22 +276,29 @@ function CycleCreator({
           id="cycle-unit"
           value={unitId}
           onChange={(event) => {
-            setUnitId(event.target.value);
+            const nextUnitId = event.target.value;
+            setUnitId(nextUnitId);
             setSectorId('');
             setSectors([]);
+            setSectorsError('');
+            setSectorsLoading(Boolean(nextUnitId));
             setSectorPage(1);
             setSectorTotal(0);
           }}
         >
           <option value="">Selecione uma unidade</option>
-          {units
-            .filter((u) => u.isActive)
-            .map((unit) => (
-              <option key={unit.id} value={unit.id}>
-                {unit.name}
-              </option>
-            ))}
+          {activeUnits.map((unit) => (
+            <option key={unit.id} value={unit.id}>
+              {unit.name}
+            </option>
+          ))}
         </select>
+        {!unitsLoading && !unitsError && activeUnits.length === 0 && (
+          <p role="status" className="feedback">
+            Nenhuma unidade ativa disponível nesta empresa. Cadastre ou ative uma unidade em{' '}
+            <a href="#/unidades">Estrutura</a> para criar ciclos.
+          </p>
+        )}
         {unitTotal > 50 && (
           <div className="pagination">
             <Button
@@ -232,14 +326,23 @@ function CycleCreator({
           onChange={(event) => setSectorId(event.target.value)}
         >
           <option value="">Selecione um setor</option>
-          {sectors
-            .filter((s) => s.isActive)
-            .map((sector) => (
-              <option key={sector.id} value={sector.id}>
-                {sector.name}
-              </option>
-            ))}
+          {activeSectors.map((sector) => (
+            <option key={sector.id} value={sector.id}>
+              {sector.name}
+            </option>
+          ))}
         </select>
+        {sectorsError && (
+          <p role="alert" className="feedback error">
+            {sectorsError}
+          </p>
+        )}
+        {unitId && !sectorsLoading && !sectorsError && activeSectors.length === 0 && (
+          <p role="status" className="feedback">
+            Nenhum setor ativo nesta unidade. Cadastre ou ative um setor em{' '}
+            <a href={`#/unidades/${unitId}/setores`}>Estrutura</a> para continuar.
+          </p>
+        )}
         {sectorTotal > 50 && (
           <div className="pagination">
             <Button
@@ -275,7 +378,11 @@ function CycleCreator({
           required
         />
         <p className="input-hint">
-          Datas no fuso deste dispositivo. Instrumento: {instrument?.title ?? 'carregando'}.
+          Datas no fuso deste dispositivo. Instrumento:{' '}
+          {instrumentState === 'missing'
+            ? 'não publicado nesta empresa'
+            : (instrument?.title ?? 'carregando')}
+          .
         </p>
         {error && (
           <p role="alert" className="feedback error">
@@ -283,7 +390,7 @@ function CycleCreator({
           </p>
         )}
         <div className="form-actions">
-          <Button type="submit" disabled={pending || loading}>
+          <Button type="submit" disabled={pending || loading || !instrument}>
             {pending ? 'Salvando…' : 'Criar ciclo'}
           </Button>
           <Button variant="outline" disabled={pending} onClick={onCancel}>
@@ -461,7 +568,14 @@ function CycleDetail({
       );
       if (!controller.current.signal.aborted) setInstrument(value);
     } catch (failure) {
-      if (!controller.current.signal.aborted) setError(failureMessage(failure));
+      if (!controller.current.signal.aborted) {
+        if (failure instanceof RequestError && failure.status === 401) onExpire();
+        else if (failure instanceof RequestError && failure.status === 404)
+          setError(
+            'Esta empresa não possui instrumento demonstrativo publicado para pré-visualização.',
+          );
+        else setError(failureMessage(failure));
+      }
     }
   }
   async function copy(value: string, label: string) {
@@ -606,8 +720,13 @@ export function Diagnostics({
   onExpire: () => void;
 }) {
   const organizationId = session.activeOrganizationId;
+  const scopeRestricted = organizationId
+    ? session.organizationScopes?.[organizationId] !== undefined
+    : false;
   const canWrite =
+    !scopeRestricted &&
     session.memberships.find((value) => value.organizationId === organizationId)?.role === 'ADMIN';
+  const [trackedOrgId, setTrackedOrgId] = useState(organizationId);
   const [list, setList] = useState<DiagnosticCycleList | null>(null);
   const [selected, setSelected] = useState<string | null>(() => {
     const id = new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('cycleId');
@@ -617,6 +736,14 @@ export function Diagnostics({
   const [page, setPage] = useState(1);
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
+  if (trackedOrgId !== organizationId) {
+    setTrackedOrgId(organizationId);
+    setList(null);
+    setSelected(null);
+    setCreating(false);
+    setPage(1);
+    setError('');
+  }
   useEffect(() => {
     const synchronize = () => {
       const id = new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('cycleId');
@@ -665,7 +792,23 @@ export function Diagnostics({
     );
   return (
     <div className="diagnostic-stack">
-      <DemoNotice />
+      <div className="contextual-help-row">
+        <DemoNotice />
+        <ContextualHelp
+          screen="Diagnóstico demonstrativo"
+          purpose="Aplique ciclos com dados fictícios e consulte os resultados coletivos disponíveis."
+          nextStep={
+            canWrite
+              ? 'Selecione Novo ciclo, indique a unidade e o setor e informe o período de coleta.'
+              : 'Abra um ciclo do seu recorte e consulte sua situação e os resultados disponíveis.'
+          }
+          prerequisites={
+            canWrite
+              ? 'Para criar o ciclo, a empresa precisa de unidade, setor e instrumento demonstrativo ativo. Use Coletas para instrumentos versionados.'
+              : 'A consulta exige acesso à empresa e ao recorte do ciclo. Resultados protegidos continuam indisponíveis.'
+          }
+        />
+      </div>
       {selected ? (
         <CycleDetail
           key={selected}
@@ -682,6 +825,7 @@ export function Diagnostics({
         />
       ) : creating ? (
         <CycleCreator
+          key={organizationId}
           organizationId={organizationId}
           onExpire={onExpire}
           onCancel={() => setCreating(false)}

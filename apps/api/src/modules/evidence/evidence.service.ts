@@ -28,6 +28,7 @@ import { Prisma } from '../../generated/prisma/client';
 import { ActionsRepository, actionInclude, type ActionScope } from '../actions/actions.repository';
 import { assertActionVersion } from '../actions/actions.service';
 import { assertOperationalActor, lockOperationalActor } from '../actions/operational-access';
+import { lockAndAssertContractAccessAllowed } from '../commercial/contract-access';
 import { EvidenceStorage } from './evidence.storage';
 
 export const evidenceInclude = {
@@ -657,6 +658,7 @@ export class EvidenceService {
           include: { scopes: { select: { unitId: true, sectorId: true } } },
         });
         if (!membership?.isActive) throw new NotFoundException();
+        await lockAndAssertContractAccessAllowed(tx, organizationId);
         await this.repository.get(
           tx,
           organizationId,

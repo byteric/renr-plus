@@ -158,7 +158,177 @@ export const managementIndicatorHistorySchema = z
       .max(90),
   })
   .strict();
+export const nr01PendencyStatusSchema = z.enum([
+  'PENDING',
+  'IN_PROGRESS',
+  'AWAITING_VALIDATION',
+  'NEEDS_REVIEW',
+  'COMPLETED',
+]);
+export const nr01PendencyOriginSchema = z.enum(['RISK', 'ACTION']);
+export const nr01PendencyRuleSchema = z.enum([
+  'ACTION_OVERDUE',
+  'ACTION_MISSING_EVIDENCE',
+  'ACTION_PLANNED',
+  'ACTION_AWAITING_EFFICACY',
+  'ACTION_AWAITING_CLOSURE',
+  'ACTION_EFFICACY_REVIEW_REQUIRED',
+  'ACTION_EFFICACY_FOLLOW_UP',
+  'ACTION_CLOSURE_REVIEW_REQUIRED',
+  'ACTION_ASSIGNEE_INACTIVE',
+  'ACTION_ORIGIN_CHANGED',
+  'RISK_DRAFT',
+  'RISK_WITHOUT_ACTION',
+  'RISK_AWAITING_EVALUATION',
+  'RISK_EVALUATION_REVIEW_REQUIRED',
+  'ORIGIN_INACTIVE',
+]);
+export const nr01PendenciesQuerySchema = z
+  .object({
+    ...filter,
+    status: nr01PendencyStatusSchema.optional(),
+    rule: nr01PendencyRuleSchema.optional(),
+    origin: nr01PendencyOriginSchema.optional(),
+    page: z.coerce.number().int().min(1).max(10000).default(1),
+    pageSize: z.coerce.number().int().min(1).max(50).default(10),
+  })
+  .strict();
+export const nr01PendencyItemSchema = z
+  .object({
+    id: z.string().regex(/^(risk|action):[0-9a-f-]{36}$/i),
+    origin: nr01PendencyOriginSchema,
+    originId: z.uuid(),
+    riskId: z.uuid(),
+    actionId: z.uuid().nullable(),
+    title: z.string().min(1),
+    contextLabel: z.string().min(1),
+    unit: named,
+    sector: named,
+    status: nr01PendencyStatusSchema,
+    primaryRule: nr01PendencyRuleSchema.nullable(),
+    rules: z.array(nr01PendencyRuleSchema),
+    reasonSummary: z.string().min(1),
+    missingInfo: z.array(z.string().min(1)),
+    dueDate: z.iso.date().nullable(),
+    isOverdue: z.boolean(),
+    responsible: z
+      .object({
+        name: z.string().min(1),
+        kind: z.enum(['USER', 'EXTERNAL']),
+        isActive: z.boolean(),
+      })
+      .strict()
+      .nullable(),
+    evidence: z
+      .object({
+        activeCount: count,
+        archivedCount: count,
+      })
+      .strict()
+      .nullable(),
+    updatedAt: z.iso.datetime(),
+  })
+  .strict()
+  .refine(
+    (item) =>
+      new Set(item.rules).size === item.rules.length &&
+      (item.primaryRule === null || item.rules.includes(item.primaryRule)) &&
+      (item.origin === 'ACTION'
+        ? item.actionId === item.originId && item.evidence !== null
+        : item.actionId === null && item.riskId === item.originId && item.evidence === null),
+  );
+export const nr01PendenciesSchema = z
+  .object({
+    organizationId: z.uuid(),
+    organization: named.extend({ isActive: z.boolean() }).strict(),
+    generatedAt: z.iso.datetime(),
+    referenceDate: z.iso.date(),
+    timeZone: actionTimeZoneSchema,
+    ruleSet: z
+      .object({
+        version: z.literal('nr01-operational-v1'),
+        validationStatus: z.literal('OPERATIONAL_FIRST_CUT'),
+        scopeNote: z.string().min(1),
+      })
+      .strict(),
+    filters: z
+      .object({
+        unitId: z.uuid().nullable(),
+        sectorId: z.uuid().nullable(),
+        status: nr01PendencyStatusSchema.nullable(),
+        rule: nr01PendencyRuleSchema.nullable(),
+        origin: nr01PendencyOriginSchema.nullable(),
+      })
+      .strict(),
+    summary: z
+      .object({
+        total: count,
+        openPendencies: count,
+        byStatus: z
+          .object({
+            PENDING: count,
+            IN_PROGRESS: count,
+            AWAITING_VALIDATION: count,
+            NEEDS_REVIEW: count,
+            COMPLETED: count,
+          })
+          .strict(),
+        byOrigin: z
+          .object({
+            RISK: count,
+            ACTION: count,
+          })
+          .strict(),
+        signals: z
+          .object({
+            overdueActions: count,
+            missingEvidence: count,
+            risksWithoutAction: count,
+            awaitingEvaluationOrValidation: count,
+            needsReview: count,
+          })
+          .strict(),
+      })
+      .strict()
+      .refine(
+        (summary) =>
+          summary.total ===
+            summary.byStatus.PENDING +
+              summary.byStatus.IN_PROGRESS +
+              summary.byStatus.AWAITING_VALIDATION +
+              summary.byStatus.NEEDS_REVIEW +
+              summary.byStatus.COMPLETED &&
+          summary.total === summary.byOrigin.RISK + summary.byOrigin.ACTION &&
+          summary.openPendencies === summary.total - summary.byStatus.COMPLETED &&
+          summary.signals.overdueActions <= summary.byOrigin.ACTION &&
+          summary.signals.missingEvidence <= summary.byOrigin.ACTION &&
+          summary.signals.risksWithoutAction <= summary.byOrigin.RISK &&
+          summary.signals.awaitingEvaluationOrValidation === summary.byStatus.AWAITING_VALIDATION &&
+          summary.signals.needsReview === summary.byStatus.NEEDS_REVIEW,
+      ),
+    page: z.number().int().positive(),
+    pageSize: z.number().int().positive(),
+    total: count,
+    items: z.array(nr01PendencyItemSchema),
+  })
+  .strict()
+  .refine(
+    (value) =>
+      value.organization.id === value.organizationId &&
+      new Set(value.items.map((item) => item.id)).size === value.items.length &&
+      (value.filters.status !== null || value.filters.rule !== null || value.filters.origin !== null
+        ? value.total <= value.summary.total
+        : value.total === value.summary.total) &&
+      value.items.length ===
+        Math.max(0, Math.min(value.pageSize, value.total - (value.page - 1) * value.pageSize)),
+  );
 export type ManagementIndicators = z.infer<typeof managementIndicatorsSchema>;
 export type ManagementIndicatorsQuery = z.infer<typeof managementIndicatorsQuerySchema>;
 export type ManagementIndicatorHistory = z.infer<typeof managementIndicatorHistorySchema>;
 export type ManagementIndicatorHistoryQuery = z.infer<typeof managementIndicatorHistoryQuerySchema>;
+export type Nr01PendencyStatus = z.infer<typeof nr01PendencyStatusSchema>;
+export type Nr01PendencyOrigin = z.infer<typeof nr01PendencyOriginSchema>;
+export type Nr01PendencyRule = z.infer<typeof nr01PendencyRuleSchema>;
+export type Nr01PendenciesQuery = z.infer<typeof nr01PendenciesQuerySchema>;
+export type Nr01PendencyItem = z.infer<typeof nr01PendencyItemSchema>;
+export type Nr01Pendencies = z.infer<typeof nr01PendenciesSchema>;

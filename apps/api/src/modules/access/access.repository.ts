@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
+import { assertContractAccessAllowed } from '../commercial/contract-access';
 
 export type AccessScope = { userId: string; organizationId: string };
 export type AccessTransaction = Prisma.TransactionClient;
@@ -42,6 +43,7 @@ export class AccessRepository {
   async administrator(tx: AccessTransaction, scope: AccessScope): Promise<void> {
     const member = await tx.membership.findUnique({ where: { userId_organizationId: scope } });
     if (!member?.isActive) throw new NotFoundException();
+    await assertContractAccessAllowed(tx, scope.organizationId);
     if (member.role !== 'ADMIN' || member.scopeRestricted) throw new ForbiddenException();
   }
 

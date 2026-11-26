@@ -3,11 +3,19 @@ import type { SessionResponse, Capability, PlatformCapability } from '@renr/cont
 import { Button } from './ui/button';
 import { Sheet, SheetTrigger, SheetContent, SheetTitle, SheetDescription } from './ui/sheet';
 import { hasPeopleAccess } from '../lib/people-permissions';
+import {
+  hasCommercialAccess,
+  hasPlatformAdministration,
+  hasSupportAccess,
+} from '../lib/commercial-permissions';
 import './workspace-navigation.css';
 
 function destinationPage(path: string) {
   if (path === 'plataforma/relatorios') return 'platform-reports';
   if (path === 'plataforma/grupos') return 'platform-groups';
+  if (path === 'plataforma/comercial') return 'platform-commercial';
+  if (path === 'plataforma/chamados') return 'platform-support';
+  if (path === 'plataforma/recuperacao') return 'platform-recovery';
   return path.split('/')[0];
 }
 
@@ -39,7 +47,17 @@ export function WorkspaceNavigation({
     (value) => value.organizationId === session.activeOrganizationId,
   );
   const isPlatformRoute =
-    route === 'plataforma' || route === 'platform-reports' || route === 'platform-groups';
+    route === 'plataforma' ||
+    route === 'platform-reports' ||
+    route === 'platform-groups' ||
+    route === 'platform-support' ||
+    route === 'platform-recovery' ||
+    route === 'platform-commercial';
+  const canReadCommercial = hasCommercialAccess(platformCapabilities);
+  const canOpenAdministration = hasPlatformAdministration(platformCapabilities);
+  const canManageRecovery =
+    platformCapabilities.includes('MANAGE_PASSWORD_RECOVERY') ||
+    platformCapabilities.includes('RECOVER_ACCOUNT_MFA');
   const isGroupRoute = route === 'consolidado';
   const isCompanyRoute = !isPlatformRoute && !isGroupRoute;
   const delegated = session.activeOrganizationId
@@ -91,6 +109,7 @@ export function WorkspaceNavigation({
           ? ([
               ['acessos', 'Acessos'],
               ['auditoria', 'Auditoria'],
+              ['chamados', 'Chamados'],
             ] as const)
           : []),
       ],
@@ -98,7 +117,7 @@ export function WorkspaceNavigation({
     {
       label: 'Plataforma',
       destinations: [
-        ...(platformCapabilities.length
+        ...(canOpenAdministration
           ? ([['plataforma', 'Administração da plataforma']] as const)
           : []),
         ...(platformCapabilities.includes('READ_OVERVIEW')
@@ -107,6 +126,13 @@ export function WorkspaceNavigation({
         ...(platformCapabilities.includes('MANAGE_CLIENTS') ||
         platformCapabilities.includes('MANAGE_GRANTS')
           ? ([['plataforma/grupos', 'Gerenciar grupos de empresas']] as const)
+          : []),
+        ...(canReadCommercial ? ([['plataforma/comercial', 'Comercial']] as const) : []),
+        ...(hasSupportAccess(platformCapabilities)
+          ? ([['plataforma/chamados', 'Atendimento de chamados']] as const)
+          : []),
+        ...(canManageRecovery
+          ? ([['plataforma/recuperacao', 'Recuperação de acesso']] as const)
           : []),
       ],
     },
@@ -132,8 +158,18 @@ export function WorkspaceNavigation({
           session.memberships.length > 0 &&
           destination(['painel', 'Voltar à empresa ativa'], true)}
         {!isPlatformRoute &&
-          platformCapabilities.length > 0 &&
-          destination(['plataforma', 'Abrir Plataforma'], true)}
+          (canReadCommercial || canOpenAdministration || canManageRecovery) &&
+          destination(
+            [
+              canOpenAdministration
+                ? 'plataforma'
+                : canReadCommercial
+                  ? 'plataforma/comercial'
+                  : 'plataforma/recuperacao',
+              'Abrir Plataforma',
+            ],
+            true,
+          )}
         {session.hasCompanyGroups && destination(['consolidado', 'Consolidado de empresas'], true)}
         {groups.map(({ label, destinations }, index) => {
           if (
@@ -185,8 +221,18 @@ export function WorkspaceNavigation({
       <div className="context">
         {isPlatformRoute ? (
           <div>
-            <p className="panel-label">{scopeLabel}</p>
-            <p>Escopo global da plataforma</p>
+            <p className="panel-label">
+              {route === 'platform-commercial'
+                ? 'Acesso Comercial'
+                : route === 'platform-recovery'
+                  ? 'Recuperação assistida'
+                  : scopeLabel}
+            </p>
+            <p>
+              {route === 'platform-commercial'
+                ? 'Área comercial da plataforma'
+                : 'Escopo global da plataforma'}
+            </p>
           </div>
         ) : isGroupRoute ? (
           <div>

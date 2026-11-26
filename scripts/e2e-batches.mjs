@@ -9,12 +9,14 @@ export function e2eBatches(args) {
   if (!args.length)
     return ['desktop', 'mobile'].flatMap((project) => {
       const shared = [...base, `--project=${project}`];
+      const shardCount = 4;
       return [
-        ...[1, 2].map((shard) => [
+        ...Array.from({ length: shardCount }, (_, index) => [
           ...shared,
-          `--shard=${shard}/2`,
+          '--fully-parallel',
+          `--shard=${index + 1}/${shardCount}`,
           '--grep-invert=@personas',
-          `--output=test-results/e2e-${project}-${shard}`,
+          `--output=test-results/e2e-${project}-${index + 1}`,
         ]),
         [...shared, '--grep=@personas', `--output=test-results/e2e-${project}-personas`],
       ];

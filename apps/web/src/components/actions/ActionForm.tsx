@@ -215,7 +215,12 @@ export function ActionForm({
               </details>
               {!allowedOrigin && (
                 <p role="alert">
-                  Risco arquivado, rascunho ou contexto inativo: novas ações indisponíveis.
+                  {risk.data.status === 'DRAFT'
+                    ? 'Risco em rascunho: registre o risco no inventário antes de criar uma ação preventiva.'
+                    : risk.data.status === 'ARCHIVED'
+                      ? 'Risco arquivado: novas ações preventivas estão indisponíveis.'
+                      : 'Unidade ou setor inativo: reative a estrutura antes de criar uma ação preventiva.'}{' '}
+                  <a href="#/inventario?status=REGISTERED&page=1">Escolher risco registrado</a>
                 </p>
               )}
             </>

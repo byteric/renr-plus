@@ -59,8 +59,18 @@ export function RiskWorkspace({
     });
     return () => window.cancelAnimationFrame(frame);
   }, [id]);
+  const scopeRestricted = organizationId
+    ? session.organizationScopes?.[organizationId] !== undefined
+    : false;
   const canWrite =
+    !scopeRestricted &&
     session.memberships.find((entry) => entry.organizationId === organizationId)?.role === 'ADMIN';
+  const canEvaluate =
+    !scopeRestricted &&
+    capabilities.data?.organizationId === organizationId &&
+    capabilities.data.capabilities.includes('TECHNICAL_DECISIONS') === true;
+  const canCreateAction = !scopeRestricted && (canWrite || canEvaluate);
+  const capabilitiesLoading = !canWrite && !scopeRestricted && capabilities.loading;
   if (!organizationId)
     return (
       <div className="surface empty-state">
@@ -120,11 +130,11 @@ export function RiskWorkspace({
             organizationId={organizationId}
             id={id}
             canWrite={canWrite}
+            canCreateAction={canCreateAction}
+            scopeRestricted={scopeRestricted}
+            capabilitiesLoading={capabilitiesLoading}
             onChanged={() => setRevision((value) => value + 1)}
-            canEvaluate={
-              capabilities.data?.organizationId === organizationId &&
-              capabilities.data.capabilities.includes('TECHNICAL_DECISIONS') === true
-            }
+            canEvaluate={canEvaluate}
             query={query}
             onExpire={onExpire}
           />

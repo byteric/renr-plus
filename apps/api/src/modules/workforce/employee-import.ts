@@ -7,6 +7,7 @@ import {
 } from '@renr/contracts';
 import { PrismaService } from '../../database/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
+import { lockAndAssertContractAccessAllowed } from '../commercial/contract-access';
 import { readEmployeeWorkbook, type EmployeeWorkbookRow } from './employee-workbook';
 
 type Scope = { userId: string; organizationId: string };
@@ -40,6 +41,7 @@ async function classify(
     select: { role: true },
   });
   if (!member) throw new NotFoundException();
+  await lockAndAssertContractAccessAllowed(tx, organizationId);
   if (member.role !== 'ADMIN') throw new ForbiddenException();
 
   const identifiers = new Map<string, number>();

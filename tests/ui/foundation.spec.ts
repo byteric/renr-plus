@@ -190,6 +190,17 @@ async function openWorkspace(
       });
     } else if (path.endsWith(`/risk-workspaces/${risk.id}/reassessments`)) {
       await route.fulfill({ json: { items: [], total: 0, page: 1, pageSize: 20 } });
+    } else if (path.endsWith(`/risks/${risk.id}/technical-contributions`)) {
+      await route.fulfill({
+        json: {
+          writesEnabled: false,
+          viewerSpecialties: [],
+          items: [],
+          total: 0,
+          page: 1,
+          pageSize: 50,
+        },
+      });
     } else if (
       path.endsWith(`/risks/${risk.id}/evaluations`) ||
       path.endsWith(`/risk-workspaces/${risk.id}/technical-evaluations`)

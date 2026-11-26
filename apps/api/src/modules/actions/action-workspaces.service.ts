@@ -331,7 +331,12 @@ export class ActionWorkspacesService {
         where: { id: scope.organizationId },
         select: { isActive: true },
       });
-      if (!actor?.isActive || actor.role !== 'ADMIN' || !org?.isActive)
+      if (
+        !actor?.isActive ||
+        actor.scopeRestricted ||
+        !org?.isActive ||
+        (actor.role !== 'ADMIN' && !actor.capabilities.includes('TECHNICAL_DECISIONS'))
+      )
         throw new ForbiddenException();
       const where = {
         organizationId: scope.organizationId,

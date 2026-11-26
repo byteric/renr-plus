@@ -264,6 +264,18 @@ main {
   flex-wrap: wrap;
   align-items: center;
 }
+.account-security-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 4px;
+  color: var(--foreground);
+  font-size: var(--font-label);
+  text-underline-offset: 0.2em;
+}
+.account-security-link[aria-current='page'] {
+  font-weight: 700;
+}
 .surface {
   background: var(--card);
   border: 1px solid var(--border);
@@ -679,6 +691,16 @@ form > button,
   .header-actions {
     gap: 6px;
     justify-content: flex-end;
+    flex-wrap: nowrap;
+  }
+  .site-header .header-actions > button {
+    white-space: nowrap;
+  }
+  .account-security-link {
+    justify-content: center;
+    font-size: 12px;
+    text-align: center;
+    line-height: 1.25;
   }
   .site-header {
     align-items: flex-start;
@@ -1018,6 +1040,35 @@ button:focus-visible,
 }
 .panel-label {
   line-height: 1.5;
+}
+.suspended-orgs-panel {
+  display: grid;
+  gap: 12px;
+  border-inline-start: 4px solid var(--destructive);
+}
+.suspended-orgs-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.suspended-orgs-list > li {
+  display: grid;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.suspended-orgs-list > li:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+.suspended-orgs-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
 }
 @media (min-width: 751px) {
   .login-panel {

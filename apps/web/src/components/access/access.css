@@ -119,6 +119,20 @@
   font-size: var(--font-title);
   letter-spacing: -0.03em;
 }
+.recovery-card > .status-message,
+.recovery-issue > .status-message,
+.recovery-issue > .access-actions {
+  margin-block-start: var(--space-4);
+}
+.recovery-card .recovery-back {
+  margin-block-start: var(--space-4);
+  margin-block-end: 0;
+}
+.recovery-issue .recovery-secret {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
 @media (max-width: 600px) {
   .access-record {
     flex-direction: column;

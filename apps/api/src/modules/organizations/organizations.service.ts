@@ -11,6 +11,7 @@ import type {
 import { PrismaService } from '../../database/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
 import { fiscalFields, legacyOrganizationSelect } from '../platform/platform.service';
+import { notContractuallySuspendedWhere } from '../commercial/contract-access';
 import {
   sectorDelegation,
   unitDelegation,
@@ -53,8 +54,9 @@ export class OrganizationsService {
     });
   }
   async organizations(userId: string, pagination: Page) {
-    const where = {
+    const where: Prisma.OrganizationWhereInput = {
       memberships: { some: { userId, isActive: true } },
+      ...notContractuallySuspendedWhere,
       isActive: pagination.isActive,
       ...(pagination.search
         ? { name: { contains: pagination.search, mode: 'insensitive' as const } }

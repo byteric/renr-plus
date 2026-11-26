@@ -57,6 +57,7 @@ const labels: Record<string, string> = {
   EMPLOYEE_CREATE: 'Colaborador cadastrado',
   EMPLOYEE_UPDATE: 'Cadastro de colaborador atualizado',
   EMPLOYEE_IMPORT: 'Colaboradores importados',
+  EMPLOYEE_BULK_UPDATE: 'Cadastros de colaboradores atualizados em lote',
   ASSESSMENT_GROUP_CREATE: 'Grupo de avaliação criado',
   ASSESSMENT_GROUP_UPDATE: 'Grupo de avaliação atualizado',
   DIAGNOSTIC_CYCLE_CREATE: 'Ciclo diagnóstico criado',

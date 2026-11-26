@@ -2,10 +2,11 @@
 
 O painel usa dois endpoints de leitura privada na organização ativa. A resposta é validada pelos contratos em `packages/contracts/src/management-indicators.ts`. Ambas as rotas exigem sessão, vínculo ativo e escopo da empresa selecionada, com `Cache-Control: private, no-store`.
 
-| Rota                                                   | Parâmetros                                                  | Retorno                                                        |
-| ------------------------------------------------------ | ----------------------------------------------------------- | -------------------------------------------------------------- |
-| `GET /organizations/:id/management-indicators`         | `unitId`, `sectorId`, `page` opcionais                      | Retrato atual, opções de filtro e cinco prioridades por página |
-| `GET /organizations/:id/management-indicators/history` | `unitId` e `sectorId` opcionais, `from` e `to` obrigatórios | Eventos diários em intervalo civil inclusivo de até 90 dias    |
+| Rota                                                           | Parâmetros                                                                     | Retorno                                                                    |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| `GET /organizations/:id/management-indicators`                 | `unitId`, `sectorId`, `page` opcionais                                         | Retrato atual, opções de filtro e cinco prioridades por página             |
+| `GET /organizations/:id/management-indicators/history`         | `unitId` e `sectorId` opcionais, `from` e `to` obrigatórios                    | Eventos diários em intervalo civil inclusivo de até 90 dias                |
+| `GET /organizations/:id/management-indicators/nr01-pendencies` | `unitId`, `sectorId`, `status`, `rule`, `origin`, `page`, `pageSize` opcionais | Projeção operacional de pendências da NR-01 deduplicada por origem (ID 55) |
 
 Setor sem unidade implica a unidade à qual ele pertence. Combinação incompatível ou data inválida retorna 400. Uma organização, unidade ou setor fora do escopo retorna 404. Leitores recebem `structure.employees: null`. A API retorna o recorte efetivo, o fuso e o instante de geração. O retrato também informa a data civil usada para verificar prazos.
 

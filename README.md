@@ -35,6 +35,7 @@ o uso de dados reais de RH depende das validações descritas no guia de operaç
 - [Contratos de auditoria](docs/API_AUDITORIA.md) e [indicadores](docs/API_INDICADORES.md)
 - [Guia de ações e evidências](docs/USO_V04_V05.md)
 - [Operação da homologação](docs/DEPLOY_HOMOLOGACAO.md)
+- [Recuperação de acesso](docs/RECUPERACAO_DE_ACESSO_ID52.md) e [verificação em duas etapas](docs/SEGURANCA_DA_CONTA_ID53.md)
 
 ## Começar
 
@@ -175,7 +176,7 @@ Antes de publicar, confirme os checks obrigatórios e aplique somente as migraç
 versionadas pendentes pela conexão direta do Neon com TLS verificado. Depois,
 confirme o SHA ativo e faça as verificações públicas e autenticadas do
 [procedimento de entrega](docs/ENTREGA_MVP.md#publicação-controlada). Em caso de falha,
-volte ao último deploy verificado e preserve o banco.
+preserve o banco e siga as condições de [retorno seguro](docs/DEPLOY_HOMOLOGACAO.md#falha-e-retorno-à-versão-anterior).
 
 ## Referências de implementação
 

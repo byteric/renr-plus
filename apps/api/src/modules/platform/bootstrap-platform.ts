@@ -1,5 +1,5 @@
 import { parseArgs } from 'node:util';
-import { platformCapabilitySchema } from '@renr/contracts';
+import type { PlatformCapability } from '@renr/contracts';
 import { z } from 'zod';
 import { parseEnvironment } from '../../config/env';
 import { PrismaService } from '../../database/prisma.service';
@@ -25,7 +25,7 @@ export async function bootstrapPlatform(
     }
     const subject = await tx.user.findUnique({ where: { id: userId }, select: { id: true } });
     if (!subject) throw new Error('Conta de destino indisponível.');
-    const capabilities = [...platformCapabilitySchema.options];
+    const capabilities: PlatformCapability[] = ['READ_OVERVIEW', 'MANAGE_CLIENTS', 'MANAGE_GRANTS'];
     if (apply) {
       await tx.platformGrant.createMany({
         data: capabilities.map((capability) => ({ userId, capability })),

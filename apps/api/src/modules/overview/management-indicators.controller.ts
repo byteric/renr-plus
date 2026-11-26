@@ -5,6 +5,8 @@ import {
   managementIndicatorHistorySchema,
   managementIndicatorsQuerySchema,
   managementIndicatorsSchema,
+  nr01PendenciesQuerySchema,
+  nr01PendenciesSchema,
 } from '@renr/contracts';
 import type { Request } from 'express';
 import { z } from 'zod';
@@ -43,5 +45,17 @@ export class ManagementIndicatorsController {
   async history(@Req() request: Request, @Param('id') id: string, @Query() query: unknown) {
     const scope = await this.identity.scope(request, parse(z.uuid(), id), false, undefined, true);
     return this.indicators.history(scope, parse(managementIndicatorHistoryQuerySchema, query));
+  }
+
+  @Get('nr01-pendencies')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiOperation({
+    summary:
+      'Operational NR-01 pendencies projection derived from recorded risks, actions, evidence and technical reviews.',
+  })
+  @ApiResponse({ status: 200, schema: documentation(nr01PendenciesSchema) })
+  async nr01Pendencies(@Req() request: Request, @Param('id') id: string, @Query() query: unknown) {
+    const scope = await this.identity.scope(request, parse(z.uuid(), id), false, undefined, true);
+    return this.indicators.nr01Pendencies(scope, parse(nr01PendenciesQuerySchema, query));
   }
 }

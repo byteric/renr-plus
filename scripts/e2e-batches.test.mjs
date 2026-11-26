@@ -2,55 +2,29 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { e2eBatches } from './e2e-batches.mjs';
 
-test('isolates persona logins from the normal desktop and mobile batches', () => {
-  assert.deepEqual(e2eBatches([]), [
-    [
-      'test',
-      '--config=playwright.production.config.ts',
-      '--project=desktop',
-      '--shard=1/2',
-      '--grep-invert=@personas',
-      '--output=test-results/e2e-desktop-1',
-    ],
-    [
-      'test',
-      '--config=playwright.production.config.ts',
-      '--project=desktop',
-      '--shard=2/2',
-      '--grep-invert=@personas',
-      '--output=test-results/e2e-desktop-2',
-    ],
-    [
-      'test',
-      '--config=playwright.production.config.ts',
-      '--project=desktop',
-      '--grep=@personas',
-      '--output=test-results/e2e-desktop-personas',
-    ],
-    [
-      'test',
-      '--config=playwright.production.config.ts',
-      '--project=mobile',
-      '--shard=1/2',
-      '--grep-invert=@personas',
-      '--output=test-results/e2e-mobile-1',
-    ],
-    [
-      'test',
-      '--config=playwright.production.config.ts',
-      '--project=mobile',
-      '--shard=2/2',
-      '--grep-invert=@personas',
-      '--output=test-results/e2e-mobile-2',
-    ],
-    [
-      'test',
-      '--config=playwright.production.config.ts',
-      '--project=mobile',
-      '--grep=@personas',
-      '--output=test-results/e2e-mobile-personas',
-    ],
-  ]);
+test('keeps login traffic in four isolated batches per project and a separate persona batch', () => {
+  const batches = e2eBatches([]);
+  assert.equal(batches.length, 10);
+  for (const project of ['desktop', 'mobile']) {
+    const projectBatches = batches.filter((batch) => batch.includes(`--project=${project}`));
+    assert.deepEqual(
+      projectBatches,
+      [
+        ...[1, 2, 3, 4].map((shard) => [
+          '--fully-parallel',
+          `--shard=${shard}/4`,
+          '--grep-invert=@personas',
+          `--output=test-results/e2e-${project}-${shard}`,
+        ]),
+        ['--grep=@personas', `--output=test-results/e2e-${project}-personas`],
+      ].map((filters) => [
+        'test',
+        '--config=playwright.production.config.ts',
+        `--project=${project}`,
+        ...filters,
+      ]),
+    );
+  }
 });
 test('keeps a caller-selected project, filter and config without duplicating the run', () => {
   assert.deepEqual(

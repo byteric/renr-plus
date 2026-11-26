@@ -14,6 +14,7 @@ import {
 } from '@renr/contracts';
 import { PrismaService } from '../../database/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
+import { assertContractAccessAllowed } from '../commercial/contract-access';
 
 type Scope = { userId: string; organizationId: string };
 type Cycle = { status: 'DRAFT' | 'OPEN' | 'CLOSED'; startsAt: Date; endsAt: Date; active: boolean };
@@ -76,6 +77,7 @@ export class AssessmentDeliveryService {
       select: { role: true, isActive: true, hrCapabilities: true, scopeRestricted: true },
     });
     if (!membership?.isActive) throw new NotFoundException();
+    await assertContractAccessAllowed(tx, organizationId);
     if (
       membership.scopeRestricted ||
       (membership.role !== 'ADMIN' &&

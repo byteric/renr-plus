@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 import { defineConfig } from '@playwright/test';
-import base from './playwright.config';
+import base, { apiTestEnvironment } from './playwright.config';
 
 // The same journeys run against built assets. The runner starts a fresh API per
 // project to keep test logins within the real security budget without bypasses.
@@ -15,6 +15,7 @@ export default defineConfig({
     {
       command: 'node dist/main.js',
       cwd: resolve(__dirname, 'apps/api'),
+      env: apiTestEnvironment,
       url: 'http://127.0.0.1:3000/api/v1/health',
       reuseExistingServer: false,
       timeout: 60_000,

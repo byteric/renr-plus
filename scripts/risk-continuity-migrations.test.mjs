@@ -62,6 +62,7 @@ async function populateTechnicalHistory(target) {
     adapter: new PrismaPg({ connectionString: target.href, max: 2 }),
     omit: {
       membership: { hrCapabilities: true, scopeRestricted: true },
+      session: { mfaVersion: true, mfaVerifiedAt: true },
       organization: {
         fiscalCandidate: true,
         normalizedFiscalIdentifier: true,
@@ -85,6 +86,10 @@ async function populateTechnicalHistory(target) {
   ];
   database.client = database.client.$extends({
     query: {
+      commercialContractAccess: {
+        // The historical fixture predates contractual access and represents an active company.
+        findUnique: async () => null,
+      },
       session: {
         findUnique({ args, query }) {
           return query({

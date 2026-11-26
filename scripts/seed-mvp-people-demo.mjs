@@ -28,8 +28,18 @@ const aurora = companies[0];
 const firstAddedIndex = 3;
 const hrEmail = 'rh-id32@renr.example';
 const operatorEmail = 'operador-id32@renr.example';
+const devStudioId = '7a9d4e21-8c31-4f52-9b10-510000000001';
+const devStudioCnpj = '45997418000153';
+const devStudioRhEmail = 'rafael-rh@renr.example';
+const devStudioAdminEmail = 'admin-devstudio@renr.example';
 const source = 'Demonstração ID32 — dados sintéticos de teste';
+const devStudioSource = 'Demonstração ID51 — histórico fictício de férias ReNR Dev Studio';
 const civilDate = (value) => new Date(value + 'T00:00:00Z');
+const offsetCivilDate = (days) => {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() + days);
+  return civilDate(date.toISOString().slice(0, 10));
+};
 
 function demoDatabaseUrl() {
   try {
@@ -166,6 +176,168 @@ async function expandExistingAurora(tx) {
   return true;
 }
 
+async function ensureRenrDevStudio(tx, hrHash) {
+  if (await tx.organization.findUnique({ where: { id: devStudioId }, select: { id: true } })) {
+    return false;
+  }
+  await tx.organization.create({
+    data: {
+      id: devStudioId,
+      name: 'ReNR Dev Studio',
+      fiscalIdentifier: devStudioCnpj,
+      fiscalCandidate: devStudioCnpj,
+      normalizedFiscalIdentifier: devStudioCnpj,
+      fiscalState: 'VALID',
+      clientClassification: 'DEMONSTRATION',
+    },
+  });
+  const rhUser = await tx.user.upsert({
+    where: { email: devStudioRhEmail },
+    update: {},
+    create: {
+      email: devStudioRhEmail,
+      name: 'Rafael RH (ReNR Dev Studio)',
+      passwordHash: hrHash,
+    },
+  });
+  await tx.membership.upsert({
+    where: { userId_organizationId: { userId: rhUser.id, organizationId: devStudioId } },
+    update: {},
+    create: {
+      userId: rhUser.id,
+      organizationId: devStudioId,
+      role: 'READER',
+      hrCapabilities: ['HR_ANALYTICS_READ', 'HR_PROFILE_READ'],
+    },
+  });
+  const adminUser = await tx.user.upsert({
+    where: { email: devStudioAdminEmail },
+    update: {},
+    create: {
+      email: devStudioAdminEmail,
+      name: 'Admin ReNR Dev Studio',
+      passwordHash: hrHash,
+    },
+  });
+  await tx.membership.upsert({
+    where: { userId_organizationId: { userId: adminUser.id, organizationId: devStudioId } },
+    update: {},
+    create: {
+      userId: adminUser.id,
+      organizationId: devStudioId,
+      role: 'ADMIN',
+      hrCapabilities: [],
+    },
+  });
+
+  const recife = await tx.unit.create({
+    data: {
+      organizationId: devStudioId,
+      name: 'Unidade Matriz Recife',
+      normalizedName: 'unidade matriz recife',
+    },
+  });
+  const olinda = await tx.unit.create({
+    data: {
+      organizationId: devStudioId,
+      name: 'Unidade Filial Olinda',
+      normalizedName: 'unidade filial olinda',
+    },
+  });
+  const engenharia = await tx.sector.create({
+    data: {
+      organizationId: devStudioId,
+      unitId: recife.id,
+      name: 'Engenharia de Produto',
+      normalizedName: 'engenharia de produto',
+    },
+  });
+  const operacoes = await tx.sector.create({
+    data: {
+      organizationId: devStudioId,
+      unitId: recife.id,
+      name: 'Operações e Suporte',
+      normalizedName: 'operacoes e suporte',
+    },
+  });
+  const qualidade = await tx.sector.create({
+    data: {
+      organizationId: devStudioId,
+      unitId: olinda.id,
+      name: 'Qualidade e Atendimento',
+      normalizedName: 'qualidade e atendimento',
+    },
+  });
+
+  // 25 colaboradores ativos com buckets >= 5 por setor (respeitando HR_MIN5_COMPLEMENT_V1):
+  // - Engenharia (15): 5 OVERDUE, 5 DUE_SOON, 5 REGULAR
+  // - Operações e Suporte (5): 5 UNKNOWN (permite validar INSUFFICIENT_DATA no recorte do setor)
+  // - Qualidade e Atendimento (5): 5 REGULAR
+  const cohorts = [
+    { unit: recife, sector: engenharia, kind: 'OVERDUE', count: 5, prefix: 'DS-VENC' },
+    { unit: recife, sector: engenharia, kind: 'DUE_SOON', count: 5, prefix: 'DS-PROX' },
+    { unit: recife, sector: engenharia, kind: 'REGULAR', count: 5, prefix: 'DS-REG' },
+    { unit: recife, sector: operacoes, kind: 'UNKNOWN', count: 5, prefix: 'DS-DESC' },
+    { unit: olinda, sector: qualidade, kind: 'REGULAR', count: 5, prefix: 'DS-QUAL' },
+  ];
+  let seq = 1;
+  for (const cohort of cohorts) {
+    for (let index = 0; index < cohort.count; index += 1) {
+      const code = `${cohort.prefix}-${String(index + 1).padStart(2, '0')}`;
+      const id = `7a9d4e21-8c31-4f52-9b10-51000000${String(seq).padStart(4, '0')}`;
+      seq += 1;
+      await tx.employee.create({
+        data: {
+          id,
+          organizationId: devStudioId,
+          unitId: cohort.unit.id,
+          sectorId: cohort.sector.id,
+          name: `Pessoa Fictícia DevStudio ${String(seq - 1).padStart(2, '0')}`,
+          internalIdentifier: code,
+          normalizedIdentifier: code.toLowerCase(),
+          isActive: true,
+        },
+      });
+      const base = {
+        organizationId: devStudioId,
+        employeeId: id,
+        updatedById: rhUser.id,
+        source: devStudioSource,
+      };
+      if (cohort.kind === 'UNKNOWN') {
+        await tx.employeeHrProfile.create({
+          data: { ...base, vacationHistoryKnown: false, followUp: true },
+        });
+        continue;
+      }
+      await tx.employeeHrProfile.create({
+        data: {
+          ...base,
+          birthDate: civilDate('1992-05-15'),
+          gender: 'FEMALE',
+          vacationHistoryKnown: true,
+          complexLeaveHistoryKnown: true,
+        },
+      });
+      await tx.employmentPeriod.create({ data: { ...base, startsOn: civilDate('2023-02-01') } });
+      const deadlineOffset =
+        cohort.kind === 'OVERDUE' ? -45 : cohort.kind === 'DUE_SOON' ? 25 : 180;
+      await tx.employeeVacationPeriod.create({
+        data: {
+          ...base,
+          acquisitionStart: civilDate('2024-02-01'),
+          acquisitionEnd: civilDate('2025-01-31'),
+          concessionDeadline: offsetCivilDate(deadlineOffset),
+          entitlementDays: 30,
+          balanceDays: 30,
+          historyKnown: true,
+        },
+      });
+    }
+  }
+  return true;
+}
+
 async function seed(url, hrPassword, operatorPassword) {
   const requireApi = createRequire(new URL('../apps/api/package.json', import.meta.url));
   const { PrismaPg } = requireApi('@prisma/adapter-pg');
@@ -185,7 +357,9 @@ async function seed(url, hrPassword, operatorPassword) {
         // Serialize concurrent runs and keep the marker in the same transaction as all demo data.
         await tx.$queryRaw`SELECT 1 AS acquired FROM pg_advisory_xact_lock(3220261105::bigint)`;
         if (await tx.organization.findUnique({ where: { id: aurora.id } })) {
-          return expandExistingAurora(tx);
+          const expanded = await expandExistingAurora(tx);
+          const createdDevStudio = await ensureRenrDevStudio(tx, hrHash);
+          return expanded || createdDevStudio;
         }
 
         for (const { id, name, cnpj } of companies) {
@@ -253,6 +427,7 @@ async function seed(url, hrPassword, operatorPassword) {
             await createEmployee(tx, company, unit, sector, person, index, hr.id);
           }
         }
+        await ensureRenrDevStudio(tx, hrHash);
         return true;
       },
       { timeout: 20000 },

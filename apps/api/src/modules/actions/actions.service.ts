@@ -43,6 +43,7 @@ import {
 import {
   assertOperationalActor,
   lockOperationalActor,
+  lockPreventiveActionCreator,
   resolveAssignee,
 } from './operational-access';
 
@@ -70,10 +71,9 @@ export class ActionsService {
     input: CreateActionInput,
     assignment?: { assignedUserId: string | null },
   ): Promise<ActionDetail> {
-    await lockOperationalActor(
+    await lockPreventiveActionCreator(
       tx,
       scope,
-      true,
       assignment?.assignedUserId ? [assignment.assignedUserId] : [],
     );
     const assigned = assignment

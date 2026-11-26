@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { PlatformWorkspace } from './components/platform/PlatformWorkspace';
 const fetchMock = vi.fn<typeof fetch>();
@@ -75,4 +76,62 @@ it.each([
   expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/platform/clients'))).toBe(
     false,
   );
+});
+
+it('permite cadastrar empresa por CNPJ com MANAGE_CLIENTS, preserva rascunho em duplicidade e mantém leitor global sem criação', async () => {
+  capabilities = ['READ_OVERVIEW'];
+  window.history.replaceState(null, '', '#/plataforma?action=new-client');
+  const readOnly = render(<PlatformWorkspace onExpire={vi.fn()} />);
+  expect(await screen.findByText('Cliente Sintético')).toBeVisible();
+  expect(screen.queryByRole('button', { name: 'Cadastrar empresa' })).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole('form', { name: 'Cadastrar empresa no catálogo' }),
+  ).not.toBeInTheDocument();
+  readOnly.unmount();
+
+  let postAttempt = 0;
+  const baseFetch = fetchMock.getMockImplementation()!;
+  fetchMock.mockImplementation(async (input, init) => {
+    const path = String(input);
+    if (path.endsWith('/platform/clients') && init?.method === 'POST') {
+      postAttempt += 1;
+      if (postAttempt === 1) {
+        return json({ message: 'CNPJ já cadastrado ou com conflito pendente.' }, 409);
+      }
+      const body = JSON.parse(String(init.body));
+      return json(
+        {
+          organizationId: '10000000-0000-4000-8000-000000000099',
+          name: body.name,
+          fiscalIdentifier: body.fiscalIdentifier,
+          normalizedFiscalIdentifier: '27865757000102',
+          fiscalState: 'VALID',
+          clientClassification: body.clientClassification,
+          isActive: body.isActive,
+          version: 1,
+        },
+        201,
+      );
+    }
+    return baseFetch(input, init);
+  });
+
+  capabilities = ['READ_OVERVIEW', 'MANAGE_CLIENTS'];
+  window.history.replaceState(null, '', '#/plataforma?action=new-client');
+  const user = userEvent.setup();
+  render(<PlatformWorkspace onExpire={vi.fn()} />);
+
+  expect(await screen.findByRole('form', { name: 'Cadastrar empresa no catálogo' })).toBeVisible();
+  await user.type(screen.getByLabelText('Nome da empresa'), 'Nova Empresa Fictícia');
+  await user.type(screen.getByLabelText('CNPJ'), '27.865.757/0001-02');
+  await user.type(screen.getByLabelText('Motivo do cadastro'), 'Cadastro inicial pelo catálogo.');
+  await user.click(screen.getByRole('button', { name: 'Salvar empresa no catálogo' }));
+
+  expect(await screen.findByRole('alert')).toHaveTextContent(/CNPJ já cadastrado/i);
+  expect(screen.getByLabelText('Nome da empresa')).toHaveValue('Nova Empresa Fictícia');
+
+  await user.click(screen.getByRole('button', { name: 'Salvar empresa no catálogo' }));
+  expect(
+    await screen.findByText(/Empresa Nova Empresa Fictícia cadastrada no catálogo/i),
+  ).toBeVisible();
 });

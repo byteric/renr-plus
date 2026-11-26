@@ -27,6 +27,12 @@ import {
   employeeImportPreviewSchema,
   employeeImportResultSchema,
   employeeImportVersionSchema,
+  employeeBulkUpdateHistoryQuerySchema,
+  employeeBulkUpdateHistorySchema,
+  employeeBulkUpdatePreviewSchema,
+  employeeBulkUpdateResultSchema,
+  employeeBulkUpdateStatusSchema,
+  employeeBulkUpdateVersionSchema,
   assessmentGroupSchema,
   assessmentGroupListSchema,
   createAssessmentGroupSchema,
@@ -47,6 +53,7 @@ type ImportRequest = Request & {
 };
 const emptyImportBody = z.object({}).strict();
 const confirmImportBody = z.object({ version: employeeImportVersionSchema }).strict();
+const confirmBulkUpdateBody = z.object({ version: employeeBulkUpdateVersionSchema }).strict();
 const importInterceptor = FileInterceptor('file', {
   limits: { fileSize: employeeWorkbookFileLimit, files: 1, fields: 1, fieldSize: 128, parts: 3 },
 });
@@ -150,6 +157,85 @@ export class WorkforceController {
       request[importScope],
       file,
       parse(confirmImportBody, body).version,
+    );
+  }
+  @Post('employees/bulk-update/preview')
+  @HttpCode(200)
+  @UseGuards(EmployeeImportGuard)
+  @UseInterceptors(importInterceptor)
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['file'],
+      properties: { file: workbookUpload },
+    },
+  })
+  @ApiResponse({ status: 200, schema: documentation(employeeBulkUpdatePreviewSchema) })
+  @ApiResponse({ status: 413, description: 'Workbook exceeds 1 MiB.' })
+  previewEmployeeBulkUpdate(
+    @Req() request: ImportRequest,
+    @Body() body: unknown,
+    @UploadedFile() file: Express.Multer.File | undefined,
+  ) {
+    parse(emptyImportBody, body);
+    return this.workforce.employeeBulkUpdates.preview(request[importScope], file);
+  }
+  @Post('employees/bulk-update/confirm')
+  @UseGuards(EmployeeImportGuard)
+  @UseInterceptors(importInterceptor)
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['file', 'version'],
+      properties: { file: workbookUpload, version: documentation(employeeBulkUpdateVersionSchema) },
+    },
+  })
+  @ApiResponse({ status: 201, schema: documentation(employeeBulkUpdateResultSchema) })
+  @ApiResponse({ status: 413, description: 'Workbook exceeds 1 MiB.' })
+  async confirmEmployeeBulkUpdate(
+    @Req() request: ImportRequest,
+    @Body() body: unknown,
+    @UploadedFile() file: Express.Multer.File | undefined,
+  ) {
+    const { version } = parse(confirmBulkUpdateBody, body);
+    const session = await this.identity.authenticate(request);
+    return this.workforce.employeeBulkUpdates.confirm(
+      request[importScope],
+      session.id,
+      file,
+      version,
+    );
+  }
+  @Get('employees/bulk-update/:version')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiResponse({ status: 200, schema: documentation(employeeBulkUpdateStatusSchema) })
+  async employeeBulkUpdateStatus(
+    @Req() request: Request,
+    @Param('orgId') orgId: string,
+    @Param('version') version: string,
+  ) {
+    return this.workforce.employeeBulkUpdates.status(
+      await this.scope(request, orgId),
+      parse(employeeBulkUpdateVersionSchema, version),
+    );
+  }
+  @Get('employees/:id/bulk-update-history')
+  @Header('Cache-Control', 'private, no-store')
+  @ApiResponse({ status: 200, schema: documentation(employeeBulkUpdateHistorySchema) })
+  async employeeBulkUpdateHistory(
+    @Req() request: Request,
+    @Param('orgId') orgId: string,
+    @Param('id') id: string,
+    @Query() query: unknown,
+  ) {
+    return this.workforce.employeeBulkUpdates.history(
+      await this.scope(request, orgId),
+      parse(z.uuid(), id),
+      parse(employeeBulkUpdateHistoryQuerySchema, query),
     );
   }
   @Post('employees')

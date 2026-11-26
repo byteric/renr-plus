@@ -12,6 +12,7 @@ import {
 } from '@renr/contracts';
 import { request, RequestError } from '../../lib/api';
 import { Button } from '../ui/button';
+import { ContextualHelp } from '../ui/contextual-help';
 import { Pagination } from '../ui/pagination';
 import { StatusMessage } from '../ui/status-message';
 import { useAccessRefresh, usePrivateQuery } from './usePrivateQuery';
@@ -156,11 +157,46 @@ function CompanyGroupsManagement({
   }
   return (
     <div className="company-group-admin platform-workspace">
-      {canEdit && (
-        <div>
-          <Button onClick={() => select('new', 'edit')}>Novo grupo de empresas</Button>
-        </div>
-      )}
+      <div className="company-group-actions">
+        {canEdit && (
+          <>
+            <Button onClick={() => select('new', 'edit')}>Novo grupo de empresas</Button>
+            <a className="platform-action-link" href="#/plataforma?action=new-client">
+              Cadastrar empresa no catálogo (CNPJ)
+            </a>
+          </>
+        )}
+        <ContextualHelp
+          screen="Grupos de empresas"
+          purpose="Organize empresas em grupos para consulta consolidada por pessoas autorizadas."
+          nextStep={
+            canEdit
+              ? 'Selecione Novo grupo de empresas e inclua as empresas elegíveis do catálogo.'
+              : 'Abra Gerenciar consultas em um grupo existente para revisar as concessões.'
+          }
+          prerequisites={
+            canEdit
+              ? 'Cadastre primeiro a empresa no catálogo. O grupo aceita demonstrações ativas e clientes ativos com CNPJ válido.'
+              : 'A gestão de consultas exige a concessão global correspondente e um grupo cadastrado.'
+          }
+        />
+      </div>
+      <p className="muted">
+        Grupos reúnem apenas empresas já cadastradas no catálogo da plataforma (clientes ativos com
+        CNPJ válido ou empresas de demonstração ativas).{' '}
+        {canEdit ? (
+          <>
+            Se a empresa ainda não estiver no catálogo, use{' '}
+            <a href="#/plataforma?action=new-client">Cadastrar empresa no catálogo</a> antes de
+            incluí-la no grupo.
+          </>
+        ) : (
+          <>
+            Para incluir novas empresas ou corrigir CNPJ, o administrador autorizado utiliza o{' '}
+            <a href="#/plataforma">catálogo da plataforma</a>.
+          </>
+        )}
+      </p>
       {notice && <StatusMessage tone="success">{notice}</StatusMessage>}
       {edit && (
         <CompanyGroupEditor
@@ -297,6 +333,12 @@ function CompanyGroupEditor({
       <h2 id="group-editor" ref={heading} tabIndex={-1}>
         {group ? `Composição de ${group.name}` : 'Criar grupo de empresas'}
       </h2>
+      <p className="muted">
+        Esta lista consulta empresas já cadastradas e elegíveis no catálogo (Cliente ativo com CNPJ
+        válido ou Demonstração ativa). Não encontrou a empresa?{' '}
+        <a href="#/plataforma?action=new-client">Cadastre a empresa por CNPJ no catálogo</a> e volte
+        para atualizar a busca.
+      </p>
       <form
         aria-label="Buscar empresas elegíveis"
         className="company-group-actions"

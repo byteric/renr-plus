@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   accessHistoryListSchema,
   accessInviteListSchema,
@@ -18,6 +18,7 @@ import { StatusBadge } from '../ui/status-badge';
 import { AccessMemberEditor } from './AccessMemberEditor';
 import { AccessInviteForm } from './AccessInviteForm';
 import { AccessSecret } from './access-ui';
+import { PasswordRecoveryIssue } from './PasswordRecoveryIssue';
 import { accessDate, capabilityLabels } from './access-labels';
 import './access.css';
 
@@ -48,10 +49,12 @@ const eventLabels: Record<string, string> = {
 };
 export function AccessWorkspace({
   session,
+  canIssueRecovery = false,
   onSession,
   onExpire,
 }: {
   session: SessionResponse;
+  canIssueRecovery?: boolean;
   onSession: (value: SessionResponse) => void;
   onExpire: () => void;
 }) {
@@ -76,6 +79,9 @@ export function AccessWorkspace({
       key={organizationId}
       organizationId={organizationId}
       userId={session.user.id}
+      canIssueRecovery={
+        canIssueRecovery && session.organizationScopes?.[organizationId] === undefined
+      }
       onSession={onSession}
       onExpire={onExpire}
     />
@@ -84,11 +90,13 @@ export function AccessWorkspace({
 function AccessManager({
   organizationId,
   userId,
+  canIssueRecovery,
   onSession,
   onExpire,
 }: {
   organizationId: string;
   userId: string;
+  canIssueRecovery: boolean;
   onSession: (value: SessionResponse) => void;
   onExpire: () => void;
 }) {
@@ -102,6 +110,8 @@ function AccessManager({
   >(null);
   const [secret, setSecret] = useState('');
   const [notice, setNotice] = useState('');
+  const [recoveryOpen, setRecoveryOpen] = useState(false);
+  const recoveryTrigger = useRef<HTMLButtonElement>(null);
   const capabilities = useActionData(
     '/auth/session-capabilities',
     sessionCapabilitiesSchema,
@@ -136,6 +146,7 @@ function AccessManager({
   const current = tab === 'members' ? members : tab === 'invites' ? invites : history;
   function changeTab(next: Tab) {
     setTab(next);
+    setRecoveryOpen(false);
     setPage(1);
     setMember(null);
     setInviteEditor(null);
@@ -191,6 +202,31 @@ function AccessManager({
           técnicas são concedidas separadamente, com justificativa e rastreabilidade.
         </p>
       </div>
+      {canIssueRecovery && (
+        <div className="access-actions">
+          <Button
+            variant="outline"
+            ref={recoveryTrigger}
+            aria-expanded={recoveryOpen}
+            onClick={() => {
+              setSecret('');
+              setRecoveryOpen((open) => !open);
+            }}
+          >
+            Recuperar senha
+          </Button>
+        </div>
+      )}
+      {canIssueRecovery && recoveryOpen && (
+        <PasswordRecoveryIssue
+          organizationId={organizationId}
+          onExpire={onExpire}
+          onClose={() => {
+            setRecoveryOpen(false);
+            recoveryTrigger.current?.focus();
+          }}
+        />
+      )}
       <nav className="access-tabs" aria-label="Gestão de acessos">
         {(Object.keys(titles) as Tab[]).map((key) => (
           <Button

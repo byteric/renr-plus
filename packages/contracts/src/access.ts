@@ -3,6 +3,7 @@ import { z } from 'zod';
 export const capabilitySchema = z.enum([
   'EXECUTE_ASSIGNED_ACTIONS',
   'TECHNICAL_DECISIONS',
+  'PSYCHOLOGY_COLLABORATION',
   'HR_PROFILE_READ',
   'HR_PROFILE_MANAGE',
   'HR_ANALYTICS_READ',

@@ -57,9 +57,14 @@ export class ActionsController {
     private readonly actions: ActionsService,
     private readonly identity: IdentityService,
   ) {}
-  private scope(request: Request, orgId: string, write = false) {
+  private scope(
+    request: Request,
+    orgId: string,
+    write = false,
+    delegatedWrite?: 'TECHNICAL_DECISIONS',
+  ) {
     if (write) this.identity.assertOrigin(request);
-    return this.identity.scope(request, parse(z.uuid(), orgId), write, undefined, !write);
+    return this.identity.scope(request, parse(z.uuid(), orgId), write, delegatedWrite, !write);
   }
   @Post('risks/:riskId/actions')
   @ApiBody({ schema: documentation(createActionSchema) })
@@ -75,7 +80,7 @@ export class ActionsController {
     @Body() body: unknown,
   ) {
     return this.actions.create(
-      await this.scope(request, orgId, true),
+      await this.scope(request, orgId, true, 'TECHNICAL_DECISIONS'),
       parse(z.uuid(), riskId),
       parse(createActionSchema, body),
     );

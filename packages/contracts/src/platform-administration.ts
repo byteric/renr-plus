@@ -9,6 +9,17 @@ export const platformCapabilitySchema = z.enum([
   'READ_OVERVIEW',
   'MANAGE_CLIENTS',
   'MANAGE_GRANTS',
+  'READ_COMMERCIAL',
+  'MANAGE_COMMERCIAL',
+  'READ_BILLING',
+  'MANAGE_BILLING',
+  'READ_CONTRACT_ACCESS',
+  'MANAGE_CONTRACT_ACCESS',
+  'READ_SUPPORT',
+  'MANAGE_SUPPORT',
+  'ASSIST_COMPANY_PASSWORD_RECOVERY',
+  'MANAGE_PASSWORD_RECOVERY',
+  'RECOVER_ACCOUNT_MFA',
 ]);
 export const platformCapabilitiesSchema = z
   .object({ capabilities: z.array(platformCapabilitySchema) })
@@ -48,6 +59,29 @@ export const platformOverviewSchema = z
       .strict(),
   })
   .strict();
+export const createPlatformClientSchema = z
+  .object({
+    name: z.string().trim().min(2).max(160),
+    fiscalIdentifier: fiscalIdentifierInputSchema.nullable(),
+    clientClassification: clientClassificationSchema.default('CLIENT'),
+    timezone: z
+      .string()
+      .trim()
+      .min(3)
+      .max(80)
+      .refine((value) => {
+        try {
+          Intl.DateTimeFormat('pt-BR', { timeZone: value });
+          return true;
+        } catch {
+          return false;
+        }
+      }, 'Fuso horário inválido.')
+      .default('America/Sao_Paulo'),
+    isActive: z.boolean().default(true),
+    reason: z.string().trim().min(3).max(1000),
+  })
+  .strict();
 export const writeClientRegistrationSchema = z
   .object({
     expectedVersion: z.number().int().positive(),
@@ -80,6 +114,7 @@ export const platformGrantSchema = z
 export const platformGrantListSchema = hrListSchema(platformGrantSchema);
 export type PlatformCapability = z.infer<typeof platformCapabilitySchema>;
 export type PlatformQuery = z.infer<typeof platformQuerySchema>;
+export type CreatePlatformClient = z.infer<typeof createPlatformClientSchema>;
 export type WriteClientRegistration = z.infer<typeof writeClientRegistrationSchema>;
 export type WritePlatformGrant = z.infer<typeof writePlatformGrantSchema>;
 export type PlatformOverview = z.infer<typeof platformOverviewSchema>;

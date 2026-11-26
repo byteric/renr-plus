@@ -9,6 +9,7 @@ import {
   normalizeCnpj,
   validCnpj,
   platformOverviewSchema,
+  type CreatePlatformClient,
   type PlatformCapability,
   type PlatformQuery,
   type WriteClientRegistration,
@@ -72,6 +73,8 @@ export const legacyOrganizationSelect = {
   createdAt: true,
   updatedAt: true,
 } satisfies Prisma.OrganizationSelect;
+
+type VerifyGrantSession = (tx: Prisma.TransactionClient) => Promise<void>;
 
 @Injectable()
 export class PlatformService {
@@ -228,6 +231,46 @@ export class PlatformService {
     if (!row) throw new NotFoundException();
     return registrationDto(row);
   }
+  async createClient(userId: string, input: CreatePlatformClient) {
+    return this.transaction(
+      userId,
+      'MANAGE_CLIENTS',
+      async (tx) => {
+        const fiscal = await fiscalFields(tx, input.fiscalIdentifier);
+        if (input.clientClassification === 'CLIENT' && fiscal.fiscalState !== 'VALID')
+          throw new ConflictException('Confirme um CNPJ válido antes do atendimento.');
+        const row = await tx.organization.create({
+          data: {
+            name: input.name,
+            timezone: input.timezone,
+            isActive: input.isActive,
+            clientClassification: input.clientClassification,
+            registrationVersion: 1,
+            ...fiscal,
+          },
+        });
+        await tx.organizationRegistrationRevision.create({
+          data: {
+            organizationId: row.id,
+            version: row.registrationVersion,
+            snapshot: registrationDto(row),
+            actorId: userId,
+            reason: input.reason,
+          },
+        });
+        await tx.platformAuditEvent.create({
+          data: {
+            actorId: userId,
+            action: 'CLIENT_REGISTRATION_CREATED',
+            resourceId: row.id,
+            reason: input.reason,
+          },
+        });
+        return registrationDto(row);
+      },
+      true,
+    );
+  }
   async updateClient(userId: string, organizationId: string, input: WriteClientRegistration) {
     return this.transaction(
       userId,
@@ -270,8 +313,13 @@ export class PlatformService {
       true,
     );
   }
-  async grants(userId: string, query: { page: number; pageSize: number }) {
+  async grants(
+    userId: string,
+    query: { page: number; pageSize: number },
+    verifySession?: VerifyGrantSession,
+  ) {
     return this.transaction(userId, 'MANAGE_GRANTS', async (tx) => {
+      await verifySession?.(tx);
       const rows = await tx.platformGrant.findMany({
         include: { user: { select: { name: true, email: true } } },
         orderBy: [{ userId: 'asc' }, { capability: 'asc' }],
@@ -289,11 +337,12 @@ export class PlatformService {
       };
     });
   }
-  async writeGrant(userId: string, input: WritePlatformGrant) {
+  async writeGrant(userId: string, input: WritePlatformGrant, verifySession?: VerifyGrantSession) {
     return this.transaction(
       userId,
       'MANAGE_GRANTS',
       async (tx) => {
+        await verifySession?.(tx);
         if (!(await tx.user.findUnique({ where: { id: input.userId }, select: { id: true } })))
           throw new NotFoundException();
         const key = { userId: input.userId, capability: input.capability };

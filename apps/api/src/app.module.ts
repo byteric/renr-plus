@@ -8,6 +8,17 @@ import { PlatformController } from './modules/platform/platform.controller';
 import { PlatformService } from './modules/platform/platform.service';
 import { CompanyGroupsController } from './modules/company-groups/company-groups.controller';
 import { CompanyGroupsService } from './modules/company-groups/company-groups.service';
+import {
+  CommercialController,
+  CommercialDocumentUploadGuard,
+} from './modules/commercial/commercial.controller';
+import { CommercialService } from './modules/commercial/commercial.service';
+import { CommercialBillingController } from './modules/commercial/commercial-billing.controller';
+import { CommercialBillingService } from './modules/commercial/commercial-billing.service';
+import { CommercialContractAccessController } from './modules/commercial/commercial-contract-access.controller';
+import { CommercialContractAccessService } from './modules/commercial/commercial-contract-access.service';
+import { CommercialDashboardController } from './modules/commercial/commercial-dashboard.controller';
+import { CommercialDashboardService } from './modules/commercial/commercial-dashboard.service';
 import { ReportsController } from './modules/reports/reports.controller';
 import { ReportsService } from './modules/reports/reports.service';
 import { AuditController } from './modules/audit/audit.controller';
@@ -26,6 +37,10 @@ import { PrismaService } from './database/prisma.service';
 import { HealthController } from './health/health.controller';
 import { IdentityController } from './modules/identity/identity.controller';
 import { IdentityService } from './modules/identity/identity.service';
+import { MfaController } from './modules/identity/mfa.controller';
+import { MfaService } from './modules/identity/mfa.service';
+import { PasswordRecoveryController } from './modules/identity/password-recovery.controller';
+import { PasswordRecoveryService } from './modules/identity/password-recovery.service';
 import { OrganizationsController } from './modules/organizations/organizations.controller';
 import { OrganizationsService } from './modules/organizations/organizations.service';
 import { ManagementIndicatorsController } from './modules/overview/management-indicators.controller';
@@ -69,6 +84,16 @@ import {
   ActionTechnicalClosuresController,
   RiskReassessmentsController,
 } from './modules/risk-continuity/risk-continuity.controller';
+import {
+  RiskCollaborationController,
+  RiskContributionUploadGuard,
+} from './modules/risk-collaboration/risk-collaboration.controller';
+import { RiskCollaborationService } from './modules/risk-collaboration/risk-collaboration.service';
+import {
+  CompanySupportController,
+  PlatformSupportController,
+} from './modules/support/support.controller';
+import { SupportService } from './modules/support/support.service';
 
 @Module({})
 export class AppModule {
@@ -80,9 +105,16 @@ export class AppModule {
         PeopleController,
         PlatformController,
         CompanyGroupsController,
+        CommercialController,
+        CommercialBillingController,
+        CommercialContractAccessController,
+        CommercialDashboardController,
+        CompanySupportController,
+        PlatformSupportController,
         AuditController,
         ActionTechnicalClosuresController,
         RiskReassessmentsController,
+        RiskCollaborationController,
         ActionEfficacyController,
         EvaluationMethodsController,
         EvaluationMethodVersionsController,
@@ -94,6 +126,8 @@ export class AppModule {
         InstrumentsController,
         HealthController,
         IdentityController,
+        MfaController,
+        PasswordRecoveryController,
         OrganizationsController,
         OverviewController,
         ManagementIndicatorsController,
@@ -113,9 +147,17 @@ export class AppModule {
         PeopleAnalyticsService,
         PlatformService,
         CompanyGroupsService,
+        CommercialService,
+        CommercialBillingService,
+        CommercialContractAccessService,
+        CommercialDashboardService,
+        SupportService,
+        CommercialDocumentUploadGuard,
         AuditRepository,
         AuditService,
         RiskContinuityService,
+        RiskCollaborationService,
+        RiskContributionUploadGuard,
         ActionEfficacyService,
         EvaluationMethodsService,
         RiskWorkspacesService,
@@ -127,6 +169,8 @@ export class AppModule {
         InstrumentsService,
         PrismaService,
         IdentityService,
+        MfaService,
+        PasswordRecoveryService,
         OrganizationsService,
         OverviewRepository,
         OverviewService,

@@ -7,6 +7,7 @@ import {
   type RiskWorkspaceQuery,
 } from '@renr/contracts';
 import { Button } from '../ui/button';
+import { ContextualHelp } from '../ui/contextual-help';
 import { FilterDisclosure } from '../ui/filter-disclosure';
 import { Pagination } from '../ui/pagination';
 import { StatusMessage } from '../ui/status-message';
@@ -112,11 +113,27 @@ export function RiskInventory({
           Registros rastreáveis por contexto de trabalho. Estados de cadastro não representam níveis
           de risco.
         </p>
-        {canWrite && (
-          <a href="#/inventario/novo" className="primary-link">
-            Novo risco <span aria-hidden="true">↗</span>
-          </a>
-        )}
+        <div className="record-actions">
+          {canWrite && (
+            <a href="#/inventario/novo" className="primary-link">
+              Novo risco <span aria-hidden="true">↗</span>
+            </a>
+          )}
+          <ContextualHelp
+            screen="Inventário"
+            purpose="Consulte fatores de risco, seus contextos e avaliações registradas na empresa."
+            nextStep={
+              canWrite
+                ? 'Abra um risco para ver o histórico ou selecione Novo risco para documentar outro contexto de trabalho.'
+                : 'Filtre por unidade ou setor e abra um risco para consultar o registro e as avaliações disponíveis.'
+            }
+            prerequisites={
+              canWrite
+                ? 'Para cadastrar um risco, confira a unidade, o setor e o grupo de avaliação. Decisões técnicas exigem permissão própria.'
+                : 'A consulta segue seu recorte de acesso. Decisões técnicas exigem permissão própria.'
+            }
+          />
+        </div>
       </div>
       <nav className="risk-presets" aria-label="Recortes rápidos do inventário">
         <a href="#/inventario?page=1">Não arquivados</a>
